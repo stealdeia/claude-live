@@ -328,6 +328,27 @@ Due trappole incontrate, entrambe risolte:
    Developer ID va rimesso, e allora la library validation passa da sé perché
    app e framework condividono il Team ID.
 
+**Verificato end-to-end** (non solo per costruzione): installata la 0.1.0 dal DMG,
+pubblicata la 0.1.1, la copia installata l'ha trovata, scaricata, verificata e
+installata **riavviandosi da sola**. Nel log:
+
+```text
+Sparkle avviato (versione 0.1.0, …)
+Appcast caricato: 2 voci
+Aggiornamento trovato: 0.1.1
+Sparkle avviato (versione 0.1.1, …)
+```
+
+L'installazione è silenziosa perché `SUAllowsAutomaticUpdates` è `true`: è ciò che
+serve per un'app che deve aggiornarsi senza chiedere nulla. Per farla invece
+chiedere prima di installare, metti quella chiave a `false` in `Resources/Info.plist`.
+
+**Attenzione alla cache di `raw.githubusercontent.com`**: serve una copia in cache
+per qualche minuto, quindi subito dopo `release.sh` l'appcast può ancora sembrare
+quello vecchio. Il repo è già aggiornato — verificalo con
+`gh api repos/OWNER/REPO/contents/appcast.xml --jq .content | base64 -d`.
+Non è un problema reale: gli aggiornamenti non sono urgenti.
+
 **La chiave privata di Sparkle è nel Keychain** (voce *Private key for signing
 Sparkle updates*). Va salvata da parte: senza di essa **le copie già installate
 non possono più essere aggiornate**, perché rifiutano qualsiasi pacchetto che non
