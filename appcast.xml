@@ -5,6 +5,19 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.1.2</title>
+      <sparkle:version>0.1.2</sparkle:version>
+      <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 31 Jul 2026 15:48:03 +0000</pubDate>
+      <description>&lt;p&gt;Correzione della lista progetti.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;I progetti VS Code tornano cliccabili anche quando la finestra ha una tab attiva. Il nome viene ora estratto dal titolo della finestra invece di essere usato tal quale: con una sessione Claude Code aperta nel terminale integrato il titolo diventa «nome-tab — progetto», e le righe risultavano non cliccabili con un badge «?»&lt;/li&gt;
+&lt;li&gt;Due finestre dello stesso progetto vengono ora raggruppate in una sola riga con il conteggio&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.1.2/Claude.Live.0.1.2.dmg" length="2416376" type="application/octet-stream" sparkle:edSignature="P14LfvxgrXAD+BMCiigEb5k61FzafWlpZii7mkVQjfm0AB+yUrValGBVCqx8tGrrBueaf/uJZLWESeZxj9R6CQ==" />
+    </item>
+    <item>
       <title>Versione 0.1.1</title>
       <sparkle:version>0.1.1</sparkle:version>
       <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
