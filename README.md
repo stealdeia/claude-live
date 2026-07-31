@@ -125,10 +125,23 @@ principale di VS Code:
 
 ```text
 Workspace Stats:
-|  Window (progetto-alfa)
-|  Window (hub-claude)
-|  Window (progetto-beta)
+|  Window (Costruire app macOS Sipp… — progetto-alfa)
+|  Window (Claude Live: macOS menu … — hub-claude)
+|  Window (Fix scrolling, notificat… — progetto-beta)
 ```
+
+**Fra parentesi c'è il titolo della finestra, non il nome della cartella.** Il
+titolo di default è `${activeEditorShort}${separator}${rootName}`, quindi *sembra*
+un nome di progetto solo quando nessuna tab è attiva — ed è esattamente così che
+l'ho letto male la prima volta: le finestre erano senza tab attiva e ho concluso
+che quel campo fosse il nome del progetto. Con una sessione Claude Code nel
+terminale integrato il titolo diventa `<tab> — <progetto>` e non combacia più con
+nulla: le righe restavano visibili ma non cliccabili, con badge `?`.
+
+La risoluzione non si fida della posizione nel titolo (`window.title` è
+configurabile, e il formato è già cambiato una volta sotto le nostre mani): cerca
+il componente che corrisponde a un workspace **già noto** in `workspaceStorage`,
+scandendo dalla fine. Se nulla combacia ripiega sull'ultimo componente.
 
 Due prezzi da pagare, ed entrambi vincolano la frequenza:
 

@@ -8,10 +8,19 @@ import AppKit
 ///
 /// ```text
 /// Workspace Stats:
-/// |  Window (progetto-alfa)
-/// |  Window (hub-claude)
-/// |  Window (progetto-beta)
+/// |  Window (Costruire app macOS Sipp… — progetto-alfa)
+/// |  Window (Claude Live: macOS menu … — hub-claude)
+/// |  Window (Fix scrolling, notificat… — progetto-beta)
 /// ```
+///
+/// Note what is inside the parentheses: the **window title**, not the folder
+/// name. VS Code's default title is
+/// `${activeEditorShort}${separator}${rootName}`, so it only *looks* like a
+/// plain project name while no editor or terminal tab is active — which is
+/// exactly how this was first (mis)read. With a Claude Code session running in
+/// the integrated terminal the title becomes "<tab> — <project>", and VS Code
+/// truncates the leading part itself. `resolveProject` is what turns it back
+/// into a project.
 ///
 /// Two costs, both of which shape how often callers may run this:
 ///   * the call takes ~1.6s, because VS Code also computes workspace file stats;
@@ -54,16 +63,16 @@ struct VSCodeCLI: Sendable {
         var windows: [OpenWindow] = []
         for (editor, cli) in runningEditors() {
             guard let output = run(cli, arguments: ["--status"], timeout: 15, onSpawn: onSpawn) else { continue }
-            let names = parseWindowNames(from: output)
-            windows.append(contentsOf: names.map { OpenWindow(name: $0, bundleID: editor.bundleID) })
+            let titles = parseWindowTitles(from: output)
+            windows.append(contentsOf: titles.map { OpenWindow(name: $0, bundleID: editor.bundleID) })
         }
         return windows
     }
 
-    /// Extracts the root names from `code --status` output.
-    /// Lines look like `|  Window (hub-claude)`; empty windows appear as
-    /// `|  Window ()` and are skipped.
-    static func parseWindowNames(from output: String) -> [String] {
+    /// Extracts the window titles from `code --status` output.
+    /// Lines look like `|  Window (file.swift — hub-claude)`; empty windows
+    /// appear as `|  Window ()` and are skipped.
+    static func parseWindowTitles(from output: String) -> [String] {
         var names: [String] = []
         for line in output.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -77,6 +86,60 @@ struct VSCodeCLI: Sendable {
             if !name.isEmpty { names.append(name) }
         }
         return names
+    }
+
+    /// Turns a window title into the project it belongs to.
+    ///
+    /// Rather than trusting a position in the title — `window.title` is
+    /// user-configurable, and the format has already changed under us once — this
+    /// looks for the component that matches a workspace VS Code already knows
+    /// about. That also yields the full path, which is what makes the row
+    /// clickable and lets Claude Code's hooks be matched to it.
+    static func resolveProject(
+        fromTitle title: String,
+        catalog: WorkspaceCatalog
+    ) -> (name: String, path: String?) {
+        let components = titleComponents(of: title)
+
+        // Scan from the end: `rootName` sits near the end of the default format,
+        // and an early component could coincidentally match a project name.
+        for component in components.reversed() {
+            if let entry = catalog.entriesByName[component] {
+                return (entry.name, entry.path)
+            }
+        }
+
+        // Nothing known matched: the last component is `rootName` under the
+        // default format. No path, so the row stays visible but not clickable.
+        let fallback = components.last ?? title.trimmingCharacters(in: .whitespaces)
+        return (fallback, catalog.entriesByName[fallback]?.path)
+    }
+
+    /// Splits a window title and strips decorations: the unsaved-changes bullet,
+    /// the app name, dev-host prefixes, and empty pieces from an unset profile.
+    private static func titleComponents(of title: String) -> [String] {
+        var working = title.trimmingCharacters(in: .whitespaces)
+
+        for prefix in ["● ", "◍ ", "[Extension Development Host] "] {
+            if working.hasPrefix(prefix) {
+                working = String(working.dropFirst(prefix.count))
+            }
+        }
+
+        // VS Code's default separator is an em dash; forks and custom configs use
+        // an en dash or a hyphen.
+        var pieces: [String] = [working]
+        for separator in [" — ", " – ", " - "] {
+            if working.contains(separator) {
+                pieces = working.components(separatedBy: separator)
+                break
+            }
+        }
+
+        let noise = Set(EditorApp.all.flatMap(\.titleNoise))
+        return pieces
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !noise.contains($0) }
     }
 
     /// Focuses the window that has `path` open.

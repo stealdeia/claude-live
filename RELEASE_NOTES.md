@@ -1,4 +1,4 @@
-Versione di verifica della catena di aggiornamento, con due piccole aggiunte.
+Correzione della lista progetti.
 
-- Nuova sezione «Informazioni» nelle Impostazioni: versione installata, ultimo controllo aggiornamenti, interruttore per il controllo automatico e pulsante per cercarli subito
-- Da lì si può riaprire anche la procedura di configurazione guidata
+- I progetti VS Code tornano cliccabili anche quando la finestra ha una tab attiva. Il nome viene ora estratto dal titolo della finestra invece di essere usato tal quale: con una sessione Claude Code aperta nel terminale integrato il titolo diventa «nome-tab — progetto», e le righe risultavano non cliccabili con un badge «?»
+- Due finestre dello stesso progetto vengono ora raggruppate in una sola riga con il conteggio

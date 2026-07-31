@@ -211,24 +211,33 @@ final class ProjectsMonitor: ObservableObject {
     }
 
     private func apply(windows: [VSCodeCLI.OpenWindow], catalog: WorkspaceCatalog) {
-        // Collapse duplicate names into one row carrying a window count.
+        // `window.name` is a window *title*; resolve it to a project first, then
+        // collapse windows that turn out to belong to the same one.
         var order: [String] = []
         var counts: [String: Int] = [:]
         var bundles: [String: String] = [:]
+        var names: [String: String] = [:]
+        var paths: [String: String?] = [:]
+
         for window in windows {
-            if counts[window.name] == nil { order.append(window.name) }
-            counts[window.name, default: 0] += 1
-            bundles[window.name] = window.bundleID
+            let resolved = VSCodeCLI.resolveProject(fromTitle: window.name, catalog: catalog)
+            let key = resolved.path ?? "name:\(resolved.name)"
+            if counts[key] == nil { order.append(key) }
+            counts[key, default: 0] += 1
+            bundles[key] = window.bundleID
+            names[key] = resolved.name
+            paths[key] = resolved.path
         }
 
-        let resolved = order.map { name -> VSCodeProject in
-            let entry = catalog.entriesByName[name]
+        let resolved = order.map { key -> VSCodeProject in
+            let name = names[key] ?? key
+            let path = paths[key] ?? nil
             return VSCodeProject(
                 name: name,
-                path: entry?.path,
-                windowCount: counts[name] ?? 1,
-                bundleID: bundles[name] ?? EditorApp.vsCode.bundleID,
-                lastUsed: entry?.lastUsed
+                path: path,
+                windowCount: counts[key] ?? 1,
+                bundleID: bundles[key] ?? EditorApp.vsCode.bundleID,
+                lastUsed: path.flatMap { p in catalog.entriesByName.values.first { $0.path == p }?.lastUsed }
             )
         }
 
