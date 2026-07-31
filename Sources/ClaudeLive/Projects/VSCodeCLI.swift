@@ -8,9 +8,9 @@ import AppKit
 ///
 /// ```text
 /// Workspace Stats:
-/// |  Window (Watavar)
+/// |  Window (progetto-alfa)
 /// |  Window (hub-claude)
-/// |  Window (delivergenti)
+/// |  Window (progetto-beta)
 /// ```
 ///
 /// Two costs, both of which shape how often callers may run this:

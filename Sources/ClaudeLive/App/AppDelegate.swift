@@ -113,10 +113,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // from a script — `screencapture` needs the Screen Recording permission,
         // drawing our own view needs nothing. Not tied to debug logging, because
         // it visibly opens and closes the panel.
-        if ProcessInfo.processInfo.environment["CLAUDELIVE_SNAPSHOT"] == "1",
-           settings.displayMode == .notch {
+        if ProcessInfo.processInfo.environment["CLAUDELIVE_SNAPSHOT"] == "1" {
             Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                self.onboardingWindow.writeSnapshot(
+                    to: Paths.supportDirectory.appendingPathComponent("onboarding.png")
+                )
+                guard self.settings.displayMode == .notch else { return }
+                try? await Task.sleep(nanoseconds: 500_000_000)
                 self.notch.writeSnapshot(to: Paths.supportDirectory.appendingPathComponent("notch-collapsed.png"))
                 self.notch.setExpanded(true)
                 try? await Task.sleep(nanoseconds: 1_200_000_000)

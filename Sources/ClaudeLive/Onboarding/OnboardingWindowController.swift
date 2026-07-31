@@ -47,6 +47,18 @@ final class OnboardingWindowController {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// Renders the wizard to a PNG, for the same reason `NotchController` can:
+    /// checking this UI from a script otherwise needs the Screen Recording
+    /// permission, while drawing our own view needs nothing.
+    func writeSnapshot(to url: URL) {
+        guard let view = window?.contentView else { return }
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return }
+        try? data.write(to: url)
+        Log.info("Snapshot onboarding salvato: \(url.lastPathComponent) (\(Int(view.bounds.width))×\(Int(view.bounds.height)))")
+    }
+
     /// Re-runs the checks, so the settings window and the panel reflect anything
     /// the wizard changed.
     func refreshChecks() {

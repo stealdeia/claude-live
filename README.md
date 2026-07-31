@@ -23,9 +23,12 @@ App **menu bar only** (`LSUIElement`), macOS 14+, Swift/SwiftUI. Nessun dato las
 ./run.sh release --install      # build + riavvio + lancio
 ```
 
-SwiftPM non produce bundle `.app`, e `LSUIElement`, le notifiche e l'ACL del
-Keychain ne richiedono uno: `build.sh` compila l'eseguibile e assembla il bundle
-a mano, con firma ad-hoc (sufficiente per uso personale).
+Per pacchettizzare e distribuire vedi la **Fase 5** più sotto.
+
+SwiftPM non produce bundle `.app`, e `LSUIElement`, le notifiche, l'ACL del
+Keychain e Sparkle ne richiedono uno: `build.sh` compila l'eseguibile e assembla
+il bundle a mano. Versione e feed degli aggiornamenti vengono iniettati in
+`Info.plist` da `VERSION` e `release.conf`, così sono dichiarati una volta sola.
 
 ### Permessi macOS
 
@@ -48,16 +51,17 @@ certificato risulterà `CSSMERR_TP_NOT_TRUSTED` e non comparirà in
 `security find-identity -v -p codesigning`: **è normale e non è un problema**,
 l'attendibilità serve alla verifica, non alla firma.
 
-Poi indica l'identità una volta per tutte (già fatto in questo repo):
+L'identità è dichiarata in **`release.conf`** (`SIGN_IDENTITY`); una variabile
+d'ambiente con lo stesso nome ha la precedenza:
 
 ```bash
-echo "Claude Live Dev" > .sign-identity   # letto da build.sh
-SIGN_IDENTITY="…" ./build.sh              # oppure via ambiente, che ha priorità
+SIGN_IDENTITY="Altra identità" ./build.sh
 ```
 
-`--install` mette l'app in `/Applications`, un percorso stabile. Ricorda che il
-certificato di default scade dopo **365 giorni**: alla scadenza `codesign` lo
-rifiuta e va rigenerato.
+`--install` mette l'app in `/Applications`, un percorso stabile — necessario anche
+perché `SMAppService` possa registrare l'avvio al login. Il certificato scade il
+**31/07/2027**: alla scadenza va rigenerato, e un certificato nuovo cambia il
+requisito di firma (i destinatari dovranno riautorizzare l'app).
 
 ## Come funziona la Fase 1
 
@@ -121,9 +125,9 @@ principale di VS Code:
 
 ```text
 Workspace Stats:
-|  Window (Watavar)
+|  Window (progetto-alfa)
 |  Window (hub-claude)
-|  Window (delivergenti)
+|  Window (progetto-beta)
 ```
 
 Due prezzi da pagare, ed entrambi vincolano la frequenza:
