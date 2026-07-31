@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Claude Live</title>
+    <description>Aggiornamenti di Claude Live</description>
+    <language>it</language>
+    <item>
+      <title>Versione 0.1.0</title>
+      <sparkle:version>0.1.0</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 31 Jul 2026 15:31:59 +0000</pubDate>
+      <description>&lt;p&gt;Prima versione distribuibile.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Barre di utilizzo dell&amp;#x27;account Claude: sessione 5 ore e settimana 7 giorni, con countdown al reset e soglie colorate configurabili&lt;/li&gt;
+&lt;li&gt;Elenco dei progetti VS Code aperti, con un clic per portarli in primo piano&lt;/li&gt;
+&lt;li&gt;Stato di Claude Code per progetto in tempo reale: al lavoro, inattivo, in attesa di una tua risposta, errore&lt;/li&gt;
+&lt;li&gt;Notifica quando Claude aspetta un input, così non resta bloccato in una finestra in background&lt;/li&gt;
+&lt;li&gt;Due modalità: pannello flottante trascinabile con temi chiaro/scuro/sistema, oppure agganciato al notch&lt;/li&gt;
+&lt;li&gt;Procedura guidata al primo avvio per requisiti, accesso al Keychain, hook e permessi&lt;/li&gt;
+&lt;li&gt;Aggiornamenti automatici&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.1.0/Claude.Live.0.1.0.dmg" length="2405789" type="application/octet-stream" sparkle:edSignature="NQf4sg3opmHPsnIUZ0vORTgxYHn5187VFJnVyBRxfmqwidLiQHEzedPNT1vS/fQDfhdr0mZ3JTEnY38JvdARDg==" />
+    </item>
+  </channel>
+</rss>
