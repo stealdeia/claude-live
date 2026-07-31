@@ -5,6 +5,19 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.1.1</title>
+      <sparkle:version>0.1.1</sparkle:version>
+      <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 31 Jul 2026 15:34:15 +0000</pubDate>
+      <description>&lt;p&gt;Versione di verifica della catena di aggiornamento, con due piccole aggiunte.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Nuova sezione «Informazioni» nelle Impostazioni: versione installata, ultimo controllo aggiornamenti, interruttore per il controllo automatico e pulsante per cercarli subito&lt;/li&gt;
+&lt;li&gt;Da lì si può riaprire anche la procedura di configurazione guidata&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.1.1/Claude.Live.0.1.1.dmg" length="2413751" type="application/octet-stream" sparkle:edSignature="8k5t6MJrTjVziy70BcJxVWdhRA0ykTIFqG3F2NBi2z9mMszll7dfXbJBK98vAjeLZnXXYDiyxWuWXGW/8c0CDg==" />
+    </item>
+    <item>
       <title>Versione 0.1.0</title>
       <sparkle:version>0.1.0</sparkle:version>
       <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
