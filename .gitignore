@@ -1,0 +1,10 @@
+# Build output
+.build/
+build/
+dist/
+
+# macOS
+.DS_Store
+
+# Local overrides
+*.local
