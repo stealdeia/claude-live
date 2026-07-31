@@ -5,7 +5,9 @@ struct SettingsView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var monitor: UsageMonitor
     @ObservedObject var status: ClaudeStatusStore
+    @ObservedObject var updates: UpdateController
     let onInstallHooks: () -> Void
+    let onShowOnboarding: () -> Void
 
     var body: some View {
         // No explicit width or `fixedSize` here on purpose: the window decides
@@ -18,6 +20,7 @@ struct SettingsView: View {
             hooksSection
             if settings.displayMode == .floating { panelSection }
             diagnosticsSection
+            aboutSection
         }
         .formStyle(.grouped)
     }
@@ -233,6 +236,32 @@ struct SettingsView: View {
                     Paths.ensureDirectories()
                     NSWorkspace.shared.open(Paths.supportDirectory)
                 }
+            }
+        }
+    }
+
+    private var aboutSection: some View {
+        Section("Informazioni") {
+            LabeledContent("Versione") {
+                Text(UpdateController.currentVersion)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent("Ultimo controllo aggiornamenti") {
+                Text(updates.lastCheckDescription)
+                    .foregroundStyle(.secondary)
+            }
+            Toggle("Controlla automaticamente gli aggiornamenti", isOn: Binding(
+                get: { updates.automaticallyChecksForUpdates },
+                set: { updates.automaticallyChecksForUpdates = $0 }
+            ))
+            HStack {
+                Button(updates.isCheckInProgress ? "Controllo…" : "Cerca aggiornamenti") {
+                    updates.checkForUpdates()
+                }
+                .disabled(updates.isCheckInProgress)
+                Spacer()
+                Button("Configurazione guidata…", action: onShowOnboarding)
             }
         }
     }

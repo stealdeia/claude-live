@@ -65,6 +65,13 @@ final class UpdateController: NSObject, ObservableObject, SPUUpdaterDelegate {
         controller.checkForUpdates(nil)
     }
 
+    /// Checks without showing any UI: used by the diagnostics env var, and safe
+    /// to call from a script because it only reports through the delegate.
+    func checkSilently() {
+        isCheckInProgress = true
+        controller.updater.checkForUpdateInformation()
+    }
+
     private func refreshLastCheckDescription() {
         guard let date = controller.updater.lastUpdateCheckDate else {
             lastCheckDescription = "mai"

@@ -9,7 +9,9 @@ final class SettingsWindowController {
     private let settings: Settings
     private let monitor: UsageMonitor
     private let status: ClaudeStatusStore
+    private let updates: UpdateController
     private let onInstallHooks: () -> Void
+    private let onShowOnboarding: () -> Void
 
     private static let contentSize = NSSize(width: 480, height: 660)
 
@@ -17,12 +19,16 @@ final class SettingsWindowController {
         settings: Settings,
         monitor: UsageMonitor,
         status: ClaudeStatusStore,
-        onInstallHooks: @escaping () -> Void
+        updates: UpdateController,
+        onInstallHooks: @escaping () -> Void,
+        onShowOnboarding: @escaping () -> Void
     ) {
         self.settings = settings
         self.monitor = monitor
         self.status = status
+        self.updates = updates
         self.onInstallHooks = onInstallHooks
+        self.onShowOnboarding = onShowOnboarding
     }
 
     func show() {
@@ -37,7 +43,9 @@ final class SettingsWindowController {
                 settings: settings,
                 monitor: monitor,
                 status: status,
-                onInstallHooks: onInstallHooks
+                updates: updates,
+                onInstallHooks: onInstallHooks,
+                onShowOnboarding: onShowOnboarding
             )
         )
 

@@ -41,7 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: settings,
             monitor: monitor,
             status: status,
-            onInstallHooks: { [weak self] in self?.installHooks() }
+            updates: updates,
+            onInstallHooks: { [weak self] in self?.installHooks() },
+            onShowOnboarding: { [weak self] in self?.onboardingWindow.show() }
         )
 
         panel = PanelController(
@@ -126,6 +128,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 self.notch.writeSnapshot(to: Paths.supportDirectory.appendingPathComponent("notch-expanded.png"))
                 self.notch.setExpanded(false)
+            }
+        }
+
+        // Diagnostics: force an update check without UI, to verify the release
+        // pipeline end to end from a script.
+        if ProcessInfo.processInfo.environment["CLAUDELIVE_CHECK_UPDATES"] == "1" {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                self.updates.checkSilently()
             }
         }
 
