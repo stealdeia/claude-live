@@ -8,3 +8,11 @@ dist/
 
 # Local overrides
 *.local
+
+# Chiavi e backup: non devono MAI finire nel repo, che è pubblico
+*.p12
+*.pem
+*.key
+BACKUP-*
+*chiave*
+*private*
