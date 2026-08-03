@@ -5,6 +5,22 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.3.1</title>
+      <sparkle:version>0.3.1</sparkle:version>
+      <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 03 Aug 2026 16:05:32 +0000</pubDate>
+      <description>&lt;p&gt;Il menu della barra segue la superficie in uso.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**«Schermi notch» nel menu.** Cliccando l&amp;#x27;icona nella barra dei menu, in modalità notch compare la scelta degli schermi: *Automatico*, *Tutti gli schermi*, o i singoli monitor da spuntare. Le stesse impostazioni della finestra Impostazioni, negli stessi termini.&lt;/li&gt;
+&lt;li&gt;**«Posizione pannello» solo col pannello flottante.** Insieme a *Mostra/Nascondi* e *Comprimi/Espandi*: erano offerti anche in modalità notch, dove non avevano alcun effetto visibile.&lt;/li&gt;
+&lt;li&gt;**Passando al pannello flottante il pannello si mostra da solo.** Prima bisognava cliccare «Mostra pannello»: passare al notch veniva registrato come «l&amp;#x27;utente ha nascosto il pannello», e tornando indietro non compariva più nulla.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Il menu viene ora costruito nell&amp;#x27;istante in cui si apre, quindi l&amp;#x27;elenco dei&lt;/p&gt;
+&lt;p&gt;monitor collegati e le voci che dipendono dalla modalità sono sempre aggiornati.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.3.1/Claude.Live.0.3.1.dmg" length="2526499" type="application/octet-stream" sparkle:edSignature="rYBC/06jQCIUpO9mEFPMsot/Hsd9VeaAnJXvMIWA82+W4d3imjbHcUuKD/9/v5Cyj5ReTI8xo5j/yGsxwcJyAg==" />
+    </item>
+    <item>
       <title>Versione 0.3.0</title>
       <sparkle:version>0.3.0</sparkle:version>
       <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
