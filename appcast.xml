@@ -5,6 +5,33 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.3.3</title>
+      <sparkle:version>0.3.3</sparkle:version>
+      <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 03 Aug 2026 16:27:26 +0000</pubDate>
+      <description>&lt;p&gt;Larghezza e altezza del notch: ora funzionano davvero.&lt;/p&gt;
+&lt;p&gt;Nella 0.3.2 i due slider non facevano niente su un Mac col notch fisico, per due&lt;/p&gt;
+&lt;p&gt;motivi sovrapposti:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;il codice che sceglie lo schermo «automatico» costruiva la geometria con un&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;helper che **non riceveva la dimensione**, quindi il valore veniva scartato per&lt;/p&gt;
+&lt;p&gt;strada;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;e comunque il ramo del notch fisico ignorava la misura richiesta invece di&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;usarla.&lt;/p&gt;
+&lt;p&gt;Adesso le due misure valgono su **ogni** schermo. Dove il ritaglio è fisico sono&lt;/p&gt;
+&lt;p&gt;**minimi**: sotto la larghezza del buco gli anelli finirebbero dentro il ritaglio,&lt;/p&gt;
+&lt;p&gt;dove non si vede nulla. Sopra quei minimi la barra cresce normalmente.&lt;/p&gt;
+&lt;p&gt;Il valore effettivo è scritto accanto allo slider — &lt;code&gt;170 → 185 pt&lt;/code&gt; — così è chiaro&lt;/p&gt;
+&lt;p&gt;quando è il ritaglio a decidere, invece di sembrare uno slider rotto. Le&lt;/p&gt;
+&lt;p&gt;impostazioni si chiamano ora «Larghezza notch» e «Altezza notch», e il valore che&lt;/p&gt;
+&lt;p&gt;avevi impostato viene mantenuto.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.3.3/Claude.Live.0.3.3.dmg" length="2535318" type="application/octet-stream" sparkle:edSignature="ZxFIBJVJkmmmd0X1FEpJD3uuF2EG9rnWFz1/8jWr6F6ex8uUd+N6/mYH2OZVINmpBZdavob4lViY/MEaePK7Bg==" />
+    </item>
+    <item>
       <title>Versione 0.3.2</title>
       <sparkle:version>0.3.2</sparkle:version>
       <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
