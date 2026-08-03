@@ -5,6 +5,21 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.1.3</title>
+      <sparkle:version>0.1.3</sparkle:version>
+      <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 03 Aug 2026 07:33:55 +0000</pubDate>
+      <description>&lt;p&gt;Due correzioni importanti segnalate dall&amp;#x27;uso reale.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Basta richieste di password ripetute.** L&amp;#x27;app rileggeva le credenziali dal Keychain a ogni controllo dei limiti, cioè ogni 5 minuti: su un Mac dove l&amp;#x27;autorizzazione «Consenti sempre» non viene memorizzata, questo significava un prompt ogni 5 minuti. Ora le credenziali restano in memoria e il Keychain viene letto una volta per durata del token, circa ogni 10 ore. Verificato: 5 controlli dei limiti, 1 sola lettura.&lt;/li&gt;
+&lt;li&gt;**VS Code non lampeggia più nel Dock.** L&amp;#x27;app si aggiornava a ogni scrittura di VS Code nella propria cartella di stato, e ogni aggiornamento fa comparire per un istante una seconda icona di VS Code. Ora si aggiorna solo quando l&amp;#x27;insieme dei progetti cambia davvero.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Inoltre: la lettura consulta solo la voce principale del Keychain, e ricorre alle&lt;/p&gt;
+&lt;p&gt;varianti solo se quella manca — meno occasioni per far comparire il dialogo.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.1.3/Claude.Live.0.1.3.dmg" length="2421619" type="application/octet-stream" sparkle:edSignature="1oWn3c5u3fyNf2xMtVauuiCmq9mMqbR/o/IrcjW1XwYWQvLb5KnE2j9yR1xwHSvDNu9RZ4dCFhPOKslZFcPRDQ==" />
+    </item>
+    <item>
       <title>Versione 0.1.2</title>
       <sparkle:version>0.1.2</sparkle:version>
       <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
