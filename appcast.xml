@@ -5,6 +5,24 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.2.0</title>
+      <sparkle:version>0.2.0</sparkle:version>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 03 Aug 2026 10:54:22 +0000</pubDate>
+      <description>&lt;p&gt;Rispondi a Claude direttamente dal pannello.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Le richieste in attesa sono ora divise in due categorie.** «Da approvare» sono i permessi: mostrano il comando che Claude vuole eseguire e si rispondono con Consenti, Nega o Sempre senza aprire nessuna finestra. «Domande aperte» sono le domande e le scelte, che si possono rispondere solo nella sessione: un clic porta in primo piano il progetto giusto.&lt;/li&gt;
+&lt;li&gt;**«Sempre» ricorda solo quel comando esatto**, in quel progetto. Un comando diverso richiede di nuovo conferma: l&amp;#x27;approvazione non si allarga a tutto lo strumento.&lt;/li&gt;
+&lt;li&gt;**Le notifiche portano al progetto giusto.** Cliccando una notifica si apre il progetto a cui si riferisce, non l&amp;#x27;ultima finestra usata. La notifica mostra anche il comando richiesto, non solo la parola «permesso».&lt;/li&gt;
+&lt;li&gt;Nuova impostazione «Rispondi dal pannello»: quanti secondi Claude attende una risposta dal pannello prima di chiedere nel terminale come sempre. Con 0 la funzione è disattivata.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Se Claude Live non è in esecuzione, o se non rispondi entro il tempo impostato,&lt;/p&gt;
+&lt;p&gt;Claude Code chiede nel terminale esattamente come prima: la funzione non può&lt;/p&gt;
+&lt;p&gt;bloccare una sessione.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.2.0/Claude.Live.0.2.0.dmg" length="2475289" type="application/octet-stream" sparkle:edSignature="OHS2+vmMxhWDZE/dTeVXlw/ptdDWG4pLNvZb9RfuVqj0kmx/qmHUEIOq5WySL36AbydEpDmhFqP3BnyiXh1sBw==" />
+    </item>
+    <item>
       <title>Versione 0.1.3</title>
       <sparkle:version>0.1.3</sparkle:version>
       <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
