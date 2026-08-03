@@ -19,6 +19,15 @@ final class UsageMonitor: ObservableObject {
     private var intervalObserver: AnyCancellable?
     private var inFlight = false
 
+    /// Credentials are cached until the token is nearly expired.
+    ///
+    /// This is not a micro-optimisation. Every read of Claude Code's keychain item
+    /// can raise the macOS "allow access?" dialog, and that grant does not always
+    /// persist — on a Mac where the app's self-signed certificate is unknown it
+    /// never does. Reading on every probe therefore meant a password prompt every
+    /// few minutes. Now the item is read roughly once per token lifetime (~10h).
+    private var cachedCredentials: ClaudeCredentials?
+
     init(settings: Settings, notifier: UsageNotifier) {
         self.settings = settings
         self.notifier = notifier
@@ -76,13 +85,7 @@ final class UsageMonitor: ObservableObject {
 
         let credentials: ClaudeCredentials
         do {
-            // Off the main actor on purpose: reading the item can block for
-            // minutes while macOS waits for the user to answer the keychain
-            // access dialog, and blocking the main thread there freezes the
-            // whole app — timers, watchers and UI included.
-            credentials = try await Task.detached(priority: .utility) {
-                try CredentialsStore.load()
-            }.value
+            credentials = try await loadCredentials()
         } catch {
             let message = (error as? LocalizedError)?.errorDescription
                 ?? error.localizedDescription
@@ -106,12 +109,38 @@ final class UsageMonitor: ObservableObject {
             )
             apply(result)
         } catch let error as UsageProbeError {
+            // A rejected token means our cached copy is stale, whatever its
+            // stated expiry: drop it so the next probe reads a fresh one.
+            if case .unauthorized = error { cachedCredentials = nil }
             handle(error)
         } catch {
             state = .stale(reason: .other(error.localizedDescription))
         }
 
         nextRefreshAt = Date().addingTimeInterval(settings.refreshIntervalMinutes * 60)
+    }
+
+    /// Returns cached credentials when they are still good, otherwise reads the
+    /// keychain.
+    ///
+    /// The read happens off the main actor on purpose: it can block for minutes
+    /// while macOS waits for the user to answer the keychain dialog, and blocking
+    /// the main thread there freezes the whole app — timers, watchers, UI.
+    private func loadCredentials() async throws -> ClaudeCredentials {
+        if let cached = cachedCredentials, !cached.isExpired {
+            return cached
+        }
+        let loaded = try await Task.detached(priority: .utility) {
+            try CredentialsStore.load()
+        }.value
+        cachedCredentials = loaded
+        if let expiry = loaded.expiresAt {
+            Log.info(
+                "Credenziali in cache fino a \(Format.clock.string(from: expiry))",
+                category: .keychain
+            )
+        }
+        return loaded
     }
 
     private func apply(_ result: UsageProbeResult) {

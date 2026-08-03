@@ -46,6 +46,16 @@ final class ProjectsMonitor: ObservableObject {
     private var refreshing = false
     private var pendingRefresh = false
 
+    /// Names of the workspaceStorage directories seen last time. VS Code writes
+    /// inside those directories while you work, so a file event there does not by
+    /// itself mean the project list changed — comparing the *set* does.
+    private var knownWorkspaceDirs: Set<String> = []
+
+    /// How long an unchanged workspace set suppresses a refresh. Re-opening a
+    /// project VS Code already knows creates no new directory, so this bounds how
+    /// stale the list can get without making the CLI flash constantly.
+    private let unchangedSetGrace: TimeInterval = 15 * 60
+
     /// Set while one of our CLI calls may still be generating app events.
     private var suppressAppEventsUntil: Date = .distantPast
     /// Pids we spawned directly. Only a partial filter — see the type comment.
@@ -78,11 +88,14 @@ final class ProjectsMonitor: ObservableObject {
             })
         }
 
-        // VS Code touches workspaceStorage when a window opens a folder, which
-        // is the cheapest reliable signal that the project list changed.
+        // Opening a folder creates a workspaceStorage directory, which is the
+        // cheapest permission-free signal that the project list changed. But VS
+        // Code also writes UI state inside those directories as you work, so the
+        // events have to be filtered — see handleWorkspaceStorageEvent.
+        _ = workspaceDirsChanged()
         for editor in editors {
             let watcher = DirectoryWatcher(url: editor.workspaceStorageURL, latency: 0.5) { [weak self] in
-                Task { @MainActor in self?.refresh(reason: "workspaceStorage") }
+                Task { @MainActor in self?.handleWorkspaceStorageEvent() }
             }
             watcher.start()
             workspaceWatchers.append(watcher)
@@ -142,6 +155,40 @@ final class ProjectsMonitor: ObservableObject {
         // Cheap: no subprocess involved.
         updateEditorRunningFlag()
         refresh(reason: "avvio/chiusura VS Code")
+    }
+
+    /// A file event under workspaceStorage only warrants the (visible) cost of
+    /// running the CLI when the set of workspaces actually changed.
+    ///
+    /// Without this filter the app spawned `code --status` every few seconds while
+    /// VS Code saved its state, and each spawn flashes a second VS Code icon in
+    /// the Dock — the symptom reported as "VS Code keeps opening and closing".
+    private func handleWorkspaceStorageEvent() {
+        if workspaceDirsChanged() {
+            refresh(reason: "nuovo workspace")
+            return
+        }
+        guard Date().timeIntervalSince(lastRefreshAt) > unchangedSetGrace else {
+            Log.debug("Evento workspaceStorage ignorato: insieme invariato", category: .projects)
+            return
+        }
+        refresh(reason: "workspaceStorage (controllo periodico)")
+    }
+
+    /// Compares the set of workspaceStorage directory names with the previous one.
+    /// Cheap: one directory listing, no subprocess.
+    private func workspaceDirsChanged() -> Bool {
+        var current: Set<String> = []
+        for editor in editors {
+            let entries = (try? FileManager.default.contentsOfDirectory(
+                atPath: editor.workspaceStorageURL.path
+            )) ?? []
+            current.formUnion(entries.map { "\(editor.supportDirName)/\($0)" })
+        }
+        defer { knownWorkspaceDirs = current }
+        // First call only records the baseline.
+        guard !knownWorkspaceDirs.isEmpty else { return false }
+        return current != knownWorkspaceDirs
     }
 
     private func updateEditorRunningFlag() {

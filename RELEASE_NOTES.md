@@ -1,4 +1,7 @@
-Correzione della lista progetti.
+Due correzioni importanti segnalate dall'uso reale.
 
-- I progetti VS Code tornano cliccabili anche quando la finestra ha una tab attiva. Il nome viene ora estratto dal titolo della finestra invece di essere usato tal quale: con una sessione Claude Code aperta nel terminale integrato il titolo diventa «nome-tab — progetto», e le righe risultavano non cliccabili con un badge «?»
-- Due finestre dello stesso progetto vengono ora raggruppate in una sola riga con il conteggio
+- **Basta richieste di password ripetute.** L'app rileggeva le credenziali dal Keychain a ogni controllo dei limiti, cioè ogni 5 minuti: su un Mac dove l'autorizzazione «Consenti sempre» non viene memorizzata, questo significava un prompt ogni 5 minuti. Ora le credenziali restano in memoria e il Keychain viene letto una volta per durata del token, circa ogni 10 ore. Verificato: 5 controlli dei limiti, 1 sola lettura.
+- **VS Code non lampeggia più nel Dock.** L'app si aggiornava a ogni scrittura di VS Code nella propria cartella di stato, e ogni aggiornamento fa comparire per un istante una seconda icona di VS Code. Ora si aggiorna solo quando l'insieme dei progetti cambia davvero.
+
+Inoltre: la lettura consulta solo la voce principale del Keychain, e ricorre alle
+varianti solo se quella manca — meno occasioni per far comparire il dialogo.

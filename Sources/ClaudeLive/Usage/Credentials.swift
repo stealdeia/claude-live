@@ -27,9 +27,9 @@ struct ClaudeCredentials: Sendable {
 
     var isExpired: Bool {
         guard let expiresAt else { return false }
-        // 60s of slack: a token about to die is treated as already dead so we
-        // re-read the keychain instead of burning a request on a 401.
-        return expiresAt.timeIntervalSinceNow < 60
+        // Five minutes of slack: a token about to die counts as dead, so the
+        // refresh happens ahead of time rather than after a wasted 401.
+        return expiresAt.timeIntervalSinceNow < 300
     }
 }
 
@@ -75,17 +75,22 @@ enum CredentialsStore {
     private static let primaryService = "Claude Code-credentials"
 
     static func load() throws -> ClaudeCredentials {
+        // Try the primary item on its own first. Claude Code accumulates a lot of
+        // `Claude Code-credentials-<hash>` variants (18 on the development
+        // machine), and every extra item read is another chance for macOS to
+        // raise its access dialog — so they are only consulted if the primary
+        // genuinely is not there.
+        do {
+            return try loadItem(service: primaryService)
+        } catch CredentialsError.notFound {
+            // Fall through to the variants.
+        }
+
         var lastError: CredentialsError = .notFound
 
-        for service in candidateServices() {
+        for service in variantServices() {
             do {
-                let data = try readItem(service: service)
-                let credentials = try parse(data)
-                Log.debug(
-                    "Credenziali lette da «\(service)» (piano: \(credentials.subscriptionType ?? "?"), tier: \(credentials.rateLimitTier ?? "?"))",
-                    category: .keychain
-                )
-                return credentials
+                return try loadItem(service: service)
             } catch let error as CredentialsError {
                 lastError = error
                 switch error {
@@ -100,10 +105,17 @@ enum CredentialsStore {
         throw lastError
     }
 
-    /// Primary name first, then any `Claude Code-credentials*` items present.
-    private static func candidateServices() -> [String] {
-        var services = [primaryService]
+    private static func loadItem(service: String) throws -> ClaudeCredentials {
+        let credentials = try parse(readItem(service: service))
+        Log.debug(
+            "Credenziali lette da «\(service)» (piano: \(credentials.subscriptionType ?? "?"), tier: \(credentials.rateLimitTier ?? "?"))",
+            category: .keychain
+        )
+        return credentials
+    }
 
+    /// The `Claude Code-credentials-<hash>` items, if any.
+    private static func variantServices() -> [String] {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecMatchLimit as String: kSecMatchLimitAll,
@@ -112,15 +124,13 @@ enum CredentialsStore {
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let items = result as? [[String: Any]] else {
-            return services
+            return []
         }
 
-        let extra = items
+        return items
             .compactMap { $0[kSecAttrService as String] as? String }
             .filter { $0.hasPrefix(primaryService) && $0 != primaryService }
             .sorted()
-        services.append(contentsOf: extra)
-        return services
     }
 
     private static func readItem(service: String) throws -> Data {
