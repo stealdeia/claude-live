@@ -5,6 +5,22 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.3.2</title>
+      <sparkle:version>0.3.2</sparkle:version>
+      <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 03 Aug 2026 16:18:49 +0000</pubDate>
+      <description>&lt;p&gt;Dimensione del notch regolabile e icone centrate.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Larghezza e altezza del notch disegnato** in Impostazioni → Superficie (60…600 × 24…72pt, con un pulsante «Ripristina»). Vale sugli schermi senza notch fisico: dove il ritaglio esiste, le sue misure vincono, altrimenti la barra sporgerebbe oltre il buco invece di continuarlo.&lt;/li&gt;
+&lt;li&gt;**Icone centrate nel loro spazio.** La freccia era spinta contro l&amp;#x27;anello 5h con un buco visibile all&amp;#x27;estremità sinistra, e il simbolo dei progetti restava scentrato in quel che rimaneva. Ora ciascun controllo ha uno spazio a larghezza fissa ed è centrato dentro: i due lati sono speculari.&lt;/li&gt;
+&lt;li&gt;**Striscia più compatta**: 10pt in meno in totale, tolti dallo spazio che non serviva a nessuno.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Alzando l&amp;#x27;altezza conviene alzare anche «Dimensione contatori»: gli anelli non&lt;/p&gt;
+&lt;p&gt;crescono da soli, ma ora hanno lo spazio per farlo.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.3.2/Claude.Live.0.3.2.dmg" length="2532660" type="application/octet-stream" sparkle:edSignature="sQGH+9yRhkeoYK0le3lyI1RIoUFu73f436Dtp+GDxavv9b/nMaUOxdNxCP/iVF7yshYNbKlFyvAO7HW2z9AnBQ==" />
+    </item>
+    <item>
       <title>Versione 0.3.1</title>
       <sparkle:version>0.3.1</sparkle:version>
       <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
