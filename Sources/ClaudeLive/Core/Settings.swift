@@ -40,6 +40,7 @@ private struct SettingsData: Codable {
     var showPercentageInMenuBar: Bool?
     var launchAtLogin: Bool?
     var hasCompletedOnboarding: Bool?
+    var decisionWaitSeconds: Double?
 }
 
 @MainActor
@@ -158,6 +159,22 @@ final class Settings: ObservableObject {
     /// False until the first-run wizard has been completed or skipped.
     @Published var hasCompletedOnboarding: Bool = false { didSet { schedulePersist() } }
 
+    /// How long a Claude Code permission request waits for an answer from the
+    /// panel before falling back to the usual terminal prompt. 0 disables it.
+    ///
+    /// The hook is blocking, so this is also how long the terminal stays silent:
+    /// a longer wait makes the panel more useful and the terminal less responsive.
+    @Published var decisionWaitSeconds: Double = 8 {
+        didSet {
+            let clamped = decisionWaitSeconds.clamped(to: 0...60)
+            guard clamped == decisionWaitSeconds else {
+                decisionWaitSeconds = clamped
+                return
+            }
+            schedulePersist()
+        }
+    }
+
     private var persistTask: Task<Void, Never>?
     private var isLoading = false
 
@@ -207,6 +224,7 @@ final class Settings: ObservableObject {
         if let v = decoded.showPercentageInMenuBar { showPercentageInMenuBar = v }
         if let v = decoded.launchAtLogin { launchAtLogin = v }
         if let v = decoded.hasCompletedOnboarding { hasCompletedOnboarding = v }
+        if let v = decoded.decisionWaitSeconds { decisionWaitSeconds = v }
 
         Log.info("Settings caricati da \(Paths.settingsFile.path)")
     }
@@ -244,7 +262,8 @@ final class Settings: ObservableObject {
             projectsRefreshMinutes: projectsRefreshMinutes,
             showPercentageInMenuBar: showPercentageInMenuBar,
             launchAtLogin: launchAtLogin,
-            hasCompletedOnboarding: hasCompletedOnboarding
+            hasCompletedOnboarding: hasCompletedOnboarding,
+            decisionWaitSeconds: decisionWaitSeconds
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

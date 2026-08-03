@@ -8,6 +8,8 @@ struct PanelActions {
     var toggleCollapsed: () -> Void = {}
     var openSettings: () -> Void = {}
     var installHooks: () -> Void = {}
+    /// Brings a project's VS Code window forward, by path.
+    var focusProject: (String) -> Void = { _ in }
     var quit: () -> Void = {}
 }
 
@@ -49,6 +51,8 @@ struct PanelRootView: View {
             UsageSectionView(monitor: monitor, settings: settings)
 
             Divider().overlay(PanelTheme.separator)
+
+            PendingRequestsView(status: status, onFocusProject: actions.focusProject)
 
             ProjectsSectionView(
                 projects: projects,

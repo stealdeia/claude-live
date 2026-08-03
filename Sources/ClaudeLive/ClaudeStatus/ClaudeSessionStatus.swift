@@ -54,11 +54,31 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     let permissionMode: String?
     let updatedAt: Date
 
+    /// Identifier of the permission request the hook is blocked on, if any.
+    let requestID: String?
+    let toolName: String?
+    /// One readable line describing what Claude wants to do.
+    let toolSummary: String?
+    /// True while the hook is actually waiting for an answer from this app, so
+    /// showing Allow/Deny buttons can lead somewhere.
+    let decidable: Bool
+
     var id: String { "\(projectPath)#\(sessionID)" }
 
-    /// Decoded by hand: the file is written by a Python hook with snake_case
-    /// keys, and being lenient about missing or extra fields means a future
-    /// hook version can add data without breaking this reader.
+    /// A permission request this app can answer.
+    var isDecidable: Bool {
+        decidable && state == .waitingInput && !(requestID ?? "").isEmpty
+    }
+
+    /// Waiting on the user, but not something we can answer — an open question,
+    /// so the only useful action is to bring its window forward.
+    var needsTerminal: Bool {
+        state == .waitingInput && !isDecidable
+    }
+
+    /// Decoded by hand: the file is written by a Python hook with snake_case keys,
+    /// and being lenient about missing or extra fields means an older hook keeps
+    /// working after the app is updated, and vice versa.
     init?(json: [String: Any]) {
         guard let projectPath = json["project_path"] as? String, !projectPath.isEmpty else {
             return nil
@@ -85,6 +105,13 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         event = (json["event"] as? String) ?? ""
         permissionMode = json["permission_mode"] as? String
 
+        let rawRequestID = (json["request_id"] as? String) ?? ""
+        requestID = rawRequestID.isEmpty ? nil : rawRequestID
+        toolName = json["tool_name"] as? String
+        let rawSummary = (json["tool_summary"] as? String)?.trimmingCharacters(in: .whitespaces)
+        toolSummary = (rawSummary?.isEmpty == false) ? rawSummary : nil
+        decidable = (json["decidable"] as? Bool) ?? false
+
         if let epoch = json["updated_at_epoch"] as? Double {
             updatedAt = Date(timeIntervalSince1970: epoch)
         } else {
@@ -101,7 +128,11 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         requestKind: String?,
         event: String,
         permissionMode: String?,
-        updatedAt: Date
+        updatedAt: Date,
+        requestID: String?,
+        toolName: String?,
+        toolSummary: String?,
+        decidable: Bool
     ) {
         self.projectPath = projectPath
         self.projectName = projectName
@@ -112,6 +143,10 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         self.event = event
         self.permissionMode = permissionMode
         self.updatedAt = updatedAt
+        self.requestID = requestID
+        self.toolName = toolName
+        self.toolSummary = toolSummary
+        self.decidable = decidable
     }
 
     /// Re-attributes this session to the deepest known project that contains it.
@@ -137,7 +172,11 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
             requestKind: requestKind,
             event: event,
             permissionMode: permissionMode,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            requestID: requestID,
+            toolName: toolName,
+            toolSummary: toolSummary,
+            decidable: decidable
         )
     }
 }

@@ -140,6 +140,7 @@ final class PanelController: NSObject {
             },
             openSettings: onOpenSettings,
             installHooks: onInstallHooks,
+            focusProject: { [weak self] path in self?.projects.focus(path: path) },
             quit: onQuit
         )
     }

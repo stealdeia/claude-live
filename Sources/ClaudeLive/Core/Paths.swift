@@ -29,9 +29,35 @@ enum Paths {
         logsDirectory.appendingPathComponent("claudelive.log")
     }
 
+    /// Shared with the Claude Code hooks.
+    static var hubDirectory: URL {
+        home.appendingPathComponent(".claude-hub", isDirectory: true)
+    }
+
     /// Where the Claude Code hooks drop one status file per session.
     static var statusDirectory: URL {
-        home.appendingPathComponent(".claude-hub/status", isDirectory: true)
+        hubDirectory.appendingPathComponent("status", isDirectory: true)
+    }
+
+    /// Where the app drops its answers to permission requests; the hook polls here.
+    static var decisionsDirectory: URL {
+        hubDirectory.appendingPathComponent("decisions", isDirectory: true)
+    }
+
+    /// Touched periodically so the hook can tell whether the app is running — it
+    /// only waits for an answer when there is someone to give one.
+    static var heartbeatFile: URL {
+        hubDirectory.appendingPathComponent("app-heartbeat")
+    }
+
+    /// Settings the hook needs to read, chiefly how long to wait for an answer.
+    static var hubConfigFile: URL {
+        hubDirectory.appendingPathComponent("config.json")
+    }
+
+    /// Requests the user chose to always allow, written by the hook.
+    static var allowlistFile: URL {
+        hubDirectory.appendingPathComponent("allowlist.json")
     }
 
     static func ensureDirectories() {
@@ -43,6 +69,8 @@ enum Paths {
     /// Created eagerly: FSEvents needs the directory to exist before the watcher
     /// starts, otherwise it watches a path that never resolves.
     static func ensureStatusDirectory() {
-        try? FileManager.default.createDirectory(at: statusDirectory, withIntermediateDirectories: true)
+        for dir in [statusDirectory, decisionsDirectory] {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
     }
 }

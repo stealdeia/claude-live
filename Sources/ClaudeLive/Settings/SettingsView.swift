@@ -102,6 +102,23 @@ struct SettingsView: View {
 
             Toggle("Notifica quando Claude attende input", isOn: $settings.notifyOnWaitingInput)
 
+            LabeledContent("Rispondi dal pannello") {
+                HStack(spacing: 8) {
+                    Text(settings.decisionWaitSeconds == 0
+                         ? "disattivato"
+                         : "attendi \(Int(settings.decisionWaitSeconds))s")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    Stepper("Attesa", value: $settings.decisionWaitSeconds, in: 0...60, step: 1)
+                        .labelsHidden()
+                }
+            }
+
+            Text("Quando Claude chiede un permesso, l'hook attende questo tempo una tua risposta dal pannello. In quei secondi il terminale resta silenzioso: se non rispondi, la richiesta compare lì come sempre. Con 0 il pannello mostra le richieste ma non permette di rispondere.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             HStack {
                 Button(status.hooksInstalled ? "Reinstalla hook…" : "Installa hook…",
                        action: onInstallHooks)

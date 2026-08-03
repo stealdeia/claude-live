@@ -1,8 +1,9 @@
 import AppKit
 import Combine
+import UserNotifications
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var settings: Settings!
     private var monitor: UsageMonitor!
     private var projects: ProjectsMonitor!
@@ -72,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 toggleCollapsed: {},
                 openSettings: { [weak self] in self?.settingsWindow.show() },
                 installHooks: { [weak self] in self?.installHooks() },
+                focusProject: { [weak self] path in self?.projects.focus(path: path) },
                 quit: { NSApp.terminate(nil) }
             )
         )
@@ -87,6 +89,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onCheckForUpdates: { [weak self] in self?.updates.checkForUpdates() },
             onShowOnboarding: { [weak self] in self?.onboardingWindow.show() }
         )
+
+        // Set before any notification can be delivered, otherwise a tap on one
+        // just activates the app — which for a menu-bar app looks like nothing
+        // happened.
+        UNUserNotificationCenter.current().delegate = self
 
         if settings.notificationsEnabled || settings.notifyOnWaitingInput {
             notifier.requestAuthorizationIfNeeded()
@@ -164,6 +171,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Menu-bar-only app: never quit just because no window is open.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    // MARK: - Notifications
+
+    /// Tapping a "Claude is waiting" notification opens the project it refers to,
+    /// not whatever VS Code had in front.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let info = response.notification.request.content.userInfo
+        let path = info["projectPath"] as? String
+        Task { @MainActor in
+            if let path, !path.isEmpty {
+                self.projects.focus(path: path)
+            } else {
+                // Threshold notifications carry no project: show the panel instead.
+                self.panel.show()
+            }
+            completionHandler()
+        }
     }
 
     // MARK: - Surfaces

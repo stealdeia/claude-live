@@ -320,6 +320,24 @@ final class ProjectsMonitor: ObservableObject {
 
     // MARK: - Actions
 
+    /// Focuses by path. Used by notifications and by the pending-request rows,
+    /// where the project may not be in the current list — a window closed, or the
+    /// list is a few seconds stale. Asking VS Code directly still does the right
+    /// thing, so this never silently does nothing.
+    func focus(path: String) {
+        if let project = projects.first(where: { $0.path == path }) {
+            focus(project)
+            return
+        }
+        suppressAppEventsUntil = Date().addingTimeInterval(selfNoiseWindow)
+        workQueue.async { [weak self] in
+            VSCodeCLI.focus(path: path, bundleID: EditorApp.vsCode.bundleID) { pid in
+                Task { @MainActor in self?.ownSpawnedPids.insert(pid) }
+            }
+        }
+        Log.debug("Focus per path richiesto: \(path)", category: .projects)
+    }
+
     func focus(_ project: VSCodeProject) {
         guard let path = project.path else {
             Log.error("Impossibile portare in primo piano «\(project.name)»: path sconosciuto", category: .projects)

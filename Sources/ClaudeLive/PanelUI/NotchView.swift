@@ -226,6 +226,8 @@ struct NotchView: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider().overlay(Color.white.opacity(0.12))
 
+            PendingRequestsView(status: status, onFocusProject: actions.focusProject)
+
             if emphasiseProjects {
                 ProjectsSectionView(
                     projects: projects,

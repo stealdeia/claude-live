@@ -13,7 +13,10 @@ final class WaitingInputNotifier {
 
     private var lastNotified: [String: Date] = [:]
 
-    func notifyWaiting(projectName: String, badge: String?) {
+    /// `projectPath` travels in `userInfo` so tapping the notification can bring
+    /// that project forward — the previous version could only activate the app,
+    /// which for a menu-bar app meant nothing happened.
+    func notifyWaiting(projectName: String, projectPath: String, badge: String?, summary: String?) {
         guard Bundle.main.bundleIdentifier != nil else { return }
 
         let now = Date()
@@ -24,8 +27,15 @@ final class WaitingInputNotifier {
 
         let content = UNMutableNotificationContent()
         content.title = "Claude ti aspetta in \(projectName)"
-        content.body = badge.map { "Richiesta: \($0)" } ?? "Claude Code attende una risposta."
+        // The command itself is more useful than the word "permission".
+        if let summary, !summary.isEmpty {
+            content.subtitle = badge.map { "Richiesta: \($0)" } ?? "Richiesta"
+            content.body = summary
+        } else {
+            content.body = badge.map { "Richiesta: \($0)" } ?? "Claude Code attende una risposta."
+        }
         content.sound = .default
+        content.userInfo = ["projectPath": projectPath, "projectName": projectName]
 
         let request = UNNotificationRequest(
             identifier: "waiting-\(projectName)-\(Int(now.timeIntervalSince1970))",
