@@ -5,6 +5,25 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.3.0</title>
+      <sparkle:version>0.3.0</sparkle:version>
+      <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 03 Aug 2026 15:48:14 +0000</pubDate>
+      <description>&lt;p&gt;Il notch si smussa ai lati e può stare su qualsiasi schermo.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Angoli superiori smussati.** I due lati non finiscono più con un angolo retto: un raccordo concavo li unisce al bordo dello schermo, come fa macOS attorno al ritaglio fisico. Un angolo a 90° si legge come «una finestra appoggiata sulla barra dei menu»; lo smusso si legge come il notch che si allarga.&lt;/li&gt;
+&lt;li&gt;**Notch anche sugli schermi che non ce l&amp;#x27;hanno.** Su un monitor esterno viene disegnato al centro del bordo superiore, con la stessa interfaccia: anelli 5h e 7g, freccia, pulsante progetti.&lt;/li&gt;
+&lt;li&gt;**Scelta degli schermi.** Impostazioni → Superficie → Schermi: *Automatico* (quello col notch fisico), *Schermi scelti* con l&amp;#x27;elenco dei monitor collegati, oppure *Tutti gli schermi*.&lt;/li&gt;
+&lt;li&gt;**Su più monitor contemporaneamente.** Ogni schermo ha la sua superficie e si apre indipendentemente: espandi quella che stai guardando, le altre restano chiuse.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Gli schermi scelti sono ricordati per pannello, non per posizione: scollegando e&lt;/p&gt;
+&lt;p&gt;ricollegando un monitor il suo notch ricompare da solo. Se il monitor scelto non è&lt;/p&gt;
+&lt;p&gt;collegato, il notch torna su quello automatico — l&amp;#x27;app non resta mai senza&lt;/p&gt;
+&lt;p&gt;superficie visibile.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.3.0/Claude.Live.0.3.0.dmg" length="2513697" type="application/octet-stream" sparkle:edSignature="riZiY2UBklQRsCuqVTMufyy9dnjScYvUb4DDRIMAQoCVm1V527ELNqBi9KzWVPCDw78xCy1xltuUwU1vMDBQBQ==" />
+    </item>
+    <item>
       <title>Versione 0.2.0</title>
       <sparkle:version>0.2.0</sparkle:version>
       <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
