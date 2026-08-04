@@ -23,7 +23,9 @@ DRY_RUN=0
 
 fail() { echo "✗ $*" >&2; exit 1; }
 
-echo "==> Rilascio Claude Live ${VERSION}${DRY_RUN:+ (dry run)}"
+DRY_RUN_LABEL=""
+[[ "${DRY_RUN}" == "1" ]] && DRY_RUN_LABEL=" (dry run)"
+echo "==> Rilascio Claude Live ${VERSION}${DRY_RUN_LABEL}"
 
 # --- Pre-flight -------------------------------------------------------------
 [[ -s RELEASE_NOTES.md ]] || fail "RELEASE_NOTES.md è vuoto: descrivi cosa cambia in questa versione."
@@ -34,18 +36,15 @@ SIGN_UPDATE="$(find .build/artifacts -type f -name sign_update | head -1)"
 [[ -n "${SIGN_UPDATE}" ]] || fail "sign_update non trovato: esegui 'swift package resolve'."
 
 if [[ "${DRY_RUN}" == "0" ]]; then
-  if gh release view "${TAG}" --repo "${GH_OWNER}/${GH_RELEASES_REPO}" >/dev/null 2>&1; then
-    fail "La release ${TAG} esiste già. Aumenta VERSION oppure eliminala prima."
-  fi
-
-  # Il codice sorgente deve essere committato *prima* di pubblicare il binario.
+  # Il codice sorgente deve essere committato *prima* di pubblicare il binario, e
+  # questo va verificato prima di interrogare GitHub: sono controlli locali,
+  # istantanei, e in un test il controllo della release mascherava questo.
   #
-  # Questo controllo esiste per un errore realmente accaduto quattro volte di fila:
-  # le versioni 0.3.0 → 0.4.0 sono finite su GitHub con i sorgenti solo sul disco
-  # locale. Non se ne accorgeva nessuno perché lo script aggiorna l'appcast da un
-  # clone temporaneo, quindi il repo di lavoro non viene mai guardato: l'app che gli
-  # utenti scaricano risultava aggiornata mentre il codice che la produce non era
-  # tracciato da nessuna parte.
+  # Esiste per un errore realmente accaduto quattro volte di fila: le versioni
+  # 0.3.0 → 0.4.0 sono finite su GitHub con i sorgenti solo sul disco locale. Lo
+  # script non poteva accorgersene perché aggiorna l'appcast da un clone temporaneo
+  # e non guarda mai il repo di lavoro: l'app che gli utenti scaricano risultava
+  # aggiornata mentre il codice che la produce non era tracciato da nessuna parte.
   if git rev-parse --git-dir >/dev/null 2>&1; then
     if [[ -n "$(git status --porcelain)" ]]; then
       git status --short >&2
@@ -58,6 +57,10 @@ if [[ "${DRY_RUN}" == "0" ]]; then
         fail "Ci sono commit non spinti. Esegui 'git push' prima di pubblicare."
       fi
     fi
+  fi
+
+  if gh release view "${TAG}" --repo "${GH_OWNER}/${GH_RELEASES_REPO}" >/dev/null 2>&1; then
+    fail "La release ${TAG} esiste già. Aumenta VERSION oppure eliminala prima."
   fi
 fi
 
