@@ -5,6 +5,22 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.5.1</title>
+      <sparkle:version>0.5.1</sparkle:version>
+      <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 04 Aug 2026 17:14:05 +0000</pubDate>
+      <description>&lt;p&gt;Al 100% dei token il pannello mostrava 1%.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Corretto il calcolo dell&amp;#x27;utilizzo a limite raggiunto.** Quando la sessione 5h si esaurisce l&amp;#x27;API riporta un valore poco sopra 1 (l&amp;#x27;ultima richiesta sfonda il tetto, quindi 102%): un controllo «difensivo» lo interpretava come una percentuale già in centesimi e lo divideva per 100, mostrando **1% invece di 100%**. Ora il 100% si vede, in rosso, con la barra piena — e una finestra che l&amp;#x27;API dichiara esaurita viene mostrata piena anche se il numero fosse appena sotto.&lt;/li&gt;
+&lt;li&gt;**Il polling non si blocca più dietro un dialogo del portachiavi.** La lettura veloce che controlla se le credenziali sono cambiate non aveva un limite di tempo: con un dialogo aperto sullo schermo l&amp;#x27;intero portachiavi si mette in coda dietro di esso, e l&amp;#x27;aggiornamento dei numeri restava fermo fino alla risposta. Ora, se quella lettura non arriva in pochi secondi, l&amp;#x27;app continua con le credenziali che ha già.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Il primo difetto era invisibile senza esaurire davvero la quota: ho aggiunto un modo per&lt;/p&gt;
+&lt;p&gt;forzare qualsiasi valore di utilizzo, così il caso «limite raggiunto» si può provare&lt;/p&gt;
+&lt;p&gt;in qualsiasi momento invece di aspettare di incontrarlo.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.5.1/Claude.Live.0.5.1.dmg" length="2625812" type="application/octet-stream" sparkle:edSignature="WEs9+pHxytqRoFv460jRIRKOjeDP2nEsLGRp53OCKqSie/VuKWji4gC4ssDj0gryZ+u1frZlVGCmdFodLjuXAQ==" />
+    </item>
+    <item>
       <title>Versione 0.5.0</title>
       <sparkle:version>0.5.0</sparkle:version>
       <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
