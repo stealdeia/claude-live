@@ -37,6 +37,28 @@ if [[ "${DRY_RUN}" == "0" ]]; then
   if gh release view "${TAG}" --repo "${GH_OWNER}/${GH_RELEASES_REPO}" >/dev/null 2>&1; then
     fail "La release ${TAG} esiste già. Aumenta VERSION oppure eliminala prima."
   fi
+
+  # Il codice sorgente deve essere committato *prima* di pubblicare il binario.
+  #
+  # Questo controllo esiste per un errore realmente accaduto quattro volte di fila:
+  # le versioni 0.3.0 → 0.4.0 sono finite su GitHub con i sorgenti solo sul disco
+  # locale. Non se ne accorgeva nessuno perché lo script aggiorna l'appcast da un
+  # clone temporaneo, quindi il repo di lavoro non viene mai guardato: l'app che gli
+  # utenti scaricano risultava aggiornata mentre il codice che la produce non era
+  # tracciato da nessuna parte.
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    if [[ -n "$(git status --porcelain)" ]]; then
+      git status --short >&2
+      fail "Ci sono modifiche non committate. Committale prima di pubblicare: il binario finirebbe online con sorgenti che esistono solo qui."
+    fi
+    # Committato ma non spinto è lo stesso problema con un passaggio in meno.
+    if git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+      if [[ -n "$(git log '@{upstream}..HEAD' --oneline)" ]]; then
+        git log '@{upstream}..HEAD' --oneline >&2
+        fail "Ci sono commit non spinti. Esegui 'git push' prima di pubblicare."
+      fi
+    fi
+  fi
 fi
 
 # --- Build ------------------------------------------------------------------
