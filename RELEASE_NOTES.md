@@ -1,9 +1,8 @@
-Schermi e dimensioni del notch in una schermata sola.
+Al 100% dei token il pannello mostrava 1%.
 
-- **Nuova schermata «Scelta schermi e dimensioni notch»** (Impostazioni → Superficie → Configura…, o dal menu della barra). Mostra le anteprime degli schermi collegati come Impostazioni di sistema → Monitor: clicca uno schermo per mettervi il notch o togliervelo, con il bordo che si accende e la spunta sopra.
-- **Larghezza e altezza per ogni schermo, separatamente.** Prima una misura sola valeva per tutti, che è sbagliato appena ci sono due monitor: una barra da 170pt su un pannello da 1512pt è un'altra cosa su uno da 1920pt. Si può scegliere «uguali su tutti gli schermi» oppure «diverse per ogni schermo».
-- **L'anteprima mostra la barra vera**, disegnata alla larghezza reale in scala: si vede subito quanto occupa del bordo superiore di *quello* schermo, e come si confronta con gli altri.
-- Gli schermi sono disposti da sinistra a destra **come stanno sul tavolo**, così si riconosce quale monitor è quale.
+- **Corretto il calcolo dell'utilizzo a limite raggiunto.** Quando la sessione 5h si esaurisce l'API riporta un valore poco sopra 1 (l'ultima richiesta sfonda il tetto, quindi 102%): un controllo «difensivo» lo interpretava come una percentuale già in centesimi e lo divideva per 100, mostrando **1% invece di 100%**. Ora il 100% si vede, in rosso, con la barra piena — e una finestra che l'API dichiara esaurita viene mostrata piena anche se il numero fosse appena sotto.
+- **Il polling non si blocca più dietro un dialogo del portachiavi.** La lettura veloce che controlla se le credenziali sono cambiate non aveva un limite di tempo: con un dialogo aperto sullo schermo l'intero portachiavi si mette in coda dietro di esso, e l'aggiornamento dei numeri restava fermo fino alla risposta. Ora, se quella lettura non arriva in pochi secondi, l'app continua con le credenziali che ha già.
 
-Le vecchie impostazioni di larghezza e altezza vengono mantenute come misura
-condivisa: chi non tocca nulla non vede cambiare niente.
+Il primo difetto era invisibile senza esaurire davvero la quota: ho aggiunto un modo per
+forzare qualsiasi valore di utilizzo, così il caso «limite raggiunto» si può provare
+in qualsiasi momento invece di aspettare di incontrarlo.

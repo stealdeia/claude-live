@@ -79,6 +79,11 @@ final class UsageMonitor: ObservableObject {
     /// bounded for the loop to survive an unanswered dialog.
     private let credentialsTimeout: TimeInterval = 20
 
+    /// Short on purpose: reading the item's attributes takes milliseconds when the
+    /// keychain is free (measured: 8 ms), so anything slower means it is blocked and
+    /// waiting longer buys nothing.
+    private let attributeTimeout: TimeInterval = 3
+
     init(settings: Settings, notifier: UsageNotifier) {
         self.settings = settings
         self.notifier = notifier
@@ -210,13 +215,12 @@ final class UsageMonitor: ObservableObject {
     /// main actor it still must not block *this* function indefinitely, hence the
     /// timeout.
     private func loadCredentials() async throws -> ClaudeCredentials {
-        // Cheap and dialog-free, so it can run on every poll.
-        let modified = await Task.detached(priority: .utility) {
-            CredentialsStore.modificationDate()
-        }.value
+        let modified = await modificationDate()
 
-        if let cached = cachedCredentials, let modified, modified == cachedModificationDate {
-            return cached
+        // `modified == nil` means "we could not find out", not "it changed": with a
+        // usable copy in hand there is no reason to go and disturb the keychain.
+        if let cached = cachedCredentials {
+            guard let modified, modified != cachedModificationDate else { return cached }
         }
 
         let read = pendingRead ?? startCredentialsRead(modificationDate: modified)
@@ -232,6 +236,27 @@ final class UsageMonitor: ObservableObject {
                 return cached
             }
             throw CredentialsError.keychainFailure(errSecAuthFailed)
+        }
+    }
+
+    /// When Claude Code last wrote the keychain item, or nil if it could not be
+    /// determined in time.
+    ///
+    /// An attributes-only query decrypts nothing and cannot raise the "allow
+    /// access?" dialog *by itself* — but while such a dialog is on screen the whole
+    /// keychain serialises behind it, so even this query blocks. Observed live: a
+    /// dialog left unanswered stopped the polling loop entirely, because 0.4.0 put
+    /// the timeout only on the payload read and left this one unbounded.
+    private func modificationDate() async -> Date? {
+        do {
+            return try await withTimeout(attributeTimeout) {
+                await Task.detached(priority: .utility) {
+                    CredentialsStore.modificationDate()
+                }.value
+            }
+        } catch {
+            Log.debug("Data di modifica del keychain non leggibile in tempo", category: .keychain)
+            return nil
         }
     }
 

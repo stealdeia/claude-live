@@ -115,7 +115,29 @@ struct UsageAPIClient {
             guard let key = key as? String, let value = value as? String else { continue }
             result[key.lowercased()] = value
         }
-        return result
+        return Self.applyFakeUtilization(to: result)
+    }
+
+    /// Overrides the utilisation headers from the environment, for exercising the
+    /// full-quota case.
+    ///
+    /// `CLAUDELIVE_FAKE_5H=1.02 CLAUDELIVE_FAKE_7D=0.5` — a value at or above 1 also
+    /// marks the window `rejected`, which is what the API does when it starts
+    /// refusing requests.
+    ///
+    /// This exists because the 1%-instead-of-100% bug could only be reproduced by
+    /// actually exhausting the quota, and so it shipped: the numbers that matter
+    /// most are the ones hardest to reach on purpose.
+    private static func applyFakeUtilization(to headers: [String: String]) -> [String: String] {
+        var headers = headers
+        for (variable, prefix) in [("CLAUDELIVE_FAKE_5H", "5h"), ("CLAUDELIVE_FAKE_7D", "7d")] {
+            guard let raw = ProcessInfo.processInfo.environment[variable],
+                  let value = Double(raw) else { continue }
+            headers["anthropic-ratelimit-unified-\(prefix)-utilization"] = raw
+            headers["anthropic-ratelimit-unified-\(prefix)-status"] = value >= 1 ? "rejected" : "allowed"
+            Log.info("Utilizzo \(prefix) forzato a \(raw) (\(variable))", category: .usage)
+        }
+        return headers
     }
 
     // MARK: - Header parsing
@@ -164,13 +186,28 @@ struct UsageAPIClient {
             .flatMap(Double.init)
             .map { Date(timeIntervalSince1970: $0) }
 
+        let status = headers["\(prefix)-status"]
+
+        // A window whose requests are being refused is full, whatever the number
+        // says: reporting 98% next to a rejected status would read as "there is
+        // room left".
+        let isRejected = status == "rejected"
+
         return UsageWindow(
-            // The header is a 0…1 fraction; clamp defensively in case a future
-            // API version starts sending 0…100.
-            utilization: utilization > 1.0 ? (utilization / 100).clamped(to: 0...1)
-                                           : utilization.clamped(to: 0...1),
+            // The header is a 0…1 fraction, and a value slightly above 1 is real:
+            // the request that crosses the limit pushes utilisation past 100%.
+            // Those clamp to 1 — "full".
+            //
+            // There used to be a "defensive" branch here for an API that might one
+            // day send 0…100: `utilization > 1 ? value / 100 : value`. It turned
+            // 1.02 — that is, the limit reached — into 0.0102, so the panel showed
+            // **1%** at the exact moment the number mattered most. A guess that
+            // fires only in the critical case is worse than no guess: should the
+            // unit ever change, every window pins to 100% at once and the cause is
+            // impossible to miss.
+            utilization: isRejected ? 1.0 : utilization.clamped(to: 0...1),
             resetAt: resetAt,
-            status: headers["\(prefix)-status"]
+            status: status
         )
     }
 }
