@@ -1,10 +1,20 @@
 import AppKit
 import SwiftUI
 
+/// One-shot requests from outside the settings window — currently just "open the
+/// screens sheet", so the menu bar can jump straight to it instead of asking the
+/// user to find the button.
+@MainActor
+final class SettingsUIState: ObservableObject {
+    @Published var requestsNotchScreens = false
+}
+
 /// A plain window for the settings form. In an `LSUIElement` app we must
 /// activate explicitly, otherwise the window opens behind everything.
 @MainActor
 final class SettingsWindowController {
+    let ui = SettingsUIState()
+
     private var window: NSWindow?
     private let settings: Settings
     private let monitor: UsageMonitor
@@ -31,7 +41,9 @@ final class SettingsWindowController {
         self.onShowOnboarding = onShowOnboarding
     }
 
-    func show() {
+    /// `showingNotchScreens` opens the screens sheet as soon as the window is up.
+    func show(showingNotchScreens: Bool = false) {
+        defer { if showingNotchScreens { ui.requestsNotchScreens = true } }
         if let window {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
@@ -41,6 +53,7 @@ final class SettingsWindowController {
         let hosting = NSHostingController(
             rootView: SettingsView(
                 settings: settings,
+                ui: ui,
                 monitor: monitor,
                 status: status,
                 updates: updates,
@@ -67,6 +80,22 @@ final class SettingsWindowController {
         self.window = window
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// Renders the screens sheet to a PNG. Separate from the form's snapshot: a
+    /// sheet is a different window, so `contentView` of the settings window does not
+    /// contain it.
+    func writeNotchScreensSnapshot(to url: URL) {
+        let hosting = NSHostingController(
+            rootView: NotchScreensView(settings: settings) {}
+        )
+        hosting.view.frame = NSRect(x: 0, y: 0, width: 560, height: 660)
+        hosting.view.layoutSubtreeIfNeeded()
+        guard let rep = hosting.view.bitmapImageRepForCachingDisplay(in: hosting.view.bounds) else { return }
+        hosting.view.cacheDisplay(in: hosting.view.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return }
+        try? data.write(to: url)
+        Log.info("Snapshot schermi notch salvato: \(url.path)")
     }
 
     /// Renders the form to a PNG, for checking the layout from a script.

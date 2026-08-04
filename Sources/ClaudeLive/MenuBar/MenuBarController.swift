@@ -18,6 +18,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private let onTogglePanel: () -> Void
     private let onOpenSettings: () -> Void
+    private let onOpenNotchScreens: () -> Void
     private let onInstallHooks: () -> Void
     private let onCheckForUpdates: () -> Void
     private let onShowOnboarding: () -> Void
@@ -31,6 +32,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         settings: Settings,
         onTogglePanel: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void,
+        onOpenNotchScreens: @escaping () -> Void,
         onInstallHooks: @escaping () -> Void,
         onCheckForUpdates: @escaping () -> Void,
         onShowOnboarding: @escaping () -> Void
@@ -41,6 +43,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.settings = settings
         self.onTogglePanel = onTogglePanel
         self.onOpenSettings = onOpenSettings
+        self.onOpenNotchScreens = onOpenNotchScreens
         self.onInstallHooks = onInstallHooks
         self.onCheckForUpdates = onCheckForUpdates
         self.onShowOnboarding = onShowOnboarding
@@ -362,6 +365,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             submenu.addItem(hint)
         }
 
+        submenu.addItem(.separator())
+        let sizes = NSMenuItem(title: "Schermi e dimensioni…", action: #selector(openNotchScreens), keyEquivalent: "")
+        sizes.target = self
+        sizes.isEnabled = true
+        submenu.addItem(sizes)
+
         root.submenu = submenu
         return root
     }
@@ -520,6 +529,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() {
         onOpenSettings()
+    }
+
+    @objc private func openNotchScreens() {
+        onOpenNotchScreens()
     }
 
     @objc private func openSupportFolder() {

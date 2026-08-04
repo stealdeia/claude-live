@@ -3,14 +3,15 @@ import AppKit
 
 struct SettingsView: View {
     @ObservedObject var settings: Settings
+    /// Set by the menu bar to open straight onto the screens sheet.
+    @ObservedObject var ui: SettingsUIState
     @ObservedObject var monitor: UsageMonitor
     @ObservedObject var status: ClaudeStatusStore
     @ObservedObject var updates: UpdateController
     let onInstallHooks: () -> Void
     let onShowOnboarding: () -> Void
 
-    /// Owned here rather than injected: it only exists while this window is open.
-    @StateObject private var screens = ScreenCatalog()
+    @State private var showNotchScreens = false
 
     var body: some View {
         // No explicit width or `fixedSize` here on purpose: the window decides
@@ -26,6 +27,16 @@ struct SettingsView: View {
             aboutSection
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $showNotchScreens) {
+            NotchScreensView(settings: settings) { showNotchScreens = false }
+        }
+        // The menu bar can ask for this sheet directly; the flag is consumed so
+        // reopening Settings later does not open it again.
+        .onChange(of: ui.requestsNotchScreens) { _, requested in
+            guard requested else { return }
+            showNotchScreens = true
+            ui.requestsNotchScreens = false
+        }
     }
 
     // MARK: - Sections
@@ -156,7 +167,13 @@ struct SettingsView: View {
             }
 
             if settings.displayMode == .notch {
-                screenPicker
+                LabeledContent("Scelta schermi e dimensioni notch") {
+                    Button("Configura…") { showNotchScreens = true }
+                }
+                Text(screensSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 LabeledContent("Dimensione contatori") {
                     HStack(spacing: 10) {
@@ -168,8 +185,6 @@ struct SettingsView: View {
                             .frame(width: 46, alignment: .trailing)
                     }
                 }
-
-                notchSizeControls
 
                 Toggle("Espandi al passaggio del mouse", isOn: $settings.notchExpandOnHover)
                 Text("Nel notch l'interfaccia è sempre nera, per allinearsi al ritaglio fisico dello schermo. Sugli schermi che non hanno un notch viene disegnato, al centro del bordo superiore.")
@@ -281,144 +296,22 @@ struct SettingsView: View {
         }
     }
 
-    /// Size of the notch bar's middle section.
-    ///
-    /// The caption earns its place: on a screen with a real cutout these are
-    /// *minimums*, so moving a slider below the hardware size looks like nothing
-    /// happening. Saying so is cheaper than the user concluding it is broken.
-    @ViewBuilder
-    private var notchSizeControls: some View {
-        LabeledContent("Larghezza notch") {
-            HStack(spacing: 10) {
-                Slider(value: $settings.notchWidth, in: NotchGeometry.widthRange)
-                    .frame(minWidth: 100)
-                Text(sizeLabel(requested: settings.notchWidth, floor: hardwareFloor?.width))
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 84, alignment: .trailing)
-            }
-        }
-
-        LabeledContent("Altezza notch") {
-            HStack(spacing: 10) {
-                Slider(value: $settings.notchHeight, in: NotchGeometry.heightRange)
-                    .frame(minWidth: 100)
-                Text(sizeLabel(requested: settings.notchHeight, floor: hardwareFloor?.height))
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 84, alignment: .trailing)
-            }
-        }
-
-        HStack {
-            Text(notchSizeHint)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 8)
-            Button("Ripristina") {
-                settings.notchWidth = NotchGeometry.defaultNotchSize.width
-                settings.notchHeight = NotchGeometry.defaultNotchSize.height
-            }
-            .controlSize(.small)
-        }
-    }
-
-    /// Shows what the value actually becomes when the hardware raises it, e.g.
-    /// `170 → 185pt`. Without this the slider looks stuck for its whole lower half.
-    private func sizeLabel(requested: Double, floor: CGFloat?) -> String {
-        guard let floor, Double(floor) > requested + 0.5 else { return "\(Int(requested)) pt" }
-        return "\(Int(requested)) → \(Int(floor)) pt"
-    }
-
-    /// The cutout that raises the requested size, if one of the screens getting a
-    /// notch actually has a cutout.
-    private var hardwareFloor: CGSize? {
-        guard let cutout = NotchGeometry.physicalCutout(),
-              let screen = NotchGeometry.screenWithPhysicalNotch()
-        else { return nil }
-
-        switch settings.notchScreenSelection {
-        // Automatic prefers the screen with the cutout, so it is always the target.
-        case .automatic, .all:
-            return cutout.size
-        case .chosen:
-            let id = ScreenIdentity.identifier(for: screen)
-            return settings.notchScreenIDs.contains(id) ? cutout.size : nil
-        }
-    }
-
-    /// Spells out the minimum imposed by the hardware, with the actual numbers of
-    /// the connected screen — a generic "depends on your display" would leave the
-    /// user guessing why a slider seems stuck.
-    private var notchSizeHint: String {
-        let base = "La larghezza è quella del tratto centrale: la barra completa aggiunge i due contatori."
-        guard let floor = hardwareFloor else { return base }
-        return base + " Il notch fisico di questo Mac è \(Int(floor.width))×\(Int(floor.height))pt e fa da minimo: sotto quelle misure i contatori finirebbero dentro il ritaglio, dove non si vede nulla."
-    }
-
-    /// Choice of displays, plus the tick list when the choice is explicit.
-    ///
-    /// The list comes from `ScreenCatalog` rather than a snapshot taken when the
-    /// window opened: this window is often open exactly while a monitor is being
-    /// plugged in, and offering a display that no longer exists is worse than
-    /// offering none.
-    @ViewBuilder
-    private var screenPicker: some View {
-        Picker("Schermi", selection: $settings.notchScreenSelection) {
-            ForEach(NotchScreenSelection.allCases) { selection in
-                Text(selection.label).tag(selection)
-            }
-        }
-
-        if settings.notchScreenSelection == .chosen {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(screens.screens) { screen in
-                    Toggle(isOn: screenBinding(screen.id)) {
-                        HStack(spacing: 6) {
-                            Text(screen.name)
-                            if screen.hasPhysicalNotch {
-                                Text("notch fisico")
-                                    .font(.caption2)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 1)
-                                    .background(Capsule().fill(Color.secondary.opacity(0.18)))
-                            }
-                            Text("\(Int(screen.pixelSize.width))×\(Int(screen.pixelSize.height))")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .monospacedDigit()
-                        }
-                    }
-                }
-            }
-
-            if settings.notchScreenIDs.isEmpty {
-                Text("Nessuno schermo selezionato: il notch resta su quello automatico.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    /// Toggles one display in the chosen list. Identifiers of monitors that are
-    /// currently disconnected are left untouched, so unplugging and replugging a
-    /// monitor restores its notch without reconfiguring anything.
-    private func screenBinding(_ id: String) -> Binding<Bool> {
-        Binding(
-            get: { settings.notchScreenIDs.contains(id) },
-            set: { isOn in
-                var ids = settings.notchScreenIDs
-                if isOn {
-                    guard !ids.contains(id) else { return }
-                    ids.append(id)
-                } else {
-                    ids.removeAll { $0 == id }
-                }
-                settings.notchScreenIDs = ids
-            }
+    /// One line describing what is configured, so the button is not a black box.
+    private var screensSummary: String {
+        let active = NotchGeometry.geometries(
+            selection: settings.notchScreenSelection,
+            chosenIDs: settings.notchScreenIDs,
+            notchSize: { settings.notchSize(forScreen: $0) }
         )
+        let where_ = switch settings.notchScreenSelection {
+        case .automatic: "schermo automatico"
+        case .all: "tutti gli schermi"
+        case .chosen: active.count == 1 ? "uno schermo scelto" : "\(active.count) schermi scelti"
+        }
+        let sizes = settings.usePerScreenNotchSize
+            ? "dimensioni separate per schermo"
+            : "\(Int(settings.notchWidth))×\(Int(settings.notchHeight))pt su tutti"
+        return "\(where_.prefix(1).uppercased() + where_.dropFirst()), \(sizes)."
     }
 
     // MARK: - Pieces

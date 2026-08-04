@@ -58,6 +58,9 @@ struct NotchGeometry: Equatable {
 
     private static var stripChrome: CGFloat { ringInset + controlSlot }
 
+    /// Exposed for previews that need to draw the whole bar, not just the cutout.
+    static var stripChromeWidth: CGFloat { stripChrome }
+
     /// Depth of the concave curve at the top corners — see `NotchShape`.
     ///
     /// It costs width: the black body is inset by this much on each side, so
@@ -157,6 +160,11 @@ struct NotchGeometry: Equatable {
         physicalNotchRect(of: screen) != nil
     }
 
+    /// Size of this screen's cutout, if it has one.
+    static func cutoutSize(of screen: NSScreen) -> CGSize? {
+        physicalNotchRect(of: screen)?.size
+    }
+
     private static func physicalNotchRect(of screen: NSScreen) -> CGRect? {
         guard let left = screen.auxiliaryTopLeftArea,
               let right = screen.auxiliaryTopRightArea,
@@ -238,10 +246,13 @@ struct NotchGeometry: Equatable {
     /// longer resolves — the chosen monitor was unplugged, or nothing was ever
     /// chosen — falls back to the automatic behaviour instead of leaving the app
     /// with no visible surface at all.
+    /// `notchSize` is asked per display identifier: sizes are per-screen, because
+    /// one bar size across a 1512pt laptop panel and a 1920pt monitor is the wrong
+    /// bar on at least one of them.
     static func geometries(
         selection: NotchScreenSelection,
         chosenIDs: [String],
-        notchSize: CGSize = defaultNotchSize
+        notchSize: (String) -> CGSize = { _ in defaultNotchSize }
     ) -> [NotchGeometry] {
         let screens = NSScreen.screens
         guard !screens.isEmpty else { return [] }
@@ -251,7 +262,7 @@ struct NotchGeometry: Equatable {
         // geometry from a helper that took no size, so on a Mac with a cutout the
         // width and height settings did precisely nothing.
         func resolve(_ screen: NSScreen) -> NotchGeometry {
-            geometry(for: screen, notchSize: notchSize)
+            geometry(for: screen, notchSize: notchSize(ScreenIdentity.identifier(for: screen)))
         }
 
         switch selection {

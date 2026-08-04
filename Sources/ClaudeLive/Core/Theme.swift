@@ -41,6 +41,26 @@ enum NotchScreenSelection: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Size of one notch bar's middle section, as stored per screen.
+///
+/// A plain struct rather than a `CGSize` because it has to round-trip through JSON
+/// in the settings file, keyed by display identifier.
+struct NotchSize: Codable, Equatable, Sendable {
+    var width: Double
+    var height: Double
+
+    init(width: Double, height: Double) {
+        self.width = width
+        self.height = height
+    }
+
+    init(_ size: CGSize) {
+        self.init(width: size.width, height: size.height)
+    }
+
+    var cgSize: CGSize { CGSize(width: width, height: height) }
+}
+
 /// Appearance for the floating panel. The notch surface ignores this and is
 /// always black — it has to match the physical notch it grows out of.
 enum AppTheme: String, Codable, CaseIterable, Identifiable {

@@ -1,25 +1,9 @@
-L'app non si «spegne» più il giorno dopo.
+Schermi e dimensioni del notch in una schermata sola.
 
-Il problema che si vedeva: numeri sbiaditi, dati fermi a ore prima, nessuna
-spiegazione. Nel log di una notte ci sono tre cause distinte, tutte corrette qui.
+- **Nuova schermata «Scelta schermi e dimensioni notch»** (Impostazioni → Superficie → Configura…, o dal menu della barra). Mostra le anteprime degli schermi collegati come Impostazioni di sistema → Monitor: clicca uno schermo per mettervi il notch o togliervelo, con il bordo che si accende e la spunta sopra.
+- **Larghezza e altezza per ogni schermo, separatamente.** Prima una misura sola valeva per tutti, che è sbagliato appena ci sono due monitor: una barra da 170pt su un pannello da 1512pt è un'altra cosa su uno da 1920pt. Si può scegliere «uguali su tutti gli schermi» oppure «diverse per ogni schermo».
+- **L'anteprima mostra la barra vera**, disegnata alla larghezza reale in scala: si vede subito quanto occupa del bordo superiore di *quello* schermo, e come si confronta con gli altri.
+- Gli schermi sono disposti da sinistra a destra **come stanno sul tavolo**, così si riconosce quale monitor è quale.
 
-- **Non rinuncia più a provare per colpa dell'orologio.** Prima, se il token
-  risultava scaduto, l'app non inviava nemmeno la richiesta: in un caso reale ha
-  rifiutato un token ancora valido per 4 minuti e poi è rimasta ferma 30 minuti,
-  leggendo il portachiavi ogni 5 minuti senza mai chiedere niente al server. Ora
-  prova, e se un token viene davvero rifiutato aspetta in silenzio che Claude Code
-  ne scriva uno nuovo — poi riparte da sé, entro un ciclo.
-- **Un dialogo del portachiavi senza risposta non blocca più l'aggiornamento.**
-  Poteva tenerlo fermo quanto restava aperto: in un caso 55 minuti, con dieci
-  aggiornamenti consecutivi saltati.
-- **Di notte non tenta più letture impossibili.** Quando il Mac si sveglia da solo
-  per la manutenzione lo schermo è spento e il portachiavi non può chiedere nulla:
-  cinque errori in una notte, ognuno dei quali cancellava i numeri dal pannello.
-  Ora gli aggiornamenti automatici si fermano a schermo spento.
-- **Quando i numeri sono sbiaditi, il pannello dice perché.** Una riga arancione con
-  la causa: token rifiutato, connessione assente, errore HTTP. Prima lo sbiadito era
-  l'unico segnale, e sembrava che l'app fosse disattivata.
-
-Come effetto collaterale, il portachiavi viene letto molto meno: una volta per
-rinnovo del token invece di una volta ogni cinque minuti. Chi ancora vedeva comparire
-la richiesta della password dovrebbe vederla molto più raramente.
+Le vecchie impostazioni di larghezza e altezza vengono mantenute come misura
+condivisa: chi non tocca nulla non vede cambiare niente.

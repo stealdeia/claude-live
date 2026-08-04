@@ -85,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             settings: settings,
             onTogglePanel: { [weak self] in self?.panel.toggleVisibility() },
             onOpenSettings: { [weak self] in self?.settingsWindow.show() },
+            onOpenNotchScreens: { [weak self] in self?.settingsWindow.show(showingNotchScreens: true) },
             onInstallHooks: { [weak self] in self?.installHooks() },
             onCheckForUpdates: { [weak self] in self?.updates.checkForUpdates() },
             onShowOnboarding: { [weak self] in self?.onboardingWindow.show() }
@@ -130,6 +131,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 )
                 self.settingsWindow.writeSnapshot(
                     to: Paths.supportDirectory.appendingPathComponent("settings.png")
+                )
+                self.settingsWindow.writeNotchScreensSnapshot(
+                    to: Paths.supportDirectory.appendingPathComponent("notch-screens.png")
                 )
                 guard self.settings.displayMode == .notch else { return }
                 try? await Task.sleep(nanoseconds: 500_000_000)

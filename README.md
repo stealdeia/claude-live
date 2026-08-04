@@ -380,8 +380,26 @@ speculari.
 
 #### Dimensione del notch
 
-Impostazioni → Superficie → **Larghezza / Altezza notch** (60…600 × 24…72pt, default
-170×32). La larghezza è quella del tratto centrale; la barra completa aggiunge le due
+Impostazioni → Superficie → **Scelta schermi e dimensioni notch** apre
+`NotchScreensView`: le anteprime degli schermi come in Impostazioni di sistema →
+Monitor, cliccabili per attivare o disattivare il notch, e sotto le misure (60…600 ×
+24…72pt, default 170×32) **uguali per tutti** oppure **separate per ogni schermo**.
+
+La separazione per schermo non è un vezzo: una barra da 170pt su un pannello da
+1512pt è un'altra cosa su un monitor da 1920pt, e prima una misura sola valeva per
+tutti.
+
+Nell'anteprima la barra è disegnata con `NotchShape` alla larghezza reale in scala,
+così il confronto tra schermi è quello vero. L'**altezza** invece ha un minimo
+leggibile: 32pt su uno schermo da 1512 sono 3 punti d'anteprima, un capello che si
+legge come un artefatto di rendering e non come una barra. Il minimo di larghezza è
+tenuto piccolo (12pt) proprio per non falsare quel confronto.
+
+Gli schermi sono ordinati **da sinistra a destra come stanno fisicamente**
+(`frame.minX`), che è come li mostra Impostazioni di sistema e come l'utente
+riconosce quale monitor è quale.
+
+La larghezza è quella del tratto centrale; la barra completa aggiunge le due
 strisce.
 
 Su uno schermo con il ritaglio fisico le due misure sono **minimi**, non valori

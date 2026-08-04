@@ -65,15 +65,21 @@ final class NotchController {
             }
             .store(in: &cancellables)
 
-        // The drawn notch's size is part of the geometry, so a change here is a
-        // re-sync rather than a re-layout: existing surfaces are updated in place.
+        // The notch's size is part of the geometry, so a change here is a re-sync
+        // rather than a re-layout: existing surfaces are updated in place. All four
+        // inputs matter — the shared size, the per-screen sizes, and the switch that
+        // decides which of the two applies.
         settings.$notchWidth
             .combineLatest(settings.$notchHeight)
-            .dropFirst()
             // Tuples are not Equatable, so dedupe on a value that is.
             .map { CGSize(width: $0, height: $1) }
             .removeDuplicates()
-            .sink { [weak self] _ in
+            .combineLatest(
+                settings.$notchSizeByScreen.removeDuplicates(),
+                settings.$usePerScreenNotchSize.removeDuplicates()
+            )
+            .dropFirst()
+            .sink { [weak self] _, _, _ in
                 Task { @MainActor in self?.syncIfActive() }
             }
             .store(in: &cancellables)
@@ -130,7 +136,7 @@ final class NotchController {
         let wanted = NotchGeometry.geometries(
             selection: settings.notchScreenSelection,
             chosenIDs: settings.notchScreenIDs,
-            notchSize: settings.notchSize
+            notchSize: { [settings] in settings.notchSize(forScreen: $0) }
         )
         let wantedIDs = Set(wanted.map(\.screenID))
 

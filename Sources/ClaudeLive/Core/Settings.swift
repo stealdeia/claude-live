@@ -36,6 +36,8 @@ private struct SettingsData: Codable {
     var notchScale: Double?
     var notchWidth: Double?
     var notchHeight: Double?
+    var usePerScreenNotchSize: Bool?
+    var notchSizeByScreen: [String: NotchSize]?
     /// Names used in 0.3.2 only, when the setting applied to drawn notches alone.
     /// Read so an existing file keeps its values; never written again.
     var virtualNotchWidth: Double?
@@ -149,9 +151,39 @@ final class Settings: ObservableObject {
         }
     }
 
-    /// Convenience for the geometry layer, which wants one value.
+    /// Whether each screen keeps its own size instead of sharing one.
+    ///
+    /// Off by default, but the reason it exists is that sharing one size is wrong
+    /// as soon as there are two displays: a bar sized for a 1512pt laptop panel is
+    /// a different thing on a 1920pt monitor.
+    @Published var usePerScreenNotchSize: Bool = false { didSet { schedulePersist() } }
+
+    /// Per-display sizes, keyed by `ScreenIdentity`. A display with no entry falls
+    /// back to the shared size, so turning the switch on changes nothing until a
+    /// slider is actually moved.
+    @Published var notchSizeByScreen: [String: NotchSize] = [:] { didSet { schedulePersist() } }
+
+    /// The shared size, used when per-screen sizes are off or unset.
     var notchSize: CGSize {
         CGSize(width: notchWidth, height: notchHeight)
+    }
+
+    /// The size to use on one display.
+    func notchSize(forScreen id: String) -> CGSize {
+        guard usePerScreenNotchSize, let stored = notchSizeByScreen[id] else { return notchSize }
+        return stored.cgSize
+    }
+
+    /// Writes one display's size. Writing while the shared mode is on would be
+    /// silently ignored, so it switches to per-screen sizes as well: the slider the
+    /// user just moved has to be the one that takes effect.
+    func setNotchSize(_ size: CGSize, forScreen id: String) {
+        let clamped = NotchSize(
+            width: Double(size.width).clamped(to: NotchGeometry.widthRange),
+            height: Double(size.height).clamped(to: NotchGeometry.heightRange)
+        )
+        guard notchSizeByScreen[id] != clamped else { return }
+        notchSizeByScreen[id] = clamped
     }
 
     /// Which displays show a notch surface.
@@ -263,6 +295,8 @@ final class Settings: ObservableObject {
         if let v = decoded.notchScale { notchScale = v }
         if let v = decoded.notchWidth ?? decoded.virtualNotchWidth { notchWidth = v }
         if let v = decoded.notchHeight ?? decoded.virtualNotchHeight { notchHeight = v }
+        if let v = decoded.usePerScreenNotchSize { usePerScreenNotchSize = v }
+        if let v = decoded.notchSizeByScreen { notchSizeByScreen = v }
         if let v = decoded.notchScreenSelection { notchScreenSelection = v }
         if let v = decoded.notchScreenIDs { notchScreenIDs = v }
         if let v = decoded.panelVisible { panelVisible = v }
@@ -310,6 +344,8 @@ final class Settings: ObservableObject {
             notchScale: notchScale,
             notchWidth: notchWidth,
             notchHeight: notchHeight,
+            usePerScreenNotchSize: usePerScreenNotchSize,
+            notchSizeByScreen: notchSizeByScreen,
             virtualNotchWidth: nil,
             virtualNotchHeight: nil,
             notchScreenSelection: notchScreenSelection,

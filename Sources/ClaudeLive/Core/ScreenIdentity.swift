@@ -36,13 +36,35 @@ enum ScreenIdentity {
 }
 
 /// One connected display, as offered in Settings.
+///
+/// Carries enough to draw a faithful little picture of the screen: the point size
+/// gives the aspect ratio, and the cutout gives the minimum the notch can be on
+/// that display.
 struct ScreenOption: Identifiable, Equatable {
     let id: String
     let name: String
     /// True when the display has a physical cutout; false means the notch is drawn.
     let hasPhysicalNotch: Bool
+    /// Size in points — what the aspect ratio of the preview is built from.
+    let pointSize: CGSize
+    /// Left edge in the global coordinate space, so the previews can be laid out in
+    /// the order the displays physically sit in — the same order System Settings
+    /// shows, which is how the user recognises which monitor is which.
+    let originX: CGFloat
+    /// Size in pixels, for showing the resolution.
     let pixelSize: CGSize
+    /// The physical cutout, when there is one: it is the floor for the notch size.
+    let cutoutSize: CGSize?
     let isMain: Bool
+
+    /// The size the notch will actually have here, given a requested one.
+    func effectiveNotchSize(requested: CGSize) -> CGSize {
+        guard let cutoutSize else { return requested }
+        return CGSize(
+            width: max(requested.width, cutoutSize.width),
+            height: max(requested.height, cutoutSize.height)
+        )
+    }
 }
 
 /// Publishes the list of connected displays, refreshed whenever the
@@ -76,19 +98,23 @@ final class ScreenCatalog: ObservableObject {
         screens = ScreenCatalog.options()
     }
 
-    /// The connected displays, in AppKit's order. Static so the menu bar can ask
-    /// for them without keeping an observable object alive.
+    /// The connected displays, **left to right as they physically sit**, so the
+    /// previews line up the way System Settings shows them. Static so the menu bar
+    /// can ask for them without keeping an observable object alive.
     static func options() -> [ScreenOption] {
         let main = NSScreen.main
-        return NSScreen.screens.map { screen in
+        return NSScreen.screens.sorted { $0.frame.minX < $1.frame.minX }.map { screen in
             ScreenOption(
                 id: ScreenIdentity.identifier(for: screen),
                 name: screen.localizedName,
                 hasPhysicalNotch: NotchGeometry.hasPhysicalNotch(screen),
+                pointSize: screen.frame.size,
+                originX: screen.frame.minX,
                 pixelSize: CGSize(
                     width: screen.frame.width * screen.backingScaleFactor,
                     height: screen.frame.height * screen.backingScaleFactor
                 ),
+                cutoutSize: NotchGeometry.cutoutSize(of: screen),
                 isMain: screen == main
             )
         }
