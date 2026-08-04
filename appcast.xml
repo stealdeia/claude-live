@@ -5,6 +5,44 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.4.0</title>
+      <sparkle:version>0.4.0</sparkle:version>
+      <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 04 Aug 2026 08:28:19 +0000</pubDate>
+      <description>&lt;p&gt;L&amp;#x27;app non si «spegne» più il giorno dopo.&lt;/p&gt;
+&lt;p&gt;Il problema che si vedeva: numeri sbiaditi, dati fermi a ore prima, nessuna&lt;/p&gt;
+&lt;p&gt;spiegazione. Nel log di una notte ci sono tre cause distinte, tutte corrette qui.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Non rinuncia più a provare per colpa dell&amp;#x27;orologio.** Prima, se il token&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;risultava scaduto, l&amp;#x27;app non inviava nemmeno la richiesta: in un caso reale ha&lt;/p&gt;
+&lt;p&gt;rifiutato un token ancora valido per 4 minuti e poi è rimasta ferma 30 minuti,&lt;/p&gt;
+&lt;p&gt;leggendo il portachiavi ogni 5 minuti senza mai chiedere niente al server. Ora&lt;/p&gt;
+&lt;p&gt;prova, e se un token viene davvero rifiutato aspetta in silenzio che Claude Code&lt;/p&gt;
+&lt;p&gt;ne scriva uno nuovo — poi riparte da sé, entro un ciclo.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Un dialogo del portachiavi senza risposta non blocca più l&amp;#x27;aggiornamento.**&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Poteva tenerlo fermo quanto restava aperto: in un caso 55 minuti, con dieci&lt;/p&gt;
+&lt;p&gt;aggiornamenti consecutivi saltati.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Di notte non tenta più letture impossibili.** Quando il Mac si sveglia da solo&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;per la manutenzione lo schermo è spento e il portachiavi non può chiedere nulla:&lt;/p&gt;
+&lt;p&gt;cinque errori in una notte, ognuno dei quali cancellava i numeri dal pannello.&lt;/p&gt;
+&lt;p&gt;Ora gli aggiornamenti automatici si fermano a schermo spento.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Quando i numeri sono sbiaditi, il pannello dice perché.** Una riga arancione con&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;la causa: token rifiutato, connessione assente, errore HTTP. Prima lo sbiadito era&lt;/p&gt;
+&lt;p&gt;l&amp;#x27;unico segnale, e sembrava che l&amp;#x27;app fosse disattivata.&lt;/p&gt;
+&lt;p&gt;Come effetto collaterale, il portachiavi viene letto molto meno: una volta per&lt;/p&gt;
+&lt;p&gt;rinnovo del token invece di una volta ogni cinque minuti. Chi ancora vedeva comparire&lt;/p&gt;
+&lt;p&gt;la richiesta della password dovrebbe vederla molto più raramente.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.4.0/Claude.Live.0.4.0.dmg" length="2549201" type="application/octet-stream" sparkle:edSignature="wHG/osxuLiKn68xAZKbBJMeusLVsXPgflhjtpQ6uY7BqY2sKp807iF1M65dpbHxhpqa3bKLdEP3cOloKKPEQAQ==" />
+    </item>
+    <item>
       <title>Versione 0.3.3</title>
       <sparkle:version>0.3.3</sparkle:version>
       <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
