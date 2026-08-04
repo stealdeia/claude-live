@@ -5,6 +5,23 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.5.0</title>
+      <sparkle:version>0.5.0</sparkle:version>
+      <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 04 Aug 2026 09:03:52 +0000</pubDate>
+      <description>&lt;p&gt;Schermi e dimensioni del notch in una schermata sola.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Nuova schermata «Scelta schermi e dimensioni notch»** (Impostazioni → Superficie → Configura…, o dal menu della barra). Mostra le anteprime degli schermi collegati come Impostazioni di sistema → Monitor: clicca uno schermo per mettervi il notch o togliervelo, con il bordo che si accende e la spunta sopra.&lt;/li&gt;
+&lt;li&gt;**Larghezza e altezza per ogni schermo, separatamente.** Prima una misura sola valeva per tutti, che è sbagliato appena ci sono due monitor: una barra da 170pt su un pannello da 1512pt è un&amp;#x27;altra cosa su uno da 1920pt. Si può scegliere «uguali su tutti gli schermi» oppure «diverse per ogni schermo».&lt;/li&gt;
+&lt;li&gt;**L&amp;#x27;anteprima mostra la barra vera**, disegnata alla larghezza reale in scala: si vede subito quanto occupa del bordo superiore di *quello* schermo, e come si confronta con gli altri.&lt;/li&gt;
+&lt;li&gt;Gli schermi sono disposti da sinistra a destra **come stanno sul tavolo**, così si riconosce quale monitor è quale.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Le vecchie impostazioni di larghezza e altezza vengono mantenute come misura&lt;/p&gt;
+&lt;p&gt;condivisa: chi non tocca nulla non vede cambiare niente.&lt;/p&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.5.0/Claude.Live.0.5.0.dmg" length="2630115" type="application/octet-stream" sparkle:edSignature="ncGBMSQZI34i+38Mq7eGciwP6o6d7rUxDff15TLnEok9E43DXt+J4Lddm7jp9VJ0gsPqopbpKGnlRx7kjRynAg==" />
+    </item>
+    <item>
       <title>Versione 0.4.0</title>
       <sparkle:version>0.4.0</sparkle:version>
       <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
