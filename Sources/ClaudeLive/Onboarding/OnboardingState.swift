@@ -87,7 +87,7 @@ final class OnboardingState: ObservableObject {
             switch result {
             case .success(let credentials):
                 let plan = credentials.subscriptionType ?? "?"
-                if credentials.isExpired {
+                if credentials.isPastExpiry {
                     keychain = .warning("Token scaduto: esegui un comando `claude` per rinnovarlo")
                 } else {
                     keychain = .ok("Accesso riuscito (piano \(plan))")

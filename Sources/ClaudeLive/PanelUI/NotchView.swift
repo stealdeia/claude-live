@@ -46,8 +46,10 @@ struct NotchView: View {
 
     private var barHeight: CGFloat { geometry.barHeight }
     private var scale: Double { settings.notchScale }
-    private var stripWidth: CGFloat { NotchGeometry.stripWidth(scale: scale) }
-    private var collapsedWidth: CGFloat { geometry.collapsedWidth(scale: scale) }
+    private var stripWidth: CGFloat { geometry.stripWidth(scale: scale) }
+    /// Width of the black *body* when collapsed — the window is wider than this
+    /// by one flare on each side.
+    private var collapsedBodyWidth: CGFloat { geometry.collapsedBodyWidth(scale: scale) }
 
     var body: some View {
         // `Color.clear` is the anchor: it accepts exactly the size the window
@@ -80,17 +82,14 @@ struct NotchView: View {
             }
     }
 
-    /// Fills the window, so the rounded bottom corners always sit on the window's
-    /// edge rather than on the content's.
+    /// Fills the window, so the flares and the rounded bottom corners always sit
+    /// on the window's edge rather than on the content's.
     private var background: some View {
-        UnevenRoundedRectangle(
-            bottomLeadingRadius: isExpanded
+        NotchShape(
+            topFlareRadius: NotchGeometry.flareRadius,
+            bottomCornerRadius: isExpanded
                 ? NotchGeometry.expandedCornerRadius
-                : NotchGeometry.collapsedCornerRadius,
-            bottomTrailingRadius: isExpanded
-                ? NotchGeometry.expandedCornerRadius
-                : NotchGeometry.collapsedCornerRadius,
-            style: .continuous
+                : NotchGeometry.collapsedCornerRadius
         )
         // Pure black, not a material: anything translucent would stop the panel
         // reading as an extension of the notch.
@@ -118,44 +117,42 @@ struct NotchView: View {
     private var topRow: some View {
         HStack(spacing: 0) {
             leftStrip
-            // The physical notch: nothing drawn, the black shape behind merges
-            // with the cutout.
+            // The cutout. Nothing is drawn here: on a real notch the black shape
+            // behind merges with the hole, and on a screen without one the same
+            // black *is* the drawn notch.
             Spacer().frame(width: geometry.notchRect.width)
             rightStrip
         }
-        .frame(width: collapsedWidth, height: barHeight)
+        .frame(width: collapsedBodyWidth, height: barHeight)
         .frame(width: NotchGeometry.expandedWidth, height: barHeight)
     }
 
-    /// Controls sit on the outer edges and the rings hug the notch, so the two
-    /// sides mirror each other around the cutout.
+    /// Rings hug the cutout, controls sit in a fixed slot on the outer side and are
+    /// centred in it, so the two sides mirror each other around the cutout.
     private var leftStrip: some View {
-        HStack(spacing: 4) {
-            Spacer(minLength: 0)
-
+        HStack(spacing: 0) {
             NotchIconButton(
                 symbol: isExpanded ? "chevron.up" : "chevron.down",
                 help: isExpanded ? "Chiudi i dettagli" : "Apri i dettagli"
             ) {
                 toggle(emphasisingProjects: false)
             }
+            .frame(width: NotchGeometry.controlSlot)
 
             ringButton(window: monitor.snapshot?.fiveHour, label: "5h", title: "Sessione 5h")
         }
-        .padding(.trailing, 7)
+        .padding(.trailing, NotchGeometry.ringInset)
         .frame(width: stripWidth, height: barHeight)
     }
 
     private var rightStrip: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             ringButton(window: monitor.snapshot?.sevenDay, label: "7g", title: "Settimana 7g")
 
-            Spacer(minLength: 0)
-
             projectsButton
+                .frame(width: NotchGeometry.controlSlot)
         }
-        .padding(.leading, 7)
-        .padding(.trailing, 5)
+        .padding(.leading, NotchGeometry.ringInset)
         .frame(width: stripWidth, height: barHeight)
     }
 
@@ -203,7 +200,7 @@ struct NotchView: View {
                 label: label,
                 warn: settings.warnThreshold,
                 danger: settings.dangerThreshold,
-                diameter: NotchGeometry.ringDiameter(scale: scale)
+                diameter: geometry.ringDiameter(scale: scale)
             )
             .contentShape(Rectangle())
         }
@@ -248,7 +245,9 @@ struct NotchView: View {
 
             footer
         }
-        .padding(.horizontal, 18)
+        // The flare inset applies to the whole body, not just the top row, so the
+        // detail has to stay clear of it too.
+        .padding(.horizontal, 18 + NotchGeometry.flareRadius)
         .padding(.bottom, 14)
         .padding(.top, 6)
         // Measured, not guessed: the controller needs the exact height to know

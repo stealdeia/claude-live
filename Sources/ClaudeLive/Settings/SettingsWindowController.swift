@@ -68,4 +68,20 @@ final class SettingsWindowController {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
+
+    /// Renders the form to a PNG, for checking the layout from a script.
+    ///
+    /// Worth having permanently: this window has already been shipped once with
+    /// content clipped against a narrower window, and that is invisible from the
+    /// code alone.
+    func writeSnapshot(to url: URL) {
+        show()
+        guard let view = window?.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
+        else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return }
+        try? data.write(to: url)
+        Log.info("Snapshot impostazioni salvato: \(url.path)")
+    }
 }

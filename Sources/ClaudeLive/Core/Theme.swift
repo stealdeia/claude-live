@@ -18,6 +18,29 @@ enum DisplayMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Which displays get a notch surface.
+///
+/// Separate from the list of chosen screens so that unplugging the chosen monitor
+/// is recoverable: the selection stays on disk and comes back when it does.
+enum NotchScreenSelection: String, Codable, CaseIterable, Identifiable {
+    /// The screen with a physical cutout; the main screen if none has one.
+    case automatic
+    /// Only the displays the user ticked.
+    case chosen
+    /// Every connected display.
+    case all
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .automatic: return "Automatico"
+        case .chosen: return "Schermi scelti"
+        case .all: return "Tutti gli schermi"
+        }
+    }
+}
+
 /// Appearance for the floating panel. The notch surface ignores this and is
 /// always black — it has to match the physical notch it grows out of.
 enum AppTheme: String, Codable, CaseIterable, Identifiable {

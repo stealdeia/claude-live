@@ -25,11 +25,32 @@ struct ClaudeCredentials: Sendable {
     let rateLimitTier: String?
     let organizationUUID: String?
 
-    var isExpired: Bool {
+    /// Whether the stated expiry has passed.
+    ///
+    /// **Informational only — never a reason not to try.** This used to gate the
+    /// probe, and the result was an app that went silent for half an hour: at
+    /// 09:44 it refused to use a token good until 09:48, then sat idle until
+    /// Claude Code happened to refresh it at 10:14, reading the keychain every
+    /// five minutes and never once asking the server. Whether a token still works
+    /// is the server's answer, not ours.
+    var isPastExpiry: Bool {
         guard let expiresAt else { return false }
-        // Five minutes of slack: a token about to die counts as dead, so the
-        // refresh happens ahead of time rather than after a wasted 401.
-        return expiresAt.timeIntervalSinceNow < 300
+        return expiresAt.timeIntervalSinceNow <= 0
+    }
+
+    /// Same credentials with a token the API is guaranteed to refuse.
+    ///
+    /// Diagnostic only, for `CLAUDELIVE_FORCE_BAD_TOKEN=1`: the handling of a
+    /// refused token has now been wrong twice, and waiting eight hours for a real
+    /// expiry is not a way to test it.
+    func withInvalidToken() -> ClaudeCredentials {
+        ClaudeCredentials(
+            accessToken: accessToken + "-non-valido",
+            expiresAt: expiresAt,
+            subscriptionType: subscriptionType,
+            rateLimitTier: rateLimitTier,
+            organizationUUID: organizationUUID
+        )
     }
 }
 
@@ -73,6 +94,27 @@ enum CredentialsStore {
     /// The primary item. Claude Code also keeps per-workspace variants named
     /// `Claude Code-credentials-<hash>`; we try those as a fallback.
     private static let primaryService = "Claude Code-credentials"
+
+    /// When Claude Code last wrote the item, or nil if it cannot be determined.
+    ///
+    /// This is the cheap half of the story: an **attributes-only** query decrypts
+    /// nothing, so it never consults the item's ACL and can never raise the "allow
+    /// access?" dialog. That makes it safe to call on every poll, and it is what
+    /// lets the payload be read only when there is genuinely something new —
+    /// exactly once per token refresh instead of once per poll.
+    static func modificationDate() -> Date? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: primaryService,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let attributes = result as? [String: Any]
+        else { return nil }
+        return attributes[kSecAttrModificationDate as String] as? Date
+    }
 
     static func load() throws -> ClaudeCredentials {
         // Try the primary item on its own first. Claude Code accumulates a lot of

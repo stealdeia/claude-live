@@ -84,8 +84,32 @@ struct UsageSectionView: View {
         }
     }
 
+    /// Why the numbers are dimmed, when they are.
+    ///
+    /// Dimming on its own is what made a user ask why the app looked "switched
+    /// off": it signals *that* something is wrong and nothing about *what*. The
+    /// reason was already available — it just was not on screen.
+    private var staleMessage: String? {
+        switch monitor.state {
+        case .stale(let reason): return reason.message
+        case .unavailable(let message): return message
+        case .idle, .refreshing, .live: return nil
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let staleMessage {
+                HStack(alignment: .top, spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                    Text(staleMessage)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(PanelTheme.captionFont)
+                .foregroundStyle(PanelTheme.color(for: .warning))
+            }
+
             UsageBarView(
                 title: "Sessione 5h",
                 window: monitor.snapshot?.fiveHour,

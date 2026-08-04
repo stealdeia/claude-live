@@ -99,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             notifier.requestAuthorizationIfNeeded()
         }
 
-        applyDisplayMode()
+        applyDisplayMode(isInitial: true)
         modeObserver = settings.$displayMode
             .dropFirst()
             .removeDuplicates()
@@ -128,6 +128,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 self.onboardingWindow.writeSnapshot(
                     to: Paths.supportDirectory.appendingPathComponent("onboarding.png")
                 )
+                self.settingsWindow.writeSnapshot(
+                    to: Paths.supportDirectory.appendingPathComponent("settings.png")
+                )
                 guard self.settings.displayMode == .notch else { return }
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 self.notch.writeSnapshot(to: Paths.supportDirectory.appendingPathComponent("notch-collapsed.png"))
@@ -135,6 +138,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 self.notch.writeSnapshot(to: Paths.supportDirectory.appendingPathComponent("notch-expanded.png"))
                 self.notch.setExpanded(false)
+            }
+        }
+
+        // Opt-in via CLAUDELIVE_SELFTEST=1: switches surfaces and reports what
+        // ended up on screen. Exists because "switch to the notch and back" has
+        // already shipped once leaving no visible surface at all — a failure the
+        // code reads as correct and only use reveals.
+        if ProcessInfo.processInfo.environment["CLAUDELIVE_SELFTEST"] == "1" {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                await self.runSurfaceSelfTest()
             }
         }
 
@@ -153,7 +167,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in await self?.monitor.refresh(reason: "risveglio") }
+            // Dark wake fires this too, hence `isAutomatic`: the keychain cannot
+            // show its dialog with the screen off, and nobody is looking anyway.
+            Task { @MainActor in await self?.monitor.refresh(reason: "risveglio", isAutomatic: true) }
         }
     }
 
@@ -197,22 +213,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: - Surfaces
 
-    /// Exactly one surface is on screen at a time. Notch mode falls back to the
-    /// floating panel when this Mac has no notch (or the lid is closed), so the
-    /// app is never left with nothing visible.
-    private func applyDisplayMode() {
+    /// One surface *kind* at a time — notch mode may still put a surface on
+    /// several screens. Falls back to the floating panel if there is no display to
+    /// attach to at all, so the app is never left with nothing visible.
+    ///
+    /// `isInitial` separates "restore what was on screen last time" from "the user
+    /// just picked this surface". Choosing the floating panel is a request to see
+    /// it; a launch is not, so a panel deliberately hidden before quitting stays
+    /// hidden.
+    private func applyDisplayMode(isInitial: Bool = false) {
         switch settings.displayMode {
         case .notch where notch.isSupported:
-            panel.hide()
+            // `suspend`, not `hide`: the panel is merely not the active surface.
+            panel.suspend()
             notch.show()
         case .notch:
-            Log.error("Nessuno schermo con notch: torno al pannello flottante")
+            Log.error("Nessuno schermo disponibile: torno al pannello flottante")
             settings.displayMode = .floating
             notch.hide()
             panel.show()
         case .floating:
             notch.hide()
-            panel.showIfEnabled()
+            if isInitial {
+                panel.showIfEnabled()
+            } else {
+                panel.show()
+            }
+        }
+    }
+
+    /// Cycles through both surfaces, logging the menu and what is actually on
+    /// screen. Leaves the mode as it found it.
+    private func runSurfaceSelfTest() async {
+        let original = settings.displayMode
+
+        for mode in [DisplayMode.notch, .floating] {
+            settings.displayMode = mode
+            // The mode is applied through a publisher, so give it a turn to land.
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            Log.info(
+                "[selftest] modo=\(mode.rawValue) pannello=\(panel.isVisible ? "visibile" : "nascosto") notch=\(notch.isVisible ? "visibile" : "nascosto") preferenza panelVisible=\(settings.panelVisible)"
+            )
+            menuBar.logStructure()
+        }
+
+        settings.displayMode = original
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        Log.info("[selftest] modo ripristinato: \(original.rawValue)")
+
+        guard settings.displayMode == .notch else { return }
+
+        // Does changing the size while running actually move the window? The
+        // settings→geometry→window chain has three hops and a publisher in it.
+        let originalSize = settings.notchSize
+        for size in [CGSize(width: 260, height: 48), CGSize(width: 120, height: 26), originalSize] {
+            settings.notchWidth = size.width
+            settings.notchHeight = size.height
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            Log.info("[selftest] richiesto \(Int(size.width))×\(Int(size.height)) → \(notch.describeSurfaces())")
         }
     }
 

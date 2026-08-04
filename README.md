@@ -109,6 +109,44 @@ anthropic-ratelimit-unified-representative-claim: five_hour
 Un **429 è trattato come dato valido**, non come errore: la risposta porta comunque
 gli header di utilizzo, che è tutto ciò che ci serve.
 
+### Token, cache e stati (le trappole)
+
+Tre bug distinti, tutti osservati nello stesso log notturno, tutti facili da
+reintrodurre:
+
+1. **Non rifiutare mai di provare per colpa dell'orologio locale.** La versione
+   precedente scartava il token se `expiresAt` era passato (con 5 minuti di slack).
+   Risultato misurato: alle 09:44 ha rifiutato un token valido per altri 4 minuti,
+   poi è rimasta muta fino alle 10:14 — 7 letture del portachiavi, **zero richieste**
+   — finché Claude Code non ha rinnovato. Se un token funziona lo decide il server.
+   L'unico token che non si riprova è quello che l'**API** ha già rifiutato
+   (`rejectedToken`), e basta che Claude Code ne scriva un altro perché si riparta.
+2. **Un dialogo del portachiavi senza risposta bloccava tutto il ciclo.**
+   `SecItemCopyMatching` blocca il thread per quanto resta aperto il suo dialogo:
+   misurati **55 minuti**, con `inFlight` a true e dieci poll consecutivi saltati
+   («già in corso»). Ora l'attesa ha un timeout di 20s, la lettura in corso è
+   condivisa (mai due dialoghi in coda) e il suo risultato viene raccolto anche se
+   arriva dopo il timeout.
+3. **In dark wake il Mac si sveglia e il portachiavi non può mostrare UI.** Cinque
+   errori «In dark wake, no UI possible» in una notte, ognuno dei quali sostituiva i
+   numeri con un messaggio d'errore. I poll automatici ora si fermano se lo schermo
+   è spento (`CGDisplayIsAsleep`); quelli chiesti dall'utente no.
+
+**La cache delle credenziali è indicizzata sulla data di modifica dell'item**, non
+sulla scadenza del token. Una query **solo attributi** non decifra niente, quindi non
+consulta la ACL e non può far comparire il dialogo: misurato **8ms contro 3681ms**
+della lettura del payload, da un binario non firmato e senza alcuna autorizzazione.
+Quindi il payload si legge una volta per rinnovo (~8h) invece di una volta per poll —
+ed è anche la fine dei «chiede la password ogni due minuti».
+
+Infine: `isStale` sbiadisce le barre al 45%, e **da solo** comunica che qualcosa non
+va senza dire cosa — un utente l'ha letto come «l'app si è spenta». Il motivo era già
+disponibile in `monitor.state`, mancava solo in schermo: ora `UsageSectionView` mostra
+una riga arancione con la causa.
+
+`CLAUDELIVE_FORCE_BAD_TOKEN=1` corrompe il token prima della richiesta, per provare il
+percorso 401 senza aspettare otto ore.
+
 ## Come funziona la Fase 2
 
 **Perché non l'API Accessibility.** Era l'approccio iniziale, ed è stato scartato
@@ -255,6 +293,21 @@ Due superfici alternative, una sola attiva per volta, entrambe che ospitano **le
 stesse view SwiftUI** (`UsageSectionView`, `ProjectsSectionView`): è il motivo per
 cui la seconda superficie è costata poco.
 
+Cambiare superficie **non** è nascondere il pannello: `PanelController.suspend()`
+lo toglie dallo schermo senza toccare `panelVisible`, mentre `hide()` registra
+l'intenzione dell'utente. Il bug che questa distinzione risolve: passare al notch
+chiamava `hide()`, quindi tornando al pannello flottante non compariva più nulla e
+bisognava richiamarlo dal menu. Per lo stesso motivo `applyDisplayMode(isInitial:)`
+distingue «ripristina cosa c'era» all'avvio da «l'utente ha scelto questa
+superficie», che è una richiesta di vederla.
+
+Il menu della barra è riempito in `menuNeedsUpdate`, cioè nell'istante prima di
+aprirsi, non ricostruito a ogni cambiamento: è ciò che tiene aggiornati l'elenco
+dei monitor collegati e le voci che dipendono dalla modalità (`Schermi notch` col
+notch, `Posizione pannello` col pannello) ed evita di sostituire
+`statusItem.menu` mentre è aperto sotto il cursore. `MenuBarController.logStructure()`
+lo scrive nel log, unico modo di verificarlo senza pilotare la UI.
+
 ### Pannello flottante
 
 Trascinabile, con tema **Come il sistema / Chiaro / Scuro**. Il tema è applicato
@@ -269,13 +322,13 @@ Geometria ricavata da `NSScreen.auxiliaryTopLeftArea` / `auxiliaryTopRightArea`
 configurazioni esterne). Misurato su questa macchina:
 
 ```text
-Built-in Retina Display 1512×982 @ 543,-982
-auxTopLeft  543 … 1208     auxTopRight 1393 … 2055
-→ notch 185×32pt, x 1208 … 1393
+Built-in Retina Display 1512×982 @ 0,0
+auxTopLeft  0 … 665     auxTopRight 850 … 1512
+→ cutout 185×32pt, x 665 … 850
 ```
 
 Il notch **non è necessariamente sullo schermo principale**: qui il principale è
-un BenQ esterno.
+un monitor esterno.
 
 - **Finestra** a `level = .statusBar` (25), l'unico livello che disegna sopra la
   barra dei menu (`.mainMenu` = 24). `collectionBehavior` include `.stationary`
@@ -283,18 +336,100 @@ un BenQ esterno.
   rivelerebbe che è una finestra e non parte del notch.
 - **Sempre nera e opaca**: qualsiasi translucenza romperebbe l'illusione di
   continuità col ritaglio fisico.
-- **Collassata**: strisce simmetriche da 62pt che abbracciano il notch, per un
-  totale di 309pt. I controlli stanno sui bordi esterni e gli anelli abbracciano
-  il notch, così i due lati si specchiano: `[⌄][5h◯]` notch `[◯7g][cartella]`.
+- **Collassata**: strisce simmetriche che abbracciano il cutout — `[⌄][5h◯]`
+  cutout `[◯7g][cartella]` — per un totale di 339pt a scala 1. I controlli stanno
+  sui bordi esterni e gli anelli abbracciano il cutout, così i due lati si
+  specchiano.
 - **Utilizzo come anello** invece di `5h 11%`: la percentuale esatta vive solo nel
-  pannello espanso (e nel tooltip). È ciò che permette strisce da 62pt anziché
-  130pt — con il testo la superficie diventava larga 445pt.
-- **Espansione**: cambia **solo l'altezza**. Larghezza fissa, così le due
-  percentuali restano esattamente dove sono e il pannello legge come il notch che
-  si allunga, non come una finestra che compare.
-- **Fallback**: senza schermo con notch (o a coperchio chiuso) la modalità non è
-  offerta e l'app torna al pannello flottante — mai lasciata senza superficie.
-  `didChangeScreenParametersNotification` rivaluta a ogni cambio display.
+  pannello espanso (e nel tooltip). È ciò che tiene la superficie a 339pt: con il
+  testo diventava larga 445pt.
+- **Espansione**: cresce in altezza **e** in larghezza (fino a 624pt), con un
+  piccolo rimbalzo. Le strisce restano ancorate al cutout e la larghezza in più
+  compare come nero attorno — vedi `NotchSurface` per chi possiede l'animazione e
+  per i due approcci che hanno fallito prima di questo.
+
+#### Smusso ai lati (`NotchShape`)
+
+I due angoli superiori sono **concavi**, non retti:
+
+```text
+ ┌──╮                    ╭──┐   ← al bordo dello schermo la forma è a
+ │  ╰────────────────────╯  │     larghezza piena
+ │   striscia cutout striscia │
+ ╰──────────────────────────╯   ← angoli inferiori convessi
+```
+
+Un angolo a 90° annuncia «questa è una finestra appoggiata sulla barra dei menu»;
+il raccordo concavo si legge come il notch stesso che si allarga. Conseguenza per
+il layout: il **corpo** nero è rientrato di `flareRadius` (12pt) per lato, quindi
+la finestra è larga `corpo + 24pt` e il contenuto va rientrato di altrettanto.
+Tutto ciò che deriva da `NotchGeometry` ne tiene già conto.
+
+#### Distribuzione dentro la striscia
+
+`stripWidth = controlSlot (32) + ringInset (7) + ringDiameter`, senza spazio non
+assegnato. Il controllo esterno — chevron a sinistra, pulsante progetti a destra —
+sta in uno **slot a larghezza fissa** ed è centrato dentro quello slot; l'anello
+abbraccia il cutout.
+
+Prima c'era uno `Spacer`, e uno spacer mette tutto lo slack da un lato solo: il
+chevron finiva schiacciato contro l'anello con un buco visibile al bordo esterno, e
+il pulsante progetti restava scentrato in quel che rimaneva. Misurato sullo snapshot
+reale: chevron centrato a 15,5pt dal bordo del corpo, progetti a 16,5pt dall'altro —
+speculari.
+
+#### Dimensione del notch
+
+Impostazioni → Superficie → **Larghezza / Altezza notch** (60…600 × 24…72pt, default
+170×32). La larghezza è quella del tratto centrale; la barra completa aggiunge le due
+strisce.
+
+Su uno schermo con il ritaglio fisico le due misure sono **minimi**, non valori
+ignorati: sotto la larghezza del buco gli anelli finirebbero *dentro* il ritaglio,
+dove non viene visualizzato nulla, e sotto la sua altezza il bordo inferiore del buco
+sporgerebbe sotto la barra. Sopra quei minimi la barra cresce normalmente, quindi
+l'impostazione funziona su ogni schermo. Il valore effettivo è mostrato accanto allo
+slider (`170 → 185 pt`), altrimenti metà corsa sembra non fare nulla.
+
+Due bug da non reintrodurre:
+
+- `geometries(selection:…)` costruiva il ramo *automatico* con un helper che **non
+  prendeva la dimensione**, quindi su un Mac col notch fisico larghezza e altezza non
+  facevano assolutamente niente. Ora ogni ramo passa da un unico `resolve(_:)`.
+- la dimensione richiesta veniva scartata anche perché il ramo fisico ignorava il
+  parametro invece di usarlo come minimo.
+
+`ringDiameter` è limitato a `barHeight - 2`: il contenuto è ritagliato dalla finestra,
+quindi un anello troppo grande verrebbe *tagliato* e non rimpicciolito. Il limite
+morde solo su una barra bassa — a 32pt lascia intatta tutta la corsa dello slider
+«Dimensione contatori».
+
+`CLAUDELIVE_SELFTEST=1` verifica la catena impostazione → geometria → finestra
+scrivendo nel log il rect reale di ogni superficie a ogni cambio di misura.
+
+#### Su quali schermi
+
+Impostazioni → Superficie → **Schermi**: `Automatico` (quello col cutout, in
+mancanza lo schermo principale), `Schermi scelti`, `Tutti gli schermi`.
+
+- Su uno schermo **senza** cutout il notch viene **disegnato**: 170×32pt al centro
+  del bordo superiore. Il gap centrale, che su un notch vero è il buco fisico, qui
+  è semplicemente nero come il resto — stessa view, nessun ramo in più.
+- Gli schermi scelti sono salvati come **UUID del pannello**
+  (`CGDisplayCreateUUIDFromDisplayID`), non come `CGDirectDisplayID` (assegnato per
+  sessione, cambia riconnettendo in ordine diverso) né come nome (due monitor
+  identici tornano come `PHL 241E1 (1)` e `(2)`, e chi prende quale suffisso non è
+  stabile). Il nome resta la cosa giusta da **mostrare**.
+- Una scelta che non risolve — monitor scollegato, o nessuna scelta fatta — ricade
+  sull'automatico: l'app non resta mai senza superficie visibile. Gli UUID dei
+  monitor assenti **non** vengono rimossi, così riattaccandoli il notch ricompare
+  senza riconfigurare nulla.
+- Una superficie per schermo (`NotchSurface`), ognuna con la propria espansione:
+  apri quella che stai guardando. L'insieme viene *ricalcolato*, non ricostruito, a
+  ogni `didChangeScreenParametersNotification`: una superficie ancora valida viene
+  aggiornata sul posto, così attaccando un secondo monitor il notch esistente non
+  lampeggia.
+- **Fallback**: senza alcuno schermo l'app torna al pannello flottante.
 
 ## Come funziona la Fase 5
 

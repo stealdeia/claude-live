@@ -55,7 +55,9 @@ enum UsageState: Equatable {
             case .offline:
                 return "Nessuna connessione"
             case .tokenExpired:
-                return "Token scaduto — esegui un comando `claude` per rinnovarlo"
+                // Reached only when the API itself refused the token, so the wording
+                // says what to do rather than guessing at a cause.
+                return "Token rifiutato: usa Claude Code per rinnovarlo, poi si riprende da sé"
             case .httpError(let code):
                 return "Errore HTTP \(code)"
             case .other(let text):

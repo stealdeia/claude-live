@@ -2,8 +2,14 @@ import AppKit
 import Combine
 
 /// The menu bar item: shows the 5h session percentage and hosts the app's menu.
+///
+/// The menu is filled in `menuNeedsUpdate`, i.e. the instant before it opens,
+/// rather than being rebuilt whenever something changes. That is what keeps
+/// mode-dependent entries and the list of connected displays honest: they would
+/// otherwise be as old as the last usage probe, and replacing `statusItem.menu`
+/// while the menu is open closes it under the user's cursor.
 @MainActor
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let monitor: UsageMonitor
     private let projects: ProjectsMonitor
@@ -43,31 +49,23 @@ final class MenuBarController: NSObject {
         super.init()
 
         configureButton()
-        rebuildMenu()
 
-        // Redraw the title whenever the data or the relevant settings change.
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+        statusItem.menu = menu
+
+        // Only the title needs pushing: the menu pulls its contents when it opens.
         monitor.$snapshot
             .combineLatest(monitor.$state)
             .sink { [weak self] _, _ in
-                Task { @MainActor in
-                    self?.updateTitle()
-                    self?.rebuildMenu()
-                }
+                Task { @MainActor in self?.updateTitle() }
             }
             .store(in: &cancellables)
 
         status.$statusesByPath
             .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.updateTitle()
-                    self?.rebuildMenu()
-                }
-            }
-            .store(in: &cancellables)
-
-        projects.$projects
-            .sink { [weak self] _ in
-                Task { @MainActor in self?.rebuildMenu() }
+                Task { @MainActor in self?.updateTitle() }
             }
             .store(in: &cancellables)
 
@@ -192,10 +190,12 @@ final class MenuBarController: NSObject {
 
     // MARK: - Menu
 
-    private func rebuildMenu() {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        populate(menu)
+    }
 
+    private func populate(_ menu: NSMenu) {
         // Read-only summary at the top.
         if let snapshot = monitor.snapshot {
             if let five = snapshot.fiveHour {
@@ -240,7 +240,7 @@ final class MenuBarController: NSObject {
         }
 
         menu.addItem(.separator())
-        // Only offered on a Mac that has a notch to attach to.
+        // Offered on any Mac: a screen without a cutout gets a drawn one.
         if NotchGeometry.isAvailable {
             menu.addItem(action(
                 title: settings.displayMode == .notch ? "Passa al pannello flottante" : "Passa al notch",
@@ -249,25 +249,20 @@ final class MenuBarController: NSObject {
             ))
         }
         menu.addItem(action(title: "Aggiorna ora", key: "r", selector: #selector(refreshNow)))
-        menu.addItem(action(title: settings.panelVisible ? "Nascondi pannello" : "Mostra pannello",
-                            key: "p", selector: #selector(togglePanel)))
-        menu.addItem(action(title: settings.panelCollapsed ? "Espandi pannello" : "Comprimi pannello",
-                            key: "", selector: #selector(toggleCollapsed)))
 
-        // Anchor submenu.
-        let anchorItem = NSMenuItem(title: "Posizione pannello", action: nil, keyEquivalent: "")
-        let anchorMenu = NSMenu()
-        for anchor in PanelAnchor.allCases {
-            let item = NSMenuItem(title: anchor.label, action: #selector(selectAnchor(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = anchor.rawValue
-            item.state = settings.panelAnchor == anchor ? .on : .off
-            // "Free" is a result of dragging, not something to pick from a menu.
-            item.isEnabled = anchor != .free
-            anchorMenu.addItem(item)
+        // Only the entries that act on the surface actually in use. Offering the
+        // panel's position while the notch is showing invites the user to change
+        // something with no visible effect.
+        switch settings.displayMode {
+        case .notch:
+            menu.addItem(notchScreensItem())
+        case .floating:
+            menu.addItem(action(title: settings.panelVisible ? "Nascondi pannello" : "Mostra pannello",
+                                key: "p", selector: #selector(togglePanel)))
+            menu.addItem(action(title: settings.panelCollapsed ? "Espandi pannello" : "Comprimi pannello",
+                                key: "", selector: #selector(toggleCollapsed)))
+            menu.addItem(panelAnchorItem())
         }
-        anchorItem.submenu = anchorMenu
-        menu.addItem(anchorItem)
 
         menu.addItem(.separator())
         menu.addItem(action(title: "Impostazioni…", key: ",", selector: #selector(openSettings)))
@@ -286,6 +281,104 @@ final class MenuBarController: NSObject {
         menu.addItem(action(title: "Esci da Claude Live", key: "q", selector: #selector(quit)))
 
         statusItem.menu = menu
+    }
+
+    /// Writes the menu the delegate would build right now to the log.
+    ///
+    /// The menu is assembled on demand and its contents depend on the display
+    /// mode, so this is the only way to check it without driving the UI.
+    func logStructure() {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        populate(menu)
+
+        func describe(_ items: [NSMenuItem], indent: String) -> [String] {
+            items.flatMap { item -> [String] in
+                if item.isSeparatorItem { return ["\(indent)---"] }
+                let mark = item.state == .on ? "[x] " : (item.action == nil ? "" : "[ ] ")
+                var lines = ["\(indent)\(mark)\(item.title)"]
+                if let submenu = item.submenu {
+                    lines += describe(submenu.items, indent: indent + "    ")
+                }
+                return lines
+            }
+        }
+
+        Log.info("Menu (\(settings.displayMode.rawValue)):\n" + describe(menu.items, indent: "  ").joined(separator: "\n"))
+    }
+
+    private func panelAnchorItem() -> NSMenuItem {
+        let anchorItem = NSMenuItem(title: "Posizione pannello", action: nil, keyEquivalent: "")
+        let anchorMenu = NSMenu()
+        for anchor in PanelAnchor.allCases {
+            let item = NSMenuItem(title: anchor.label, action: #selector(selectAnchor(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = anchor.rawValue
+            item.state = settings.panelAnchor == anchor ? .on : .off
+            // "Free" is a result of dragging, not something to pick from a menu.
+            item.isEnabled = anchor != .free
+            anchorMenu.addItem(item)
+        }
+        anchorItem.submenu = anchorMenu
+        return anchorItem
+    }
+
+    /// Which displays carry a notch. Mirrors the Settings picker, including the
+    /// per-screen ticks, so both places can be used interchangeably.
+    private func notchScreensItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Schermi notch", action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        submenu.autoenablesItems = false
+
+        for selection in [NotchScreenSelection.automatic, .all] {
+            let item = NSMenuItem(title: selection.label, action: #selector(selectNotchScreens(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = selection.rawValue
+            item.state = settings.notchScreenSelection == selection ? .on : .off
+            item.isEnabled = true
+            submenu.addItem(item)
+        }
+
+        submenu.addItem(.separator())
+
+        // Ticks and clicks share one basis — see `chosenScreenIDs()` — so what the
+        // menu shows and what a click does can never disagree.
+        let ticked = Set(chosenScreenIDs())
+        for screen in ScreenCatalog.options() {
+            let title = screen.hasPhysicalNotch ? "\(screen.name) (notch)" : screen.name
+            let item = NSMenuItem(title: title, action: #selector(toggleNotchScreen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = screen.id
+            item.state = ticked.contains(screen.id) ? .on : .off
+            item.isEnabled = true
+            submenu.addItem(item)
+        }
+
+        // Explains an otherwise baffling state: nothing ticked, yet a notch is on
+        // screen — because the chosen monitor is not connected right now.
+        if settings.notchScreenSelection == .chosen && ticked.isDisjoint(with: Set(ScreenCatalog.options().map(\.id))) {
+            let hint = NSMenuItem(title: "Schermo scelto non collegato: uso l'automatico", action: nil, keyEquivalent: "")
+            hint.isEnabled = false
+            submenu.addItem(hint)
+        }
+
+        root.submenu = submenu
+        return root
+    }
+
+    /// The set a per-screen click operates on.
+    ///
+    /// With an explicit choice it is the *stored* list, not the resolved one, so
+    /// ticking a screen while another chosen monitor is unplugged does not silently
+    /// forget the absent one.
+    private func chosenScreenIDs() -> [String] {
+        if settings.notchScreenSelection == .chosen {
+            return settings.notchScreenIDs
+        }
+        return NotchGeometry.geometries(
+            selection: settings.notchScreenSelection,
+            chosenIDs: settings.notchScreenIDs
+        ).map(\.screenID)
     }
 
     private func summaryItem(title: String, window: UsageWindow) -> NSMenuItem {
@@ -357,24 +450,50 @@ final class MenuBarController: NSObject {
 
     @objc private func togglePanel() {
         onTogglePanel()
-        rebuildMenu()
     }
 
     @objc private func toggleCollapsed() {
         settings.panelCollapsed.toggle()
-        rebuildMenu()
     }
 
     @objc private func selectAnchor(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
               let anchor = PanelAnchor(rawValue: raw) else { return }
         settings.panelAnchor = anchor
-        rebuildMenu()
     }
 
     @objc private func toggleDisplayMode() {
         settings.displayMode = settings.displayMode == .notch ? .floating : .notch
-        rebuildMenu()
+    }
+
+    @objc private func selectNotchScreens(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let selection = NotchScreenSelection(rawValue: raw) else { return }
+        settings.notchScreenSelection = selection
+    }
+
+    /// Ticking or unticking one display. Either way the selection becomes
+    /// explicit, so what is ticked is exactly what was asked for — and unticking
+    /// the last one returns to automatic rather than leaving nothing selected.
+    @objc private func toggleNotchScreen(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+
+        var wanted = Set(chosenScreenIDs())
+        if wanted.contains(id) { wanted.remove(id) } else { wanted.insert(id) }
+
+        guard !wanted.isEmpty else {
+            settings.notchScreenSelection = .automatic
+            settings.notchScreenIDs = []
+            return
+        }
+
+        // Connected displays first, in AppKit's order, then any remembered
+        // identifier that is not attached right now — so unplugging and replugging
+        // still restores that monitor's notch.
+        let connected = ScreenCatalog.options().map(\.id)
+        let ordered = connected.filter(wanted.contains) + wanted.subtracting(connected).sorted()
+        settings.notchScreenSelection = .chosen
+        settings.notchScreenIDs = ordered
     }
 
     @objc private func refreshProjects() {

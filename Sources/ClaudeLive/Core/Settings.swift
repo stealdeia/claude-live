@@ -34,6 +34,14 @@ private struct SettingsData: Codable {
     var theme: AppTheme?
     var notchExpandOnHover: Bool?
     var notchScale: Double?
+    var notchWidth: Double?
+    var notchHeight: Double?
+    /// Names used in 0.3.2 only, when the setting applied to drawn notches alone.
+    /// Read so an existing file keeps its values; never written again.
+    var virtualNotchWidth: Double?
+    var virtualNotchHeight: Double?
+    var notchScreenSelection: NotchScreenSelection?
+    var notchScreenIDs: [String]?
     var panelTopLeftX: Double?
     var panelTopLeftY: Double?
     var projectsRefreshMinutes: Double?
@@ -114,6 +122,45 @@ final class Settings: ObservableObject {
             schedulePersist()
         }
     }
+
+    /// Size of the *drawn* notch, on screens that have no cutout.
+    ///
+    /// Only the drawn one: where the hardware has a hole, its measurements win —
+    /// a bar of a different size would hang past the hole instead of continuing it.
+    @Published var notchWidth: Double = NotchGeometry.defaultNotchSize.width {
+        didSet {
+            let clamped = notchWidth.clamped(to: NotchGeometry.widthRange)
+            guard clamped == notchWidth else {
+                notchWidth = clamped
+                return
+            }
+            schedulePersist()
+        }
+    }
+
+    @Published var notchHeight: Double = NotchGeometry.defaultNotchSize.height {
+        didSet {
+            let clamped = notchHeight.clamped(to: NotchGeometry.heightRange)
+            guard clamped == notchHeight else {
+                notchHeight = clamped
+                return
+            }
+            schedulePersist()
+        }
+    }
+
+    /// Convenience for the geometry layer, which wants one value.
+    var notchSize: CGSize {
+        CGSize(width: notchWidth, height: notchHeight)
+    }
+
+    /// Which displays show a notch surface.
+    @Published var notchScreenSelection: NotchScreenSelection = .automatic { didSet { schedulePersist() } }
+
+    /// Stable display identifiers (see `ScreenIdentity`) used when the selection
+    /// is `.chosen`. Identifiers of monitors that are not connected right now are
+    /// kept: they become live again when the monitor comes back.
+    @Published var notchScreenIDs: [String] = [] { didSet { schedulePersist() } }
 
     @Published var panelVisible: Bool = true { didSet { schedulePersist() } }
     @Published var panelCollapsed: Bool = false { didSet { schedulePersist() } }
@@ -214,6 +261,10 @@ final class Settings: ObservableObject {
         if let v = decoded.theme { theme = v }
         if let v = decoded.notchExpandOnHover { notchExpandOnHover = v }
         if let v = decoded.notchScale { notchScale = v }
+        if let v = decoded.notchWidth ?? decoded.virtualNotchWidth { notchWidth = v }
+        if let v = decoded.notchHeight ?? decoded.virtualNotchHeight { notchHeight = v }
+        if let v = decoded.notchScreenSelection { notchScreenSelection = v }
+        if let v = decoded.notchScreenIDs { notchScreenIDs = v }
         if let v = decoded.panelVisible { panelVisible = v }
         if let v = decoded.panelCollapsed { panelCollapsed = v }
         if let v = decoded.panelAnchor { panelAnchor = v }
@@ -257,6 +308,12 @@ final class Settings: ObservableObject {
             theme: theme,
             notchExpandOnHover: notchExpandOnHover,
             notchScale: notchScale,
+            notchWidth: notchWidth,
+            notchHeight: notchHeight,
+            virtualNotchWidth: nil,
+            virtualNotchHeight: nil,
+            notchScreenSelection: notchScreenSelection,
+            notchScreenIDs: notchScreenIDs,
             panelTopLeftX: panelTopLeft.map { Double($0.x) },
             panelTopLeftY: panelTopLeft.map { Double($0.y) },
             projectsRefreshMinutes: projectsRefreshMinutes,

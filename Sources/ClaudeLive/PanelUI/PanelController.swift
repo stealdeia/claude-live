@@ -160,10 +160,23 @@ final class PanelController: NSObject {
         Log.debug("Pannello mostrato", category: .panel)
     }
 
+    /// The user asked for the panel to go away, so the preference changes with it.
     func hide() {
         settings.panelVisible = false
         panel.orderOut(nil)
         Log.debug("Pannello nascosto", category: .panel)
+    }
+
+    /// Takes the panel off screen **without** touching `panelVisible`: it is not
+    /// the active surface right now, which says nothing about whether the user
+    /// wants to see it when it is.
+    ///
+    /// This distinction is not academic. Switching to the notch used to call
+    /// `hide()`, which recorded "the user hid the panel", so switching back showed
+    /// nothing at all and the panel had to be summoned from the menu by hand.
+    func suspend() {
+        panel.orderOut(nil)
+        Log.debug("Pannello sospeso (superficie non attiva)", category: .panel)
     }
 
     func toggleVisibility() {
