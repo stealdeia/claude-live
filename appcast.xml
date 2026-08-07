@@ -5,6 +5,21 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.5.2</title>
+      <sparkle:version>0.5.2</sparkle:version>
+      <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 07 Aug 2026 09:51:02 +0000</pubDate>
+      <description>&lt;p&gt;La lista progetti si aggiorna da sola, e l&amp;#x27;app si riprende da sé dopo lo stand-by.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**I progetti aperti compaiono senza premere aggiorna.** Aprire un progetto nuovo faceva un solo tentativo di lettura, nell&amp;#x27;attimo in cui VS Code non aveva ancora né il titolo della finestra né il workspace registrato — e poi taceva per 15 minuti. Ora al segnale di apertura seguono alcuni controlli di assestamento, e un monitoraggio silenzioso delle finestre di VS Code (senza permessi, senza icone che lampeggiano nel Dock) rileva entro pochi secondi anche la riapertura di un progetto già noto, il caso che prima nessun segnale copriva.&lt;/li&gt;
+&lt;li&gt;**Dopo una notte di stand-by i numeri ripartono da soli.** Il refresh al risveglio aspetta che lo schermo sia davvero acceso invece di sprecarsi mentre è ancora spento; e quando il token di Claude Code risulta scaduto l&amp;#x27;app controlla ogni 30 secondi — in modo invisibile e senza dialoghi — se Claude Code ne ha scritto uno nuovo, ripartendo entro mezzo minuto dal primo uso di Claude Code. L&amp;#x27;app non rinnova mai il token per conto suo: il token ha un solo proprietario, e rotearlo da fuori scollega Claude Code dall&amp;#x27;account.&lt;/li&gt;
+&lt;li&gt;**Una notifica quando i dati smettono di aggiornarsi.** Token scaduto o credenziali illeggibili: arriva un avviso — uno solo per incidente, non uno ogni cinque minuti — che dice cosa fare.&lt;/li&gt;
+&lt;li&gt;Le finestre di VS Code ancora in caricamento non compaiono più come riga morta «Visual Studio Code» nella lista progetti.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.5.2/Claude.Live.0.5.2.dmg" length="2632550" type="application/octet-stream" sparkle:edSignature="HIcoJ5SYAIebAnUndveo6mAtgySuokqyKaElo7LfOelGRcjyH67Km+pTqG4y64/o8IjL8xtK/kLlsUq+minIDQ==" />
+    </item>
+    <item>
       <title>Versione 0.5.1</title>
       <sparkle:version>0.5.1</sparkle:version>
       <sparkle:shortVersionString>0.5.1</sparkle:shortVersionString>
