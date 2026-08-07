@@ -36,6 +36,22 @@ final class UsageNotifier {
         }
     }
 
+    /// One notification per incident: fired when the data stops updating for a
+    /// reason that needs the user (token refused, credentials unreadable),
+    /// re-armed by `clearProblem` once data flows again. Without the latch a
+    /// five-minute poll against a dead token would nag every five minutes.
+    private var problemNotified = false
+
+    func notifyProblem(_ body: String) {
+        guard !problemNotified else { return }
+        problemNotified = true
+        post(title: "Claude Live non si aggiorna", body: body)
+    }
+
+    func clearProblem() {
+        problemNotified = false
+    }
+
     func evaluate(snapshot: UsageSnapshot, warn: Double, danger: Double) {
         check(window: snapshot.fiveHour, label: "sessione 5h", key: "5h", warn: warn, danger: danger)
         check(window: snapshot.sevenDay, label: "settimana 7d", key: "7d", warn: warn, danger: danger)

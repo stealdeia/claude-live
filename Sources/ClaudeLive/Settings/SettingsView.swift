@@ -70,6 +70,11 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Text("Quando il token di Claude Code scade (di solito dopo 8 ore, quindi ogni notte) l'app aspetta che sia Claude Code a rinnovarlo e se ne accorge entro 30 secondi: basta usare Claude Code e i dati ripartono da soli. L'app non rinnova mai il token per conto suo — farlo scollega Claude Code dall'account.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if let next = monitor.nextRefreshAt {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     LabeledContent("Prossimo aggiornamento") {

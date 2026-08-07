@@ -20,10 +20,19 @@ import Security
 /// ```
 struct ClaudeCredentials: Sendable {
     let accessToken: String
+    /// Used to obtain a new access token without Claude Code having to run.
+    /// Optional because an item written by an older CLI may not carry one.
+    let refreshToken: String?
     let expiresAt: Date?
     let subscriptionType: String?
     let rateLimitTier: String?
     let organizationUUID: String?
+    /// The keychain service this was read from (diagnostics: the primary item
+    /// or one of the per-workspace variants).
+    let service: String
+    /// The item's payload exactly as Claude Code wrote it, for fields we do not
+    /// model.
+    let rawPayload: Data
 
     /// Whether the stated expiry has passed.
     ///
@@ -46,11 +55,40 @@ struct ClaudeCredentials: Sendable {
     func withInvalidToken() -> ClaudeCredentials {
         ClaudeCredentials(
             accessToken: accessToken + "-non-valido",
+            refreshToken: refreshToken,
             expiresAt: expiresAt,
             subscriptionType: subscriptionType,
             rateLimitTier: rateLimitTier,
-            organizationUUID: organizationUUID
+            organizationUUID: organizationUUID,
+            service: service,
+            rawPayload: rawPayload
         )
+    }
+}
+
+/// Runs a blocking keychain call off the Swift concurrency thread pool.
+///
+/// `Task.detached` was the obvious choice and the wrong one. It runs on the
+/// cooperative pool, and `SecItemCopyMatching` *blocks* its thread for as long
+/// as macOS keeps its "allow access?" dialog on screen. With pool threads held
+/// that way, even the `Task.sleep` implementing our own timeout could not get
+/// scheduled — observed live on 2026-08-06, when a single dialog froze the
+/// polling loop for **27 minutes** and every poll in between logged
+/// "già in corso". A dedicated queue keeps the blocking where it starves
+/// nothing else.
+enum KeychainQueue {
+    private static let queue = DispatchQueue(
+        label: "it.aldeialab.ClaudeLive.keychain",
+        qos: .utility,
+        attributes: .concurrent
+    )
+
+    static func run<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result { try work() })
+            }
+        }
     }
 }
 
@@ -77,13 +115,17 @@ enum CredentialsError: LocalizedError {
     }
 }
 
-/// Read-only access to Claude Code's credentials.
+/// **Read-only** access to Claude Code's credentials — permanently.
 ///
-/// Deliberately **never writes** to the keychain and **never calls the OAuth
-/// refresh endpoint**: refreshing rotates the refresh token, which would
-/// invalidate the copy Claude Code itself holds and break the user's CLI login.
-/// When the access token expires we simply re-read the item — Claude Code
-/// refreshes it on its own next run.
+/// Writing was allowed exactly once, in 0.5.1, to renew expired tokens, and the
+/// morning of 2026-08-07 showed why it must never be again. Claude Code keeps
+/// its refresh token *in memory*, so however carefully we rotated and stored,
+/// its copy died with every renewal: the CLI logged the user out, the user
+/// logged back in (invalidating *our* token), and the resulting 401→renew loop
+/// rewrote the keychain every five minutes — each write raising the macOS
+/// password dialog. The token family has one owner and it is not us. When the
+/// token expires, this app waits for Claude Code to write a fresh one (see
+/// UsageMonitor's recovery watch) and reads it; it never renews.
 ///
 /// **Never call `load()` from the main thread.** `SecItemCopyMatching` blocks the
 /// calling thread for as long as macOS is showing its "allow access to this
@@ -148,7 +190,7 @@ enum CredentialsStore {
     }
 
     private static func loadItem(service: String) throws -> ClaudeCredentials {
-        let credentials = try parse(readItem(service: service))
+        let credentials = try parse(readItem(service: service), service: service)
         Log.debug(
             "Credenziali lette da «\(service)» (piano: \(credentials.subscriptionType ?? "?"), tier: \(credentials.rateLimitTier ?? "?"))",
             category: .keychain
@@ -201,7 +243,7 @@ enum CredentialsStore {
         }
     }
 
-    private static func parse(_ data: Data) throws -> ClaudeCredentials {
+    private static func parse(_ data: Data, service: String) throws -> ClaudeCredentials {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw CredentialsError.malformedPayload("JSON non valido")
         }
@@ -217,12 +259,18 @@ enum CredentialsStore {
             Date(timeIntervalSince1970: $0 / 1000)
         }
 
+        let refreshToken = (oauth["refreshToken"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+
         return ClaudeCredentials(
             accessToken: token,
+            refreshToken: refreshToken,
             expiresAt: expiresAt,
             subscriptionType: oauth["subscriptionType"] as? String,
             rateLimitTier: oauth["rateLimitTier"] as? String,
-            organizationUUID: root["organizationUuid"] as? String
+            organizationUUID: root["organizationUuid"] as? String,
+            service: service,
+            rawPayload: data
         )
     }
+
 }

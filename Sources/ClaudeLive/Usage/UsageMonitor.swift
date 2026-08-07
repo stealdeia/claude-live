@@ -67,9 +67,26 @@ final class UsageMonitor: ObservableObject {
     /// writes a different one, we try again.
     private var rejectedToken: String?
 
+    /// Armed while the token is rejected: checks the keychain item's modification
+    /// date every 30 s (attributes-only, milliseconds, no dialog) so the panel
+    /// comes back within seconds of Claude Code writing a fresh token, instead of
+    /// waiting for the next five-minute poll.
+    ///
+    /// This is the *whole* recovery strategy, deliberately. The app used to renew
+    /// the token itself (0.5.1, 2026-08-07) and the result was a rotation war:
+    /// Claude Code holds its refresh token in memory, so each renewal from here
+    /// invalidated it, logged the user out of their own CLI, and every 401→renew
+    /// cycle rewrote the keychain — a password dialog every five minutes. The app
+    /// must never write Claude Code's credentials; it waits for their owner.
+    private var recoveryTimer: Timer?
+
     /// A payload read in flight, shared so a second poll can never queue a second
     /// keychain dialog behind the first.
     private var pendingRead: Task<ClaudeCredentials, Error>?
+
+    /// True while an attributes query is outstanding. One that is stuck behind a
+    /// keychain dialog must not be joined by a new one on every poll.
+    private var readingModificationDate = false
 
     /// How long a poll waits for the keychain before giving up on it for now.
     ///
@@ -108,7 +125,27 @@ final class UsageMonitor: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        recoveryTimer?.invalidate()
+        recoveryTimer = nil
         nextRefreshAt = nil
+    }
+
+    /// Refreshes once the Mac is genuinely back, not merely awake.
+    ///
+    /// `didWakeNotification` fires before the display comes on — and a refresh
+    /// that lands in that gap is skipped as "screen off", which is what left the
+    /// panel showing numbers 14 hours old on the morning of 2026-08-07. So the
+    /// wake signal now waits for the display instead of spending itself on it,
+    /// and gives up after a couple of minutes, which is a dark wake.
+    func refreshAfterWake() async {
+        for _ in 0..<60 {
+            if CGDisplayIsAsleep(CGMainDisplayID()) == 0 {
+                await refresh(reason: "risveglio")
+                return
+            }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+        }
+        Log.debug("Risveglio senza schermo acceso: nessun refresh", category: .usage)
     }
 
     private func restartTimer() {
@@ -163,22 +200,27 @@ final class UsageMonitor: ObservableObject {
                 ?? error.localizedDescription
             state = .unavailable(message: message)
             Log.error("Credenziali non disponibili: \(message)", category: .keychain)
+            if settings.notificationsEnabled {
+                notifier.notifyProblem("Non riesco a leggere le credenziali di Claude Code: \(message)")
+            }
             return
         }
 
-        // The only token we skip is one the *server* has already refused. Its
-        // stated expiry is not consulted here: clocks, slack and skew have all
-        // been wrong before, and a request costs far less than half an hour of
-        // silence.
+        // Still holding the token the server refused: there is nothing to ask.
+        // The recovery watch is what gets us out of here, the moment Claude Code
+        // writes a fresh token.
         if credentials.accessToken == rejectedToken {
-            Log.debug("Token già rifiutato dall'API e non ancora rinnovato: nessuna richiesta", category: .usage)
+            Log.debug("Token già rifiutato dall'API: aspetto che Claude Code lo rinnovi", category: .usage)
             state = .stale(reason: .tokenExpired)
+            armRecoveryWatch()
             nextRefreshAt = Date().addingTimeInterval(settings.refreshIntervalMinutes * 60)
             return
         }
 
         if credentials.isPastExpiry {
-            // Worth trying anyway, and worth knowing when it works.
+            // Worth trying anyway, and worth knowing when it works. The server is
+            // the authority on whether a token is alive: clocks, slack and skew
+            // have all been wrong before.
             Log.info(
                 "Access token oltre la scadenza dichiarata (\(credentials.expiresAt.map(Format.clock.string(from:)) ?? "?")): provo comunque",
                 category: .usage
@@ -193,17 +235,55 @@ final class UsageMonitor: ObservableObject {
             rejectedToken = nil
             apply(result)
         } catch let error as UsageProbeError {
-            // A rejected token is remembered rather than merely dropped: dropping
-            // it made the next poll re-read the keychain, which on a Mac without a
-            // persistent grant means a dialog every five minutes. Remembering it
-            // means we wait quietly until Claude Code writes a new one.
-            if case .unauthorized = error { rejectedToken = credentials.accessToken }
+            // A rejected token is remembered rather than merely dropped:
+            // dropping it made the next poll re-read the keychain, which on a
+            // Mac without a persistent grant means a dialog every five
+            // minutes. Remembering it means we stay quiet until there is a
+            // genuinely different token to try.
+            if case .unauthorized = error {
+                rejectedToken = credentials.accessToken
+            }
             handle(error)
         } catch {
             state = .stale(reason: .other(error.localizedDescription))
         }
 
         nextRefreshAt = Date().addingTimeInterval(settings.refreshIntervalMinutes * 60)
+    }
+
+    // MARK: - Recovery watch
+
+    /// Checks every 30 s whether Claude Code has written new credentials, and
+    /// refreshes as soon as it has. Attribute-only reads: milliseconds, no
+    /// dialog, no network — cheap enough to run until recovery, harmless if the
+    /// Mac goes back to sleep.
+    private func armRecoveryWatch() {
+        guard recoveryTimer == nil else { return }
+        Log.debug("Controllo credenziali ogni 30s finché Claude Code non scrive un token nuovo", category: .usage)
+        let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.recoveryTick() }
+        }
+        timer.tolerance = 5
+        RunLoop.main.add(timer, forMode: .common)
+        recoveryTimer = timer
+    }
+
+    private func disarmRecoveryWatch() {
+        recoveryTimer?.invalidate()
+        recoveryTimer = nil
+    }
+
+    private func recoveryTick() async {
+        // Recovery is only about a refused token; other stale reasons (offline,
+        // HTTP errors) already retry on the normal timer.
+        guard rejectedToken != nil else {
+            disarmRecoveryWatch()
+            return
+        }
+        let modified = await modificationDate()
+        guard let modified, modified != cachedModificationDate else { return }
+        Log.info("Claude Code ha scritto credenziali nuove: riprovo subito", category: .usage)
+        await refresh(reason: "nuove credenziali")
     }
 
     /// Returns the credentials, reading the keychain payload only when Claude Code
@@ -248,12 +328,23 @@ final class UsageMonitor: ObservableObject {
     /// dialog left unanswered stopped the polling loop entirely, because 0.4.0 put
     /// the timeout only on the payload read and left this one unbounded.
     private func modificationDate() async -> Date? {
+        // The flag, not the timeout, is what bounds this: giving up waiting does
+        // not unblock the query, so without it every poll would leave another
+        // blocked thread behind for as long as the dialog stayed up.
+        guard !readingModificationDate else {
+            Log.debug("Attributi keychain già in lettura: query saltata", category: .keychain)
+            return nil
+        }
+        readingModificationDate = true
+
+        let read: Task<Date?, Never> = Task { [weak self] in
+            let value = try? await KeychainQueue.run { CredentialsStore.modificationDate() }
+            self?.readingModificationDate = false
+            return value
+        }
+
         do {
-            return try await withTimeout(attributeTimeout) {
-                await Task.detached(priority: .utility) {
-                    CredentialsStore.modificationDate()
-                }.value
-            }
+            return try await withTimeout(attributeTimeout) { await read.value }
         } catch {
             Log.debug("Data di modifica del keychain non leggibile in tempo", category: .keychain)
             return nil
@@ -264,8 +355,8 @@ final class UsageMonitor: ObservableObject {
     /// waits on the same dialog instead of stacking a second one behind it, and so
     /// its result is still picked up if it lands after the timeout.
     private func startCredentialsRead(modificationDate: Date?) -> Task<ClaudeCredentials, Error> {
-        let read = Task.detached(priority: .utility) {
-            try CredentialsStore.load()
+        let read = Task<ClaudeCredentials, Error> {
+            try await KeychainQueue.run { try CredentialsStore.load() }
         }
         pendingRead = read
 
@@ -289,6 +380,8 @@ final class UsageMonitor: ObservableObject {
         snapshot = result.snapshot
         rawHeaders = result.rawHeaders
         state = .live
+        disarmRecoveryWatch()
+        notifier.clearProblem()
         persistCachedSnapshot(result.snapshot)
 
         let fiveHour = result.snapshot.fiveHour.map { Format.percent($0.utilization) } ?? "—"
@@ -309,6 +402,12 @@ final class UsageMonitor: ObservableObject {
         case .unauthorized:
             Log.error("API 401/403: token rifiutato", category: .usage)
             state = .stale(reason: .tokenExpired)
+            armRecoveryWatch()
+            if settings.notificationsEnabled {
+                notifier.notifyProblem(
+                    "Il token di Claude Code è scaduto. Usa Claude Code (basta un comando): appena scrive il token nuovo, riprendo da solo."
+                )
+            }
         case .http(let code, let body):
             Log.error("API HTTP \(code): \(body ?? "-")", category: .usage)
             state = .stale(reason: .httpError(code))

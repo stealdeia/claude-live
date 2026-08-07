@@ -171,9 +171,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            // Dark wake fires this too, hence `isAutomatic`: the keychain cannot
-            // show its dialog with the screen off, and nobody is looking anyway.
-            Task { @MainActor in await self?.monitor.refresh(reason: "risveglio", isAutomatic: true) }
+            // Dark wake fires this too, so the refresh waits for the display
+            // rather than being spent while it is still off — see
+            // `refreshAfterWake`.
+            Task { @MainActor in await self?.monitor.refreshAfterWake() }
         }
     }
 

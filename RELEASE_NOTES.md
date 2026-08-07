@@ -1,8 +1,6 @@
-Al 100% dei token il pannello mostrava 1%.
+La lista progetti si aggiorna da sola, e l'app si riprende da sé dopo lo stand-by.
 
-- **Corretto il calcolo dell'utilizzo a limite raggiunto.** Quando la sessione 5h si esaurisce l'API riporta un valore poco sopra 1 (l'ultima richiesta sfonda il tetto, quindi 102%): un controllo «difensivo» lo interpretava come una percentuale già in centesimi e lo divideva per 100, mostrando **1% invece di 100%**. Ora il 100% si vede, in rosso, con la barra piena — e una finestra che l'API dichiara esaurita viene mostrata piena anche se il numero fosse appena sotto.
-- **Il polling non si blocca più dietro un dialogo del portachiavi.** La lettura veloce che controlla se le credenziali sono cambiate non aveva un limite di tempo: con un dialogo aperto sullo schermo l'intero portachiavi si mette in coda dietro di esso, e l'aggiornamento dei numeri restava fermo fino alla risposta. Ora, se quella lettura non arriva in pochi secondi, l'app continua con le credenziali che ha già.
-
-Il primo difetto era invisibile senza esaurire davvero la quota: ho aggiunto un modo per
-forzare qualsiasi valore di utilizzo, così il caso «limite raggiunto» si può provare
-in qualsiasi momento invece di aspettare di incontrarlo.
+- **I progetti aperti compaiono senza premere aggiorna.** Aprire un progetto nuovo faceva un solo tentativo di lettura, nell'attimo in cui VS Code non aveva ancora né il titolo della finestra né il workspace registrato — e poi taceva per 15 minuti. Ora al segnale di apertura seguono alcuni controlli di assestamento, e un monitoraggio silenzioso delle finestre di VS Code (senza permessi, senza icone che lampeggiano nel Dock) rileva entro pochi secondi anche la riapertura di un progetto già noto, il caso che prima nessun segnale copriva.
+- **Dopo una notte di stand-by i numeri ripartono da soli.** Il refresh al risveglio aspetta che lo schermo sia davvero acceso invece di sprecarsi mentre è ancora spento; e quando il token di Claude Code risulta scaduto l'app controlla ogni 30 secondi — in modo invisibile e senza dialoghi — se Claude Code ne ha scritto uno nuovo, ripartendo entro mezzo minuto dal primo uso di Claude Code. L'app non rinnova mai il token per conto suo: il token ha un solo proprietario, e rotearlo da fuori scollega Claude Code dall'account.
+- **Una notifica quando i dati smettono di aggiornarsi.** Token scaduto o credenziali illeggibili: arriva un avviso — uno solo per incidente, non uno ogni cinque minuti — che dice cosa fare.
+- Le finestre di VS Code ancora in caricamento non compaiono più come riga morta «Visual Studio Code» nella lista progetti.
