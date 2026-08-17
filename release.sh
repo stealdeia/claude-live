@@ -35,6 +35,24 @@ gh auth status >/dev/null 2>&1 || fail "gh non autenticato: esegui 'gh auth logi
 SIGN_UPDATE="$(find .build/artifacts -type f -name sign_update | head -1)"
 [[ -n "${SIGN_UPDATE}" ]] || fail "sign_update non trovato: esegui 'swift package resolve'."
 
+# Che la chiave privata di Sparkle ci sia va verificato **qui**, non quando
+# serve. La firma EdDSA è l'ultimo passo prima della pubblicazione, e senza
+# questo controllo la sua assenza si scopre dopo build e notarizzazione: venti
+# minuti di attesa su Apple per poi fallire. È già capitato una volta, su una
+# macchina nuova dove la chiave non era stata reimportata.
+GENERATE_KEYS="$(find .build/artifacts -type f -name generate_keys | head -1)"
+if [[ -n "${GENERATE_KEYS}" ]]; then
+  FOUND_ED_KEY="$("${GENERATE_KEYS}" -p 2>/dev/null | tail -1 | tr -d ' \n\r')"
+  [[ -n "${FOUND_ED_KEY}" ]] || fail "Chiave privata Sparkle assente dal portachiavi: gli aggiornamenti non sarebbero firmabili. Reimportala con 'generate_keys -f <file>' — il file deve contenere solo il seme base64 su una riga, senza la riga 'Pub' (vedi README)."
+  # E che sia *quella giusta*: una chiave diversa produce firme che le copie già
+  # installate rifiutano, perché verificano contro la pubblica nel loro Info.plist.
+  [[ "${FOUND_ED_KEY}" == "${SU_PUBLIC_ED_KEY}" ]] || \
+    fail "La chiave Sparkle nel portachiavi non è quella distribuita.
+    nel portachiavi: ${FOUND_ED_KEY}
+    attesa:          ${SU_PUBLIC_ED_KEY}
+  Firmare con questa renderebbe l'aggiornamento ininstallabile per tutti."
+fi
+
 if [[ "${DRY_RUN}" == "0" ]]; then
   # Il codice sorgente deve essere committato *prima* di pubblicare il binario, e
   # questo va verificato prima di interrogare GitHub: sono controlli locali,

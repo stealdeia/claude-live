@@ -542,9 +542,31 @@ non possono più essere aggiornate**, perché rifiutano qualsiasi pacchetto che 
 verifichi contro la chiave pubblica compilata dentro l'app. Per esportarla:
 
 ```bash
+.build/artifacts/sparkle/Sparkle/bin/generate_keys -p   # solo la metà pubblica
 .build/artifacts/sparkle/Sparkle/bin/generate_keys -x chiave-sparkle.txt
 # conservala offline, poi elimina il file dal disco
 ```
+
+**Per reimportarla su una macchina nuova** serve `-f`, e qui c'è una trappola che
+costa tempo. `-x` esporta un file su tre righe — il seme base64, una riga vuota,
+poi `Pub <chiave pubblica>` — ma `-f` rifiuta quel formato: vuole un file con **il
+solo seme**, su una riga, e la riga `Pub` di troppo lo fa fallire. L'errore è
+fuorviante, perché stampa l'intero contenuto del file dopo
+«Failed to decode base64 encoded key data»: sembra un problema della chiave,
+è la riga in più.
+
+```bash
+head -1 chiave-sparkle.txt > solo-seme.txt        # scarta la riga Pub
+.build/artifacts/sparkle/Sparkle/bin/generate_keys -f solo-seme.txt
+.build/artifacts/sparkle/Sparkle/bin/generate_keys -p   # deve stampare SU_PUBLIC_ED_KEY
+rm solo-seme.txt chiave-sparkle.txt
+```
+
+L'ultima riga non è pedanteria: se la chiave importata non è quella distribuita,
+le firme prodotte sono valide ma **nessuna copia installata le accetta**, perché
+verificano contro la pubblica nel proprio `Info.plist`. Per questo il preflight di
+`release.sh` confronta `generate_keys -p` con `SU_PUBLIC_ED_KEY` e si rifiuta di
+partire se differiscono.
 
 ### Firma, notarizzazione e Gatekeeper
 
