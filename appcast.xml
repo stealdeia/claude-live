@@ -5,6 +5,20 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.5.3</title>
+      <sparkle:version>0.5.3</sparkle:version>
+      <sparkle:shortVersionString>0.5.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Mon, 17 Aug 2026 14:53:06 +0000</pubDate>
+      <description>&lt;p&gt;L&amp;#x27;app è firmata con un certificato Apple e registrata presso Apple: si apre con un doppio clic.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Niente più «sviluppatore non identificato».** Claude Live è firmata con un certificato **Developer ID** e notarizzata da Apple. Chi la installa non deve più passare da Impostazioni di Sistema → Privacy e Sicurezza → «Apri comunque»: doppio clic e l&amp;#x27;app parte. Sono verificati da Apple sia l&amp;#x27;app sia il DMG, separatamente, così l&amp;#x27;app funziona anche al primo avvio senza rete.&lt;/li&gt;
+&lt;li&gt;**Una volta sola, macOS richiederà l&amp;#x27;accesso al Keychain.** Il certificato di firma è cambiato, e macOS lega l&amp;#x27;autorizzazione al Keychain all&amp;#x27;identità che ha firmato l&amp;#x27;app: la vecchia autorizzazione non è più valida. Scegli di nuovo **«Consenti sempre»** e non la rivedrai più, nemmeno ai prossimi aggiornamenti.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.5.3/Claude.Live.0.5.3.dmg" length="2681248" type="application/octet-stream" sparkle:edSignature="992fQ+TRJ1OuBwfV8SPCmw4RHy5a9Bkusr5ynEVasQ9wospYKXpEnnM+H6KjywX69m/cCO3NFHX7AEk/KAxTCQ==" />
+    </item>
+    <item>
       <title>Versione 0.5.2</title>
       <sparkle:version>0.5.2</sparkle:version>
       <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
