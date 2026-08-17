@@ -82,34 +82,50 @@ rm -rf "${BUNDLE}/Contents/Frameworks/Sparkle.framework"
 cp -R "${SPARKLE_FRAMEWORK}" "${BUNDLE}/Contents/Frameworks/Sparkle.framework"
 
 if [[ -n "${SIGN_IDENTITY}" ]]; then
-  echo "==> Firma con «${SIGN_IDENTITY}»"
-
-  # Deliberately WITHOUT --options runtime.
+  # A real Developer ID gets the hardened runtime and a secure timestamp; both
+  # are hard requirements for Apple notarisation (see package.sh). Anything else
+  # — a self-signed identity — must not get them, and this is not a style
+  # preference:
   #
-  # The hardened runtime enables library validation, which requires every loaded
+  # the hardened runtime enables library validation, which requires every loaded
   # library to carry the same Team ID as the main binary. A self-signed
   # certificate has no Team ID at all, so Sparkle.framework could never be
   # loaded: dyld refused it with "mapping process and mapped file (non-platform)
-  # have different Team IDs" and the app died at launch.
+  # have different Team IDs" and the app died at launch. With a Developer ID the
+  # app and the framework share a Team ID, so library validation passes on its
+  # own and no entitlement is needed to relax it.
   #
-  # The hardened runtime is only a requirement for Apple notarisation, which we
-  # are not doing. If a real Developer ID is adopted later, add back
-  # `--options runtime`: both app and framework then share a Team ID and library
-  # validation passes on its own.
-  local_sign() { codesign --force --timestamp=none --sign "${SIGN_IDENTITY}" "$1"; }
+  # Note there is deliberately no entitlements file. Non-sandboxed, the app needs
+  # none: reading another app's Keychain item is governed by the item's ACL, and
+  # spawning `code`/`python3` is not something the hardened runtime restricts.
+  # Declaring entitlements "just in case" would only weaken the runtime.
+  if [[ "${SIGN_IDENTITY}" == "Developer ID Application:"* ]]; then
+    SIGN_OPTS=(--options runtime --timestamp)
+    echo "==> Firma Developer ID con «${SIGN_IDENTITY}» (hardened runtime)"
+  else
+    SIGN_OPTS=(--timestamp=none)
+    echo "==> Firma con «${SIGN_IDENTITY}» (senza hardened runtime)"
+  fi
 
   # Inside-out order matters: nested code must be signed before its container, or
   # the outer signature seals an unsigned framework and macOS rejects it.
-  # Sparkle's XPC services and its updater app are nested code of their own.
+  # Sparkle's XPC services and its updater app are nested code of their own, and
+  # they ship with entitlements of their own — --preserve-metadata keeps those,
+  # since re-signing without them breaks the updater.
   find "${BUNDLE}/Contents/Frameworks/Sparkle.framework" \
        \( -name '*.xpc' -o -name 'Updater.app' -o -name 'Autoupdate' \) -print | while read -r nested; do
-    codesign --force --timestamp=none --sign "${SIGN_IDENTITY}" "${nested}"
+    codesign --force "${SIGN_OPTS[@]}" --preserve-metadata=entitlements \
+             --sign "${SIGN_IDENTITY}" "${nested}"
   done
-  local_sign "${BUNDLE}/Contents/Frameworks/Sparkle.framework"
-  local_sign "${BUNDLE}"
+  codesign --force "${SIGN_OPTS[@]}" --sign "${SIGN_IDENTITY}" \
+           "${BUNDLE}/Contents/Frameworks/Sparkle.framework"
+  codesign --force "${SIGN_OPTS[@]}" --sign "${SIGN_IDENTITY}" "${BUNDLE}"
 
+  # --strict without --deep: --deep is what Apple tells you not to use for
+  # verification of a shipped bundle, and the nested code was signed explicitly
+  # above anyway.
   echo "==> Verifica firma"
-  codesign --verify --deep --strict "${BUNDLE}" && echo "    firma valida"
+  codesign --verify --strict --verbose=2 "${BUNDLE}" 2>&1 | sed 's/^/    /'
 else
   echo "==> Firma ad-hoc (nessuna SIGN_IDENTITY)"
   codesign --force --deep --sign - "${BUNDLE}" >/dev/null 2>&1 || true

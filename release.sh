@@ -120,8 +120,11 @@ tools/update-appcast.py \
   --notes RELEASE_NOTES.md
 
 git -C "${WORK}/repo" add appcast.xml
-git -C "${WORK}/repo" -c user.name="Claude Live release" \
-    -c user.email="noreply@aldeialab.it" \
+# Identità di comodo per il commit dell'appcast, che finisce nella cronologia
+# pubblica del repo delle release. `.invalid` è il TLD che l'IANA riserva proprio
+# a questo: un indirizzo che per costruzione non esiste e non recapita nulla.
+git -C "${WORK}/repo" -c user.name="Purple Heads release" \
+    -c user.email="noreply@purpleheads.invalid" \
     commit -m "Claude Live ${VERSION}" >/dev/null
 git -C "${WORK}/repo" push >/dev/null
 

@@ -20,24 +20,16 @@ livelli di utilizzo.
 
 Apri il `.dmg` e trascina **Claude Live** nella cartella Applicazioni.
 
-### 2. Autorizza l'app (una volta sola)
+### 2. Apri l'app
 
-Al primo doppio clic macOS dirà che l'app **non può essere aperta perché proviene
-da uno sviluppatore non identificato**.
+Doppio clic e si apre. L'app è firmata con un certificato **Developer ID** e
+**notarizzata da Apple**, quindi non compare nessun avviso di sicurezza e non
+serve autorizzare niente dalle Impostazioni di Sistema.
 
-È previsto: l'app è firmata ma non registrata presso Apple. Non è un errore.
-
-Per autorizzarla:
-
-1. Impostazioni di Sistema → **Privacy e Sicurezza**
-2. Scorri in fondo: trovi *«Claude Live è stata bloccata per proteggere il Mac»*
-3. Premi **Apri comunque** e conferma con Touch ID o password
-
-Da quel momento l'app si apre normalmente, e **gli aggiornamenti successivi non
-richiedono di ripetere questa procedura**.
-
-> Su macOS 15 e successivi il vecchio metodo "clic destro → Apri" non funziona
-> più: bisogna passare dalle Impostazioni di Sistema come sopra.
+> **Se hai una versione installata da prima della notarizzazione** e macOS ti
+> chiede di nuovo l'accesso al Keychain: è normale e succede una volta sola.
+> Il certificato di firma è cambiato, e macOS lega l'autorizzazione al Keychain
+> all'identità che ha firmato l'app. Scegli di nuovo «Consenti sempre».
 
 ### 3. Segui la procedura guidata
 

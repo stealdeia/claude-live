@@ -6,6 +6,9 @@ dist/
 # macOS
 .DS_Store
 
+# Configurazione dell'editor: locale, non del progetto
+.vscode/
+
 # Local overrides
 *.local
 

@@ -24,8 +24,14 @@
 	<string>AppIcon</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
+	<!-- Il nome mostrato all'utente. Non ha relazione con CFBundleIdentifier
+	     (`it.aldeialab.ClaudeLive`), che resta com'è: cambiarlo romperebbe il
+	     feed Sparkle delle copie installate, la ACL della voce Keychain, la
+	     registrazione SMAppService e il dominio UserDefaults. Nemmeno con
+	     l'intestatario del certificato di firma, che è per forza la
+	     denominazione legale dell'account Apple. -->
 	<key>NSHumanReadableCopyright</key>
-	<string>Aldeia Lab</string>
+	<string>Purple Heads</string>
 
 	<!-- Menu bar only: no Dock icon, no app switcher entry. -->
 	<key>LSUIElement</key>

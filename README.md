@@ -36,32 +36,47 @@ L'app **non richiede né Accessibilità né Automazione**: la lista progetti vie
 dalla CLI di VS Code (vedi Fase 2). Restano solo due autorizzazioni:
 
 - **Keychain** — al primo avvio macOS chiede l'accesso alla voce
-  `Claude Code-credentials`. Con la firma ad-hoc il code hash cambia a ogni
-  rebuild, quindi «Consenti sempre» non sopravvive ai rebuild.
+  `Claude Code-credentials`.
 - **Notifiche** — richieste al primo avvio, opzionali.
 
-Per evitare la richiesta Keychain a ogni rebuild serve una **identità di firma
-stabile**. Con la firma ad-hoc il requisito designato è `cdhash H"…"`, che cambia
-a ogni compilazione; con una identità diventa
-`identifier "it.aldeialab.ClaudeLive" and certificate leaf = H"…"`, stabile.
+Perché «Consenti sempre» sul Keychain non venga chiesto di nuovo a ogni rebuild
+serve una **identità di firma stabile**: con la firma ad-hoc il requisito
+designato è `cdhash H"…"`, che cambia a ogni compilazione, mentre con una
+identità diventa `identifier "it.aldeialab.ClaudeLive" and certificate leaf = H"…"`,
+che non cambia.
 
-Crea il certificato in Accesso Portachiavi → *Assistente Certificati* → **Crea un
-certificato…** → *Primo livello autofirmato*, tipo **Firma codice**. Il
-certificato risulterà `CSSMERR_TP_NOT_TRUSTED` e non comparirà in
-`security find-identity -v -p codesigning`: **è normale e non è un problema**,
-l'attendibilità serve alla verifica, non alla firma.
+L'identità usata è **Developer ID Application**, dall'Apple Developer Program.
+Creala una volta in Xcode → *Settings* → *Accounts* → seleziona l'Apple ID →
+**Manage Certificates** → **+** → *Developer ID Application*, poi copia la
+stringa esatta che compare in:
 
-L'identità è dichiarata in **`release.conf`** (`SIGN_IDENTITY`); una variabile
-d'ambiente con lo stesso nome ha la precedenza:
+```bash
+security find-identity -v -p codesigning
+```
+
+Serve anche un profilo di credenziali per la notarizzazione (una volta sola;
+richiede una *app-specific password* generata su appleid.apple.com, perché
+`notarytool` rifiuta la password normale dell'Apple ID):
+
+```bash
+xcrun notarytool store-credentials "claude-live-notary" \
+  --apple-id "…" --team-id "…" --password "…"
+```
+
+Entrambi sono dichiarati in **`release.conf`** (`SIGN_IDENTITY`, `TEAM_ID`,
+`NOTARY_PROFILE`); una variabile d'ambiente `SIGN_IDENTITY` ha la precedenza:
 
 ```bash
 SIGN_IDENTITY="Altra identità" ./build.sh
 ```
 
+`build.sh` decide come firmare in base al prefisso dell'identità: con
+`Developer ID Application:` aggiunge hardened runtime e timestamp sicuro
+(obbligatori per la notarizzazione), con qualsiasi altra identità non lo fa —
+vedi la trappola della *library validation* nella Fase 5.
+
 `--install` mette l'app in `/Applications`, un percorso stabile — necessario anche
-perché `SMAppService` possa registrare l'avvio al login. Il certificato scade il
-**31/07/2027**: alla scadenza va rigenerato, e un certificato nuovo cambia il
-requisito di firma (i destinatari dovranno riautorizzare l'app).
+perché `SMAppService` possa registrare l'avvio al login.
 
 ## Come funziona la Fase 1
 
@@ -485,14 +500,20 @@ Due trappole incontrate, entrambe risolte:
 1. **La firma va fatta dall'interno verso l'esterno.** Gli XPC services e
    l'updater di Sparkle sono codice annidato: se si firma prima il contenitore,
    la firma esterna sigilla un framework non firmato e macOS rifiuta il bundle.
-2. **Niente `--options runtime`.** L'hardened runtime attiva la *library
-   validation*, che pretende lo stesso Team ID fra binario e librerie caricate.
-   Un certificato self-signed non ha Team ID, quindi `dyld` rifiutava il
-   framework con *«mapping process and mapped file (non-platform) have different
-   Team IDs»* e l'app moriva all'avvio. L'hardened runtime serve solo alla
-   notarizzazione, che qui non facciamo; se in futuro si adotta un vero
-   Developer ID va rimesso, e allora la library validation passa da sé perché
-   app e framework condividono il Team ID.
+2. **`--options runtime` solo con un vero Developer ID.** L'hardened runtime
+   attiva la *library validation*, che pretende lo stesso Team ID fra binario e
+   librerie caricate. Un certificato self-signed non ha Team ID, quindi `dyld`
+   rifiutava il framework con *«mapping process and mapped file (non-platform)
+   have different Team IDs»* e l'app moriva all'avvio. Con il Developer ID app e
+   framework condividono il Team ID e la library validation passa da sé, quindi
+   `build.sh` attiva l'hardened runtime **solo** su quel ramo — è la ragione per
+   cui la scelta è condizionata al prefisso dell'identità e non fissa.
+
+   Per lo stesso motivo **non esiste un file di entitlements**: non sandboxata,
+   l'app non ne ha bisogno (leggere la voce Keychain di un'altra app dipende
+   dalla ACL della voce, e lanciare `code`/`python3` non è qualcosa che
+   l'hardened runtime limiti). Dichiarare entitlements «per sicurezza»
+   indebolirebbe solo il runtime.
 
 **Verificato end-to-end** (non solo per costruzione): installata la 0.1.0 dal DMG,
 pubblicata la 0.1.1, la copia installata l'ha trovata, scaricata, verificata e
@@ -525,18 +546,37 @@ verifichi contro la chiave pubblica compilata dentro l'app. Per esportarla:
 # conservala offline, poi elimina il file dal disco
 ```
 
-### Firma e Gatekeeper
+### Firma, notarizzazione e Gatekeeper
 
-L'app è firmata con un certificato **self-signed**, quindi al primo avvio ogni
-destinatario deve autorizzarla da Impostazioni di Sistema → Privacy e Sicurezza →
-*Apri comunque*. Da macOS 15 il vecchio "clic destro → Apri" non basta più.
+L'app è firmata **Developer ID Application** e notarizzata da Apple: i
+destinatari fanno doppio clic e l'app si apre, senza passare da Impostazioni di
+Sistema → Privacy e Sicurezza → *Apri comunque* (che da macOS 15 è anche l'unica
+strada rimasta, perché il vecchio "clic destro → Apri" non basta più).
 
-Il certificato scade il **31/07/2027**: alla scadenza va rigenerato, e un
-certificato nuovo cambia il requisito di firma — i destinatari dovranno
-riautorizzare l'app e riconcedere l'accesso al Keychain.
+`package.sh` notarizza **due volte, separatamente**, e non è una ridondanza:
 
-Con un Apple Developer Program (99€/anno) tutto questo sparisce: firma
-*Developer ID* + notarizzazione = doppio clic e via.
+1. **l'app**, prima di infilarla nel DMG, con il ticket poi cucito dentro il
+   bundle da `stapler`. Senza questo passaggio l'app trascinata fuori dal DMG non
+   porterebbe alcun ticket proprio, e un primo avvio **senza rete** potrebbe
+   essere bloccato;
+2. **il DMG**, che è il file che l'utente scarica davvero ed è la prima cosa che
+   Gatekeeper valuta.
+
+Il verdetto finale viene verificato con `spctl -a -vvv -t install` sul DMG: è la
+stessa valutazione che farà la macchina di chi lo riceve, quindi se passa lì
+passa anche là.
+
+Attenzione a due cose che restano vere:
+
+- **la notarizzazione non sostituisce la firma EdDSA di Sparkle.** Sono controlli
+  diversi: Apple certifica che il binario non è malware, Sparkle verifica che
+  l'aggiornamento venga da chi possiede la chiave privata. L'app rifiuta un
+  download che non verifichi contro la chiave pubblica nel suo `Info.plist`
+  anche se Apple l'ha notarizzato;
+- **cambiare certificato cambia il requisito designato.** Passando dal vecchio
+  self-signed al Developer ID, chi aveva già l'app installata deve riconcedere
+  una volta l'accesso alla voce Keychain. È una tantum, non si ripete agli
+  aggiornamenti successivi finché l'identità resta la stessa.
 
 ## File su disco
 
