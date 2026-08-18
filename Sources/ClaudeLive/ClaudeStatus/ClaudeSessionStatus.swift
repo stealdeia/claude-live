@@ -46,6 +46,9 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     let projectName: String
     let sessionID: String
     let state: ClaudeActivity
+    /// Directory `claude` was launched from. Often the project root, but not
+    /// always — it is what tells two chats in the same project apart.
+    let cwd: String?
     /// Tool name, notification message or error type, depending on the event.
     let detail: String?
     /// `permission`, `notification`, a notification type, …
@@ -53,6 +56,9 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     let event: String
     let permissionMode: String?
     let updatedAt: Date
+    /// True when the record claimed to be busy but stopped being refreshed, so
+    /// its state was downgraded rather than trusted. See `ClaudeStatusStore`.
+    let isStale: Bool
 
     /// Identifier of the permission request the hook is blocked on, if any.
     let requestID: String?
@@ -64,6 +70,45 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     let decidable: Bool
 
     var id: String { "\(projectPath)#\(sessionID)" }
+
+    /// Enough of the session id to tell two chats apart in a row.
+    var shortSessionID: String { String(sessionID.prefix(6)) }
+
+    /// Label for one chat inside a project: the subdirectory it was started in
+    /// when that differs from the project root — the only thing the hook gives us
+    /// that a human recognises — and the short session id otherwise.
+    var chatLabel: String {
+        if let cwd, !cwd.isEmpty, cwd != projectPath {
+            if cwd.hasPrefix(projectPath + "/") {
+                let relative = String(cwd.dropFirst(projectPath.count + 1))
+                if !relative.isEmpty { return relative }
+            } else {
+                let leaf = (cwd as NSString).lastPathComponent
+                if !leaf.isEmpty { return leaf }
+            }
+        }
+        return "chat \(shortSessionID)"
+    }
+
+    /// One line for the chat row: what this session is doing, in words.
+    var activityLabel: String {
+        switch state {
+        case .working: return detail.map { "al lavoro · \($0)" } ?? "al lavoro"
+        case .waitingInput: return detail ?? requestKind ?? "attende una risposta"
+        case .error: return detail.map { "errore · \($0)" } ?? "errore"
+        case .idle: return "in attesa"
+        case .unknown: return isStale ? "nessun aggiornamento" : "sconosciuto"
+        }
+    }
+
+    var tooltip: String {
+        var lines = ["Claude Code: \(state.label)\(isStale ? " (dato vecchio)" : "")"]
+        if let detail { lines.append(detail) }
+        if let cwd, !cwd.isEmpty { lines.append(cwd) }
+        lines.append("sessione \(sessionID)")
+        lines.append("aggiornato \(Format.age(since: updatedAt))")
+        return lines.joined(separator: "\n")
+    }
 
     /// A permission request this app can answer.
     var isDecidable: Bool {
@@ -89,6 +134,10 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         self.projectName = (json["project_name"] as? String)
             ?? (projectPath as NSString).lastPathComponent
         self.sessionID = (json["session_id"] as? String) ?? "unknown"
+        let rawCwd = (json["cwd"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        cwd = (rawCwd?.isEmpty == false) ? rawCwd : nil
+        // Never stale as written: only the store, which knows the clock, decides.
+        isStale = false
 
         // `waiting_input` in the file, `waitingInput` in Swift.
         switch rawState {
@@ -124,6 +173,8 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         projectName: String,
         sessionID: String,
         state: ClaudeActivity,
+        cwd: String?,
+        isStale: Bool,
         detail: String?,
         requestKind: String?,
         event: String,
@@ -138,6 +189,8 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         self.projectName = projectName
         self.sessionID = sessionID
         self.state = state
+        self.cwd = cwd
+        self.isStale = isStale
         self.detail = detail
         self.requestKind = requestKind
         self.event = event
@@ -168,6 +221,33 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
             projectName: (root as NSString).lastPathComponent,
             sessionID: sessionID,
             state: state,
+            cwd: cwd,
+            isStale: isStale,
+            detail: detail,
+            requestKind: requestKind,
+            event: event,
+            permissionMode: permissionMode,
+            updatedAt: updatedAt,
+            requestID: requestID,
+            toolName: toolName,
+            toolSummary: toolSummary,
+            decidable: decidable
+        )
+    }
+}
+
+extension ClaudeSessionStatus {
+    /// Same session with its state replaced, for the store's "claimed to be busy
+    /// but stopped reporting" downgrade. `isStale` records that it happened, so a
+    /// row can say so instead of silently showing something else.
+    func downgraded(to state: ClaudeActivity) -> ClaudeSessionStatus {
+        ClaudeSessionStatus(
+            projectPath: projectPath,
+            projectName: projectName,
+            sessionID: sessionID,
+            state: state,
+            cwd: cwd,
+            isStale: true,
             detail: detail,
             requestKind: requestKind,
             event: event,

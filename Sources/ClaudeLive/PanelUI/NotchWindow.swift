@@ -23,9 +23,7 @@ final class NotchWindow: NSPanel {
         // lowest level that reliably draws over it.
         level = .statusBar
 
-        // Visible on every Space and over full-screen apps, and never dragged
-        // along by Mission Control.
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        collectionBehavior = Self.stickyBehavior
 
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
@@ -43,6 +41,27 @@ final class NotchWindow: NSPanel {
 
         // Always dark: the surface is black by definition.
         appearance = NSAppearance(named: .darkAqua)
+    }
+
+    /// Visible on every Space and over full-screen apps, and never dragged along
+    /// by Mission Control.
+    static let stickyBehavior: NSWindow.CollectionBehavior =
+        [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+
+    /// Re-asserts the window's presence on the current Space.
+    ///
+    /// `canJoinAllSpaces` is not retroactive: it puts the window on the Spaces
+    /// that exist when it is ordered in, and a Space **created afterwards** never
+    /// gets it. On that Space the window is not sticky at all — it stays attached
+    /// to the Space it came from and slides away with it, which is what "the notch
+    /// follows the desktop instead of staying put" looks like.
+    ///
+    /// Ordering the window front again after a Space change is what attaches it to
+    /// the new one. The behaviour is re-applied at the same time, so the window
+    /// cannot end up on screen with a stale one.
+    func reassertSpacePresence() {
+        collectionBehavior = Self.stickyBehavior
+        orderFrontRegardless()
     }
 
     override var canBecomeKey: Bool { true }

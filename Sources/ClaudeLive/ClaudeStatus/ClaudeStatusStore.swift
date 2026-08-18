@@ -15,6 +15,15 @@ final class ClaudeStatusStore: ObservableObject {
     /// confused with answering another in the same project.
     @Published private(set) var waitingSessions: [ClaudeSessionStatus] = []
 
+    /// Every live session, grouped by project and sorted most urgent first.
+    ///
+    /// This is what the panel shows as "chats": one Claude Code session is one
+    /// conversation, and a project routinely has several — one per terminal, in
+    /// one or more editor windows. The aggregate in `statusesByPath` deliberately
+    /// collapses them to the single most urgent state, which is the right summary
+    /// and the wrong answer to "what is each of them doing".
+    @Published private(set) var sessionsByPath: [String: [ClaudeSessionStatus]] = [:]
+
     /// A `working` record that stops being refreshed for this long is treated as
     /// unknown rather than trusted: the session probably died without firing
     /// `Stop` (crash, killed terminal, force quit).
@@ -165,17 +174,42 @@ final class ClaudeStatusStore: ObservableObject {
 
     // MARK: - Lookup
 
-    /// Status for a VS Code project. Exact path first; otherwise the deepest
-    /// project that contains the session's directory, since `claude` is often
-    /// launched from a subfolder of the repository.
+    /// Status for a VS Code project: the aggregate of exactly the sessions
+    /// `sessions(for:)` lists.
+    ///
+    /// Derived from that list rather than looked up in `statusesByPath` so the two
+    /// can never disagree. They could before: a project with both a session on its
+    /// root and one started in a subdirectory got its summary from the root group
+    /// alone, so a subdirectory session waiting for an answer was counted in the
+    /// chat list and missing from the dot — the one case where being wrong costs
+    /// something.
     func status(for project: VSCodeProject) -> ClaudeProjectStatus? {
         guard let path = project.path else { return nil }
-        if let exact = statusesByPath[path] { return exact }
+        let sessions = self.sessions(for: project)
+        guard let winner = sessions.first else { return nil }
+        return ClaudeProjectStatus(
+            projectPath: path,
+            state: winner.state,
+            detail: winner.detail,
+            requestKind: winner.requestKind,
+            updatedAt: sessions.map(\.updatedAt).max() ?? winner.updatedAt,
+            sessionCount: sessions.count,
+            isStale: winner.isStale
+        )
+    }
 
-        return statusesByPath
-            .filter { $0.key.hasPrefix(path + "/") }
-            .max { $0.key.count < $1.key.count }?
-            .value
+    /// Every session of a VS Code project, most urgent first.
+    ///
+    /// Same lookup as `status(for:)`, but it collects *all* the matching paths:
+    /// two chats in the same project may have been started from different
+    /// subdirectories, and each one is a separate row.
+    func sessions(for project: VSCodeProject) -> [ClaudeSessionStatus] {
+        guard let path = project.path else { return [] }
+        var found = sessionsByPath[path] ?? []
+        for (key, sessions) in sessionsByPath where key.hasPrefix(path + "/") {
+            found.append(contentsOf: sessions)
+        }
+        return Self.sortedByUrgency(found)
     }
 
     /// Projects currently waiting for the user, for the menu bar indicator.
@@ -220,15 +254,19 @@ final class ClaudeStatusStore: ObservableObject {
         }
 
         let normalized = sessions.map { $0.movedToProjectRoot(among: knownProjectPaths) }
+        let grouped = Self.group(normalized, now: now, staleAfter: staleAfter)
+        if grouped != sessionsByPath { sessionsByPath = grouped }
 
         // Only sessions that are genuinely still waiting: a request whose hook has
-        // already given up is no longer answerable from here.
-        let waiting = normalized
-            .filter { $0.state == .waitingInput && now.timeIntervalSince($0.updatedAt) < staleAfter }
+        // already given up is no longer answerable from here. Read from `grouped`,
+        // so a record downgraded for going quiet cannot show answer buttons.
+        let waiting = grouped.values
+            .flatMap { $0 }
+            .filter { $0.state == .waitingInput }
             .sorted { $0.updatedAt > $1.updatedAt }
         if waiting != waitingSessions { waitingSessions = waiting }
 
-        let aggregated = Self.aggregate(normalized, now: now, staleAfter: staleAfter)
+        let aggregated = Self.aggregate(grouped)
         guard aggregated != statusesByPath else { return }
 
         statusesByPath = aggregated
@@ -249,40 +287,47 @@ final class ClaudeStatusStore: ObservableObject {
         }
     }
 
-    /// Groups sessions by project and keeps the most urgent state per project.
-    private static func aggregate(
+    /// Groups sessions by project, downgrading any record that claims to be busy
+    /// but stopped reporting, and sorts each group most urgent first.
+    private static func group(
         _ sessions: [ClaudeSessionStatus],
         now: Date,
         staleAfter: TimeInterval
-    ) -> [String: ClaudeProjectStatus] {
+    ) -> [String: [ClaudeSessionStatus]] {
         var byPath: [String: [ClaudeSessionStatus]] = [:]
         for session in sessions {
-            byPath[session.projectPath, default: []].append(session)
+            let wentQuiet = now.timeIntervalSince(session.updatedAt) > staleAfter
+                && (session.state == .working || session.state == .waitingInput)
+            let adjusted = wentQuiet ? session.downgraded(to: .unknown) : session
+            byPath[adjusted.projectPath, default: []].append(adjusted)
         }
+        return byPath.mapValues(sortedByUrgency)
+    }
 
+    /// Most urgent first; ties go to the most recently updated.
+    private static func sortedByUrgency(_ sessions: [ClaudeSessionStatus]) -> [ClaudeSessionStatus] {
+        sessions.sorted { lhs, rhs in
+            lhs.state == rhs.state ? lhs.updatedAt > rhs.updatedAt : lhs.state > rhs.state
+        }
+    }
+
+    /// The per-project summary: the state of the most urgent session, and how many
+    /// there are.
+    private static func aggregate(
+        _ grouped: [String: [ClaudeSessionStatus]]
+    ) -> [String: ClaudeProjectStatus] {
         var result: [String: ClaudeProjectStatus] = [:]
-        for (path, group) in byPath {
-            // Downgrade any record that claims to be busy but stopped reporting.
-            let adjusted = group.map { session -> (ClaudeSessionStatus, ClaudeActivity, Bool) in
-                let age = now.timeIntervalSince(session.updatedAt)
-                let wentQuiet = age > staleAfter
-                    && (session.state == .working || session.state == .waitingInput)
-                return (session, wentQuiet ? .unknown : session.state, wentQuiet)
-            }
-
-            // Most urgent state wins; ties go to the most recently updated.
-            guard let winner = adjusted.max(by: { lhs, rhs in
-                lhs.1 == rhs.1 ? lhs.0.updatedAt < rhs.0.updatedAt : lhs.1 < rhs.1
-            }) else { continue }
-
+        for (path, group) in grouped {
+            // The groups arrive sorted, so the winner is simply the first.
+            guard let winner = group.first else { continue }
             result[path] = ClaudeProjectStatus(
                 projectPath: path,
-                state: winner.1,
-                detail: winner.0.detail,
-                requestKind: winner.0.requestKind,
-                updatedAt: group.map(\.updatedAt).max() ?? winner.0.updatedAt,
+                state: winner.state,
+                detail: winner.detail,
+                requestKind: winner.requestKind,
+                updatedAt: group.map(\.updatedAt).max() ?? winner.updatedAt,
                 sessionCount: group.count,
-                isStale: winner.2
+                isStale: winner.isStale
             )
         }
         return result

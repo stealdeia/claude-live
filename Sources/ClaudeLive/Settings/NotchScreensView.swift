@@ -24,6 +24,8 @@ struct NotchScreensView: View {
                     Divider()
                     sizeModeSection
                     sizeControls
+                    Divider()
+                    countersSection
                 }
                 .padding(20)
             }
@@ -34,6 +36,9 @@ struct NotchScreensView: View {
                     settings.notchWidth = NotchGeometry.defaultNotchSize.width
                     settings.notchHeight = NotchGeometry.defaultNotchSize.height
                     settings.notchSizeByScreen = [:]
+                    // The counters are part of the bar's size, so they belong to
+                    // what this button restores.
+                    settings.notchScale = 1.0
                 }
                 Spacer()
                 Button("Fine", action: onDone)
@@ -69,6 +74,7 @@ struct NotchScreensView: View {
                     ScreenNotchPreview(
                         screen: screen,
                         notchSize: settings.notchSize(forScreen: screen.id),
+                        showsControls: settings.notchShowsControls,
                         isActive: activeScreenIDs.contains(screen.id),
                         onToggle: { toggle(screen.id) }
                     )
@@ -167,6 +173,39 @@ struct NotchScreensView: View {
                 height: $settings.notchHeight
             )
         }
+    }
+
+    // MARK: - Counters
+
+    /// The rings' size lives here, with the notch's own measurements, because it is
+    /// one of them: the strips are `slot + inset + ring` wide, so scaling the rings
+    /// widens the whole bar. Kept out on its own because it is the one dimension
+    /// that is shared by every screen.
+    private var countersSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Contatori").font(.subheadline.weight(.medium))
+
+            HStack(spacing: 10) {
+                Text("Dimensione")
+                    .font(.callout)
+                    .frame(width: 74, alignment: .leading)
+                Slider(value: $settings.notchScale, in: 0.9...1.5, step: 0.05)
+                Text(String(format: "%.0f%%", settings.notchScale * 100))
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 86, alignment: .trailing)
+            }
+
+            Text("Vale su tutti gli schermi. Anelli più grandi allargano anche la barra, perché le strisce ai lati del ritaglio sono larghe quanto l'anello che contengono.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
     }
 
     private func sizeGroup(
@@ -297,6 +336,9 @@ struct NotchScreensView: View {
 struct ScreenNotchPreview: View {
     let screen: ScreenOption
     let notchSize: CGSize
+    /// Whether the chevron and the projects button are drawn; they widen the bar,
+    /// so the preview has to know.
+    let showsControls: Bool
     let isActive: Bool
     let onToggle: () -> Void
 
@@ -327,7 +369,8 @@ struct ScreenNotchPreview: View {
     /// setting.
     private var drawnNotch: CGSize {
         let effective = screen.effectiveNotchSize(requested: notchSize)
-        let barWidth = effective.width + (NotchGeometry.stripChromeWidth + NotchGeometry.baseRingDiameter) * 2
+        let barWidth = effective.width
+            + (NotchGeometry.stripChromeWidth(showsControls: showsControls) + NotchGeometry.baseRingDiameter) * 2
         return CGSize(
             // Only a floor against the degenerate case: at 152 preview points even a
             // 60pt bar is 5 points wide and still legible, and a larger floor would

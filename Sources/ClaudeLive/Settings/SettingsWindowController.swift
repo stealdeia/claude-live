@@ -18,27 +18,36 @@ final class SettingsWindowController {
     private var window: NSWindow?
     private let settings: Settings
     private let monitor: UsageMonitor
+    private let projects: ProjectsMonitor
     private let status: ClaudeStatusStore
     private let updates: UpdateController
     private let onInstallHooks: () -> Void
     private let onShowOnboarding: () -> Void
+    private let onTogglePanelVisibility: () -> Void
+    private let onQuit: () -> Void
 
     private static let contentSize = NSSize(width: 480, height: 660)
 
     init(
         settings: Settings,
         monitor: UsageMonitor,
+        projects: ProjectsMonitor,
         status: ClaudeStatusStore,
         updates: UpdateController,
         onInstallHooks: @escaping () -> Void,
-        onShowOnboarding: @escaping () -> Void
+        onShowOnboarding: @escaping () -> Void,
+        onTogglePanelVisibility: @escaping () -> Void,
+        onQuit: @escaping () -> Void
     ) {
         self.settings = settings
         self.monitor = monitor
+        self.projects = projects
         self.status = status
         self.updates = updates
         self.onInstallHooks = onInstallHooks
         self.onShowOnboarding = onShowOnboarding
+        self.onTogglePanelVisibility = onTogglePanelVisibility
+        self.onQuit = onQuit
     }
 
     /// `showingNotchScreens` opens the screens sheet as soon as the window is up.
@@ -55,10 +64,13 @@ final class SettingsWindowController {
                 settings: settings,
                 ui: ui,
                 monitor: monitor,
+                projects: projects,
                 status: status,
                 updates: updates,
                 onInstallHooks: onInstallHooks,
-                onShowOnboarding: onShowOnboarding
+                onShowOnboarding: onShowOnboarding,
+                onTogglePanelVisibility: onTogglePanelVisibility,
+                onQuit: onQuit
             )
         )
 

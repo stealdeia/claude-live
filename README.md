@@ -37,7 +37,24 @@ dalla CLI di VS Code (vedi Fase 2). Restano solo due autorizzazioni:
 
 - **Keychain** — al primo avvio macOS chiede l'accesso alla voce
   `Claude Code-credentials`.
-- **Notifiche** — richieste al primo avvio, opzionali.
+- **Notifiche** — richieste al primo avvio, opzionali. Il suono si sceglie tra
+  quelli di macOS (Impostazioni → Notifiche): il nome del file viene passato a
+  `UNNotificationSound`, che lo risolve nelle stesse cartelle di `NSSound` —
+  niente da copiare nel bundle — e un nome che non esiste più torna al suono di
+  sistema invece di produrre una notifica muta. Il pulsante «Prova» manda una
+  notifica **vera** e non riproduce il file: è l'unico modo di sentire quel che si
+  sentirà davvero.
+
+  Una notifica che arriva mentre Claude Live è l'app **attiva** viene scartata da
+  macOS in silenzio — nessun banner, nessun suono, nessun errore — se il delegate
+  non implementa `willPresent`. Per un'app della barra dei menu il caso è raro e
+  quindi resta invisibile a lungo: si è manifestato dalla finestra delle
+  impostazioni, l'unico posto da cui l'app è in primo piano quando posta qualcosa,
+  con un pulsante «Prova» che non faceva nulla. `CLAUDELIVE_TEST_NOTIFICATION=1`
+  riproduce esattamente quel caso — posta l'anteprima con l'app portata in primo
+  piano — e registra nel log cosa ha in mano il centro notifiche, perché
+  «non è successo niente» da solo non distingue *non autorizzato* da *suono
+  inesistente* da *scartata*.
 
 Perché «Consenti sempre» sul Keychain non venga chiesto di nuovo a ogni rebuild
 serve una **identità di firma stabile**: con la firma ad-hoc il requisito
@@ -267,6 +284,17 @@ nessun processo fa read-modify-write sullo stesso file — zero race. L'app le
 raggruppa per `project_path` e mostra lo stato **più urgente**
 (`waiting_input` > `error` > `working` > `idle` > `unknown`).
 
+**Una sessione è una chat.** Il riassunto per progetto (`statusesByPath`) resta,
+ma accanto vive l'elenco completo (`sessionsByPath`): la riga del progetto porta
+quante chat sono aperte e, quando sono più di una, le elenca sotto — una riga per
+chat con il suo stato e da quanto non si aggiorna. Il riassunto è **derivato** da
+quell'elenco, non cercato a parte, così i due non possono discordare: prima un
+progetto con una sessione sulla radice e una in una sottocartella prendeva il
+riassunto dal solo gruppo della radice, e una sottocartella in attesa di risposta
+finiva contata nell'elenco e assente dal pallino. Ogni chat è etichettata con la
+sottocartella da cui è partita (`cwd`) quando differisce dalla radice, altrimenti
+con l'inizio del `session_id`: è tutto quel che l'hook sa dire di riconoscibile.
+
 **Scritture atomiche** (`tempfile` + `os.replace`) così l'app non legge mai un
 file a metà. L'hook non fallisce mai in modo rumoroso: ogni percorso d'errore
 esce con 0, perché un hook di stato non deve mai disturbare la sessione che osserva.
@@ -316,6 +344,21 @@ bisognava richiamarlo dal menu. Per lo stesso motivo `applyDisplayMode(isInitial
 distingue «ripristina cosa c'era» all'avvio da «l'utente ha scelto questa
 superficie», che è una richiesta di vederla.
 
+**L'icona in barra è opzionale** (`showMenuBarIcon`), e questo impone un vincolo
+al resto: tutto ciò che si può fare dal menu deve essere possibile anche dalle
+impostazioni, che si aprono dalla rotella nel pannello. `NSStatusItem.isVisible`
+invece di rimuovere l'item, perché l'item è il proprietario del menu e distruggerlo
+significherebbe ricostruire tutto per far ricomparire l'icona.
+
+Il vincolo scomodo è la raggiungibilità: con l'icona nascosta *e* il pannello
+flottante nascosto non resterebbe niente da cliccare, e lo stato è persistito —
+quindi un riavvio ripartirebbe altrettanto irraggiungibile, con l'unico rimedio di
+modificare `settings.json` a mano. Due difese, nessuna delle quali vieta la
+combinazione: `applicationShouldHandleReopen` apre le impostazioni (riaprire l'app
+dal Finder è il gesto che funziona sempre), e `ensureReachable()` riaccende l'icona
+se nessuna superficie è visibile — a cedere è l'impostazione spenta per ordine, non
+quella in uso.
+
 Il menu della barra è riempito in `menuNeedsUpdate`, cioè nell'istante prima di
 aprirsi, non ricostruito a ogni cambiamento: è ciò che tiene aggiornati l'elenco
 dei monitor collegati e le voci che dipendono dalla modalità (`Schermi notch` col
@@ -349,15 +392,52 @@ un monitor esterno.
   barra dei menu (`.mainMenu` = 24). `collectionBehavior` include `.stationary`
   così Mission Control non la trascina, e `hasShadow = false` perché un'ombra
   rivelerebbe che è una finestra e non parte del notch.
+- **Scrivanie**: `.canJoinAllSpaces` non è retroattivo — mette la finestra sulle
+  scrivanie che esistono quando viene ordinata in primo piano, e una **creata
+  dopo** non la riceve mai. Su quella scrivania la finestra non è affatto
+  «appiccicata»: resta agganciata a quella di partenza e scorre via con essa, che
+  è esattamente l'aspetto di «il notch segue la scrivania invece di stare fermo».
+  Il rimedio è riordinarla in primo piano a ogni
+  `NSWorkspace.activeSpaceDidChangeNotification`
+  (`NotchWindow.reassertSpacePresence`, e lo stesso per `FloatingPanel`): la prima
+  visita a una scrivania nuova la aggancia, dalle successive resta ferma.
 - **Sempre nera e opaca**: qualsiasi translucenza romperebbe l'illusione di
   continuità col ritaglio fisico.
 - **Collassata**: strisce simmetriche che abbracciano il cutout — `[⌄][5h◯]`
   cutout `[◯7g][cartella]` — per un totale di 339pt a scala 1. I controlli stanno
   sui bordi esterni e gli anelli abbracciano il cutout, così i due lati si
   specchiano.
+- **Controlli opzionali**: `notchShowsControls` (Impostazioni → Superficie) toglie
+  chevron e pulsante progetti, e la barra si **restringe** con loro invece di
+  lasciare due slot di nero vuoti — 291pt a scala 1. Restano gli anelli, che erano
+  già anche il modo di aprire il pannello. Con nessuna
+  freccia da premere due volte, chiudere cliccando **fuori** dal pannello diventa
+  necessario: due monitor di eventi mouse, uno globale (i clic nelle altre app,
+  mai le nostre) e uno locale (le nostre finestre, mai le altrui), e in entrambi i
+  casi il clic viene lasciato passare. Gli eventi del mouse non richiedono
+  permessi, a differenza di quelli da tastiera.
 - **Utilizzo come anello** invece di `5h 11%`: la percentuale esatta vive solo nel
   pannello espanso (e nel tooltip). È ciò che tiene la superficie a 339pt: con il
   testo diventava larga 445pt.
+- **Ombra**: solo da espanso, in dissolvenza sulla stessa durata dell'apertura.
+  Vive in una **finestra a parte** dietro a questa, perché la finestra del notch è
+  grande esattamente quanto ciò che dipinge — l'invariante che le impedisce di
+  rubare clic — e un'ombra ha bisogno di spazio *fuori* dalla forma. Le alternative
+  sono entrambe già state provate: allargare la finestra del notch riporta il bug
+  del margine trasparente, e `hasShadow` sulla finestra si accende e si spegne di
+  colpo, che è esattamente ciò che qui non si vuole. La finestra dell'ombra ha
+  `ignoresMouseEvents = true`, l'unico modo in cui una finestra trasparente più
+  grande del suo contenuto non può intercettare nulla: l'evento non viene scartato,
+  non ci viene mai offerto. Dentro non c'è nessun nero duplicato da tenere in
+  sincrono — un `CALayer` con `shadowPath` disegna la sua ombra qualunque sia il
+  contenuto, quindi il layer è del tutto trasparente e casta comunque. Path e frame
+  vengono aggiornati nello stesso giro di run loop del frame del notch, così
+  l'ombra non resta indietro di un fotogramma.
+- **Ordine del contenuto fisso**: utilizzo, poi progetti, da qualunque comando si
+  apra. Dipendeva dal comando — il pulsante progetti metteva la lista prima, il
+  chevron la metteva dopo — quindi lo stesso pannello aveva due disposizioni e non
+  c'era modo di imparare dov'erano le cose. Ora coincide anche col pannello
+  flottante, che ospita queste stesse view.
 - **Espansione**: cresce in altezza **e** in larghezza (fino a 624pt), con un
   piccolo rimbalzo. Le strisce restano ancorate al cutout e la larghezza in più
   compare come nero attorno — vedi `NotchSurface` per chi possiede l'animazione e
@@ -383,7 +463,9 @@ Tutto ciò che deriva da `NotchGeometry` ne tiene già conto.
 #### Distribuzione dentro la striscia
 
 `stripWidth = controlSlot (32) + ringInset (7) + ringDiameter`, senza spazio non
-assegnato. Il controllo esterno — chevron a sinistra, pulsante progetti a destra —
+assegnato — e `ringOuterPad (8)` al posto dello slot quando i controlli sono
+nascosti, solo perché un anello a filo del bordo nero si legge come un errore di
+disegno. Il controllo esterno — chevron a sinistra, pulsante progetti a destra —
 sta in uno **slot a larghezza fissa** ed è centrato dentro quello slot; l'anello
 abbraccia il cutout.
 
@@ -397,7 +479,9 @@ speculari.
 
 Impostazioni → Superficie → **Scelta schermi e dimensioni notch** apre
 `NotchScreensView`: le anteprime degli schermi come in Impostazioni di sistema →
-Monitor, cliccabili per attivare o disattivare il notch, e sotto le misure (60…600 ×
+Monitor, cliccabili per attivare o disattivare il notch, la dimensione dei
+contatori — che è una misura della barra come le altre, dato che le strisce sono
+larghe quanto l'anello che contengono — e sotto le misure (60…600 ×
 24…72pt, default 170×32) **uguali per tutti** oppure **separate per ogni schermo**.
 
 La separazione per schermo non è un vezzo: una barra da 170pt su un pannello da
@@ -625,7 +709,7 @@ Sources/ClaudeLive/
 ├── Usage/                      Credentials, UsageModels, UsageAPIClient, UsageMonitor
 ├── Projects/                   EditorApp, VSCodeCLI, WorkspaceCatalog, ProjectsMonitor
 ├── ClaudeStatus/               ClaudeSessionStatus, ClaudeStatusStore, HookInstaller
-├── Notifications/              UsageNotifier, WaitingInputNotifier
+├── Notifications/              UsageNotifier, WaitingInputNotifier, NotificationSound
 ├── MenuBar/                    MenuBarController
 ├── PanelUI/                    FloatingPanel (AppKit) + PanelController + viste SwiftUI
 └── Settings/                   finestra impostazioni

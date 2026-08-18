@@ -79,8 +79,28 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
+        settings.$showMenuBarIcon
+            .removeDuplicates()
+            .sink { [weak self] visible in
+                Task { @MainActor in self?.applyVisibility(visible) }
+            }
+            .store(in: &cancellables)
+
         updateTitle()
     }
+
+    // MARK: - Visibility
+
+    /// `isVisible = false` rather than removing the item: the status item is the
+    /// menu's owner, and destroying it would mean rebuilding all of this to bring
+    /// the icon back.
+    private func applyVisibility(_ visible: Bool) {
+        guard statusItem.isVisible != visible else { return }
+        statusItem.isVisible = visible
+        Log.info("Icona barra dei menu \(visible ? "mostrata" : "nascosta")")
+    }
+
+    var isIconVisible: Bool { statusItem.isVisible }
 
     private func configureButton() {
         guard let button = statusItem.button else { return }

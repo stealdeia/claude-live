@@ -26,8 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         settings = Settings.shared
         updates = UpdateController()
-        notifier = UsageNotifier()
-        waitingNotifier = WaitingInputNotifier()
+        notifier = UsageNotifier(settings: settings)
+        waitingNotifier = WaitingInputNotifier(settings: settings)
 
         monitor = UsageMonitor(settings: settings, notifier: notifier)
         projects = ProjectsMonitor(settings: settings)
@@ -41,10 +41,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         settingsWindow = SettingsWindowController(
             settings: settings,
             monitor: monitor,
+            projects: projects,
             status: status,
             updates: updates,
             onInstallHooks: { [weak self] in self?.installHooks() },
-            onShowOnboarding: { [weak self] in self?.onboardingWindow.show() }
+            onShowOnboarding: { [weak self] in self?.onboardingWindow.show() },
+            // Evaluated when tapped, by which point `panel` exists — it is built a
+            // few lines below this.
+            onTogglePanelVisibility: { [weak self] in self?.togglePanelVisibility() },
+            onQuit: { NSApp.terminate(nil) }
         )
 
         panel = PanelController(
@@ -83,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             projects: projects,
             status: status,
             settings: settings,
-            onTogglePanel: { [weak self] in self?.panel.toggleVisibility() },
+            onTogglePanel: { [weak self] in self?.togglePanelVisibility() },
             onOpenSettings: { [weak self] in self?.settingsWindow.show() },
             onOpenNotchScreens: { [weak self] in self?.settingsWindow.show(showingNotchScreens: true) },
             onInstallHooks: { [weak self] in self?.installHooks() },
@@ -156,6 +161,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
         }
 
+        // Opt-in via CLAUDELIVE_TEST_NOTIFICATION=1: posts the sound preview with
+        // the app deliberately **frontmost**, which is the case that used to fail
+        // silently, and logs what the notification centre ended up holding.
+        if ProcessInfo.processInfo.environment["CLAUDELIVE_TEST_NOTIFICATION"] == "1" {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                NSApp.activate(ignoringOtherApps: true)
+                NotificationSound.preview(self.settings.notificationSound)
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
+                await NotificationSound.logDeliveryDiagnostics()
+            }
+        }
+
         // Diagnostics: force an update check without UI, to verify the release
         // pipeline end to end from a script.
         if ProcessInfo.processInfo.environment["CLAUDELIVE_CHECK_UPDATES"] == "1" {
@@ -194,7 +212,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         false
     }
 
+    /// Opening the app while it is already running shows Settings.
+    ///
+    /// This is the escape hatch for a hidden menu bar item: double-clicking Claude
+    /// Live in the Finder is the one gesture that works no matter what is on screen,
+    /// and without it "hide the icon" could be a one-way door.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        settingsWindow.show()
+        return true
+    }
+
+    // MARK: - Reachability
+
+    /// Toggling the panel is also a reachability decision, so it goes through here.
+    private func togglePanelVisibility() {
+        panel.toggleVisibility()
+        ensureReachable()
+    }
+
+    /// Guarantees at least one way into the app.
+    ///
+    /// With the menu bar item hidden, the surface's gear button is how Settings is
+    /// reached — so hiding the surface as well would leave nothing to click, and the
+    /// state is persisted, so a relaunch would come back just as unreachable. Rather
+    /// than forbid the combination, the icon comes back: it is the one that was
+    /// switched off for tidiness, not the one being used.
+    private func ensureReachable() {
+        guard !settings.showMenuBarIcon else { return }
+        let surfaceVisible = settings.displayMode == .notch ? notch.isVisible : panel.isVisible
+        guard !surfaceVisible else { return }
+        settings.showMenuBarIcon = true
+        Log.info("Icona nella barra dei menu ripristinata: era l'unico modo di raggiungere l'app")
+    }
+
     // MARK: - Notifications
+
+    /// Shows the banner even when Claude Live is the active application.
+    ///
+    /// Without this, macOS delivers a notification posted while the app is in the
+    /// foreground **silently** — no banner, no sound, no error. Normally that is
+    /// invisible here, because a menu-bar app is almost never the active one; the
+    /// exception is anything posted from the Settings window, which is exactly
+    /// where the sound preview lives. That was the bug: «Prova» did nothing.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound, .list])
+    }
 
     /// Tapping a "Claude is waiting" notification opens the project it refers to,
     /// not whatever VS Code had in front.
@@ -245,6 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 panel.show()
             }
         }
+        ensureReachable()
     }
 
     /// Cycles through both surfaces, logging the menu and what is actually on

@@ -13,6 +13,12 @@ final class WaitingInputNotifier {
 
     private var lastNotified: [String: Date] = [:]
 
+    private let settings: Settings
+
+    init(settings: Settings) {
+        self.settings = settings
+    }
+
     /// `projectPath` travels in `userInfo` so tapping the notification can bring
     /// that project forward — the previous version could only activate the app,
     /// which for a menu-bar app meant nothing happened.
@@ -34,7 +40,7 @@ final class WaitingInputNotifier {
         } else {
             content.body = badge.map { "Richiesta: \($0)" } ?? "Claude Code attende una risposta."
         }
-        content.sound = .default
+        content.sound = NotificationSound.sound(named: settings.notificationSound)
         content.userInfo = ["projectPath": projectPath, "projectName": projectName]
 
         let request = UNNotificationRequest(

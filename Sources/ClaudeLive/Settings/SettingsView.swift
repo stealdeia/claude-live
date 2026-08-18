@@ -6,10 +6,13 @@ struct SettingsView: View {
     /// Set by the menu bar to open straight onto the screens sheet.
     @ObservedObject var ui: SettingsUIState
     @ObservedObject var monitor: UsageMonitor
+    @ObservedObject var projects: ProjectsMonitor
     @ObservedObject var status: ClaudeStatusStore
     @ObservedObject var updates: UpdateController
     let onInstallHooks: () -> Void
     let onShowOnboarding: () -> Void
+    let onTogglePanelVisibility: () -> Void
+    let onQuit: () -> Void
 
     @State private var showNotchScreens = false
 
@@ -19,8 +22,10 @@ struct SettingsView: View {
         // content wider than the window and clipped both edges.
         Form {
             surfaceSection
+            menuBarSection
             updateSection
             thresholdsSection
+            notificationsSection
             hooksSection
             if settings.displayMode == .floating { panelSection }
             diagnosticsSection
@@ -101,7 +106,38 @@ struct SettingsView: View {
                 range: 0.50...0.99,
                 tint: PanelTheme.color(for: .danger)
             )
-            Toggle("Notifiche di macOS al superamento", isOn: $settings.notificationsEnabled)
+        }
+    }
+
+    /// Every notification the app can post, and how it sounds, in one place.
+    ///
+    /// «Claude attende input» used to live under *Stato Claude Code* and the
+    /// threshold banners under *Soglie*: two switches for the same thing, in two
+    /// sections, neither of which was about notifications.
+    private var notificationsSection: some View {
+        Section("Notifiche") {
+            Toggle("Quando Claude attende input", isOn: $settings.notifyOnWaitingInput)
+            Toggle("Al superamento delle soglie", isOn: $settings.notificationsEnabled)
+
+            Picker("Suono", selection: $settings.notificationSound) {
+                Text(NotificationSound.label(for: NotificationSound.systemDefault))
+                    .tag(NotificationSound.systemDefault)
+                Divider()
+                ForEach(NotificationSound.available, id: \.self) { name in
+                    Text(name).tag(name)
+                }
+            }
+
+            HStack {
+                Text("Il suono vale per tutte le notifiche dell'app. «Prova» manda una notifica vera: quel che senti è quel che sentirai.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button("Prova") {
+                    NotificationSound.preview(settings.notificationSound)
+                }
+            }
         }
     }
 
@@ -118,8 +154,6 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            Toggle("Notifica quando Claude attende input", isOn: $settings.notifyOnWaitingInput)
 
             LabeledContent("Rispondi dal pannello") {
                 HStack(spacing: 8) {
@@ -180,15 +214,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                LabeledContent("Dimensione contatori") {
-                    HStack(spacing: 10) {
-                        Slider(value: $settings.notchScale, in: 0.9...1.5, step: 0.05)
-                            .frame(minWidth: 120)
-                        Text(String(format: "%.0f%%", settings.notchScale * 100))
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 46, alignment: .trailing)
-                    }
+                Toggle("Mostra freccia e icona progetti", isOn: $settings.notchShowsControls)
+                if !settings.notchShowsControls {
+                    Text("Senza di esse la barra è solo i due contatori: cliccane uno per aprire il pannello, e clicca fuori dal pannello per richiuderlo.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Toggle("Espandi al passaggio del mouse", isOn: $settings.notchExpandOnHover)
@@ -202,6 +233,23 @@ struct SettingsView: View {
                         Text(theme.label).tag(theme)
                     }
                 }
+            }
+        }
+    }
+
+    /// The menu bar item is optional, so everything it offers has to be reachable
+    /// from here — see the comment on `showMenuBarIcon`.
+    private var menuBarSection: some View {
+        Section("Barra dei menu") {
+            Toggle("Mostra l'icona di Claude Live", isOn: $settings.showMenuBarIcon)
+            Toggle("Mostra la percentuale accanto all'icona", isOn: $settings.showPercentageInMenuBar)
+                .disabled(!settings.showMenuBarIcon)
+
+            if !settings.showMenuBarIcon {
+                Text("Senza icona queste impostazioni si riaprono dalla rotella nel pannello, oppure aprendo di nuovo Claude Live dal Finder. Tutto ciò che stava solo nel menu è qui: aggiornare, aggiornare i progetti, mostrare o nascondere il pannello, e uscire.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -225,8 +273,14 @@ struct SettingsView: View {
                 }
             }
 
+            Toggle("Pannello visibile", isOn: Binding(
+                // Visibility is the panel controller's to change — it also has to
+                // place the window — so the toggle asks it rather than writing the
+                // preference behind its back.
+                get: { settings.panelVisible },
+                set: { _ in onTogglePanelVisibility() }
+            ))
             Toggle("Pannello compresso", isOn: $settings.panelCollapsed)
-            Toggle("Mostra percentuale nella barra dei menu", isOn: $settings.showPercentageInMenuBar)
         }
     }
 
@@ -260,10 +314,23 @@ struct SettingsView: View {
                 Button("Aggiorna ora") {
                     Task { await monitor.refresh(reason: "impostazioni") }
                 }
+                Button(projects.isRefreshing ? "Aggiornamento…" : "Aggiorna progetti") {
+                    projects.refresh(reason: "impostazioni")
+                }
+                .disabled(projects.isRefreshing)
                 Button("Copia header") {
                     copyHeaders()
                 }
                 .disabled(monitor.rawHeaders.isEmpty)
+            }
+
+            HStack {
+                if settings.debugLoggingEnabled {
+                    Button("Apri log") {
+                        Paths.ensureDirectories()
+                        NSWorkspace.shared.open(Paths.logFile)
+                    }
+                }
 
                 Spacer()
 
@@ -298,6 +365,11 @@ struct SettingsView: View {
                 Spacer()
                 Button("Configurazione guidata…", action: onShowOnboarding)
             }
+
+            HStack {
+                Spacer()
+                Button("Esci da Claude Live", action: onQuit)
+            }
         }
     }
 
@@ -316,7 +388,8 @@ struct SettingsView: View {
         let sizes = settings.usePerScreenNotchSize
             ? "dimensioni separate per schermo"
             : "\(Int(settings.notchWidth))×\(Int(settings.notchHeight))pt su tutti"
-        return "\(where_.prefix(1).uppercased() + where_.dropFirst()), \(sizes)."
+        let counters = String(format: "contatori al %.0f%%", settings.notchScale * 100)
+        return "\(where_.prefix(1).uppercased() + where_.dropFirst()), \(sizes), \(counters)."
     }
 
     // MARK: - Pieces

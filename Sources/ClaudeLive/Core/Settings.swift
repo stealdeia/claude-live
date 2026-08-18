@@ -25,6 +25,7 @@ private struct SettingsData: Codable {
     var dangerThreshold: Double?
     var notificationsEnabled: Bool?
     var notifyOnWaitingInput: Bool?
+    var notificationSound: String?
     var debugLoggingEnabled: Bool?
     var panelOpacity: Double?
     var panelVisible: Bool?
@@ -33,6 +34,7 @@ private struct SettingsData: Codable {
     var displayMode: DisplayMode?
     var theme: AppTheme?
     var notchExpandOnHover: Bool?
+    var notchShowsControls: Bool?
     var notchScale: Double?
     var notchWidth: Double?
     var notchHeight: Double?
@@ -48,6 +50,7 @@ private struct SettingsData: Codable {
     var panelTopLeftY: Double?
     var projectsRefreshMinutes: Double?
     var showPercentageInMenuBar: Bool?
+    var showMenuBarIcon: Bool?
     var launchAtLogin: Bool?
     var hasCompletedOnboarding: Bool?
     var decisionWaitSeconds: Double?
@@ -84,6 +87,21 @@ final class Settings: ObservableObject {
     /// Notify when Claude Code starts waiting for input in some project.
     @Published var notifyOnWaitingInput: Bool = true { didSet { schedulePersist() } }
 
+    /// Sound for every notification this app posts. Empty means the system
+    /// default; anything else is a file name in /System/Library/Sounds — see
+    /// `NotificationSound`.
+    @Published var notificationSound: String = NotificationSound.systemDefault {
+        didSet {
+            // A name whose file is gone would deliver a silent notification, so
+            // it falls back rather than being stored.
+            guard NotificationSound.isKnown(notificationSound) else {
+                notificationSound = NotificationSound.systemDefault
+                return
+            }
+            schedulePersist()
+        }
+    }
+
     @Published var debugLoggingEnabled: Bool = false {
         didSet {
             Log.fileLoggingEnabled = debugLoggingEnabled
@@ -111,6 +129,13 @@ final class Settings: ObservableObject {
     /// Whether hovering the notch strips expands the detail panel, in addition
     /// to the explicit buttons.
     @Published var notchExpandOnHover: Bool = false { didSet { schedulePersist() } }
+
+    /// Whether the chevron and the projects button are drawn beside the rings.
+    ///
+    /// With them hidden the bar is just the two rings hugging the cutout, and the
+    /// rings themselves open the detail — clicking anywhere outside it closes it
+    /// again, so nothing becomes unreachable.
+    @Published var notchShowsControls: Bool = true { didSet { schedulePersist() } }
 
     /// Size multiplier for the notch rings and their labels. The strips widen to
     /// match, so the whole surface grows a little with it.
@@ -222,6 +247,14 @@ final class Settings: ObservableObject {
 
     @Published var showPercentageInMenuBar: Bool = true { didSet { schedulePersist() } }
 
+    /// Whether the app keeps an item in the menu bar at all.
+    ///
+    /// Removable because in notch mode the same numbers are on screen already, and
+    /// a second copy of them is just clutter. Everything the menu can do is also in
+    /// Settings, which the panel's gear opens — and re-launching the app opens
+    /// Settings too, so the item can always be brought back.
+    @Published var showMenuBarIcon: Bool = true { didSet { schedulePersist() } }
+
     /// Mirrors `SMAppService`; the service is the source of truth, this is just
     /// what the UI binds to.
     @Published var launchAtLogin: Bool = false {
@@ -287,11 +320,13 @@ final class Settings: ObservableObject {
         if let v = decoded.dangerThreshold { dangerThreshold = v }
         if let v = decoded.notificationsEnabled { notificationsEnabled = v }
         if let v = decoded.notifyOnWaitingInput { notifyOnWaitingInput = v }
+        if let v = decoded.notificationSound { notificationSound = v }
         if let v = decoded.debugLoggingEnabled { debugLoggingEnabled = v }
         if let v = decoded.panelOpacity { panelOpacity = v }
         if let v = decoded.displayMode { displayMode = v }
         if let v = decoded.theme { theme = v }
         if let v = decoded.notchExpandOnHover { notchExpandOnHover = v }
+        if let v = decoded.notchShowsControls { notchShowsControls = v }
         if let v = decoded.notchScale { notchScale = v }
         if let v = decoded.notchWidth ?? decoded.virtualNotchWidth { notchWidth = v }
         if let v = decoded.notchHeight ?? decoded.virtualNotchHeight { notchHeight = v }
@@ -307,6 +342,7 @@ final class Settings: ObservableObject {
         }
         if let v = decoded.projectsRefreshMinutes { projectsRefreshMinutes = v }
         if let v = decoded.showPercentageInMenuBar { showPercentageInMenuBar = v }
+        if let v = decoded.showMenuBarIcon { showMenuBarIcon = v }
         if let v = decoded.launchAtLogin { launchAtLogin = v }
         if let v = decoded.hasCompletedOnboarding { hasCompletedOnboarding = v }
         if let v = decoded.decisionWaitSeconds { decisionWaitSeconds = v }
@@ -333,6 +369,7 @@ final class Settings: ObservableObject {
             dangerThreshold: dangerThreshold,
             notificationsEnabled: notificationsEnabled,
             notifyOnWaitingInput: notifyOnWaitingInput,
+            notificationSound: notificationSound,
             debugLoggingEnabled: debugLoggingEnabled,
             panelOpacity: panelOpacity,
             panelVisible: panelVisible,
@@ -341,6 +378,7 @@ final class Settings: ObservableObject {
             displayMode: displayMode,
             theme: theme,
             notchExpandOnHover: notchExpandOnHover,
+            notchShowsControls: notchShowsControls,
             notchScale: notchScale,
             notchWidth: notchWidth,
             notchHeight: notchHeight,
@@ -354,6 +392,7 @@ final class Settings: ObservableObject {
             panelTopLeftY: panelTopLeft.map { Double($0.y) },
             projectsRefreshMinutes: projectsRefreshMinutes,
             showPercentageInMenuBar: showPercentageInMenuBar,
+            showMenuBarIcon: showMenuBarIcon,
             launchAtLogin: launchAtLogin,
             hasCompletedOnboarding: hasCompletedOnboarding,
             decisionWaitSeconds: decisionWaitSeconds

@@ -89,6 +89,15 @@ final class PanelController: NSObject {
             object: nil
         )
 
+        // A Space created after launch does not inherit `canJoinAllSpaces`;
+        // switching to it is the moment to hand the panel over.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(activeSpaceChanged),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
+
         // A collapse or an anchor change both need a reposition.
         settings.$panelCollapsed
             .dropFirst()
@@ -200,6 +209,13 @@ final class PanelController: NSObject {
     @objc private func screenParametersChanged() {
         desiredTopLeft = nil
         applyPosition()
+    }
+
+    /// Only re-orders a panel that is already meant to be on screen: showing a
+    /// hidden panel because the user changed desktop would be a bug, not a fix.
+    @objc private func activeSpaceChanged() {
+        guard panel.isVisible else { return }
+        panel.reassertSpacePresence()
     }
 
     /// Places the panel according to the current anchor, keeping the top edge

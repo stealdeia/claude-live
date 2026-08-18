@@ -25,8 +25,7 @@ final class FloatingPanel: NSPanel {
         // panels) without fighting with menus or the Dock.
         level = .statusBar
 
-        // Follow the user across Spaces, and stay visible over full-screen apps.
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        collectionBehavior = Self.stickyBehavior
 
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
@@ -40,6 +39,20 @@ final class FloatingPanel: NSPanel {
 
         // Menu-bar-only apps have no windows to restore; skip the machinery.
         isRestorable = false
+    }
+
+    /// Follow the user across Spaces, and stay visible over full-screen apps.
+    static let stickyBehavior: NSWindow.CollectionBehavior =
+        [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+
+    /// Re-attaches the panel to the Space that just became active.
+    ///
+    /// `canJoinAllSpaces` only covers the Spaces that existed when the window was
+    /// ordered in; one created later never gets it unless the window is ordered
+    /// front again. See `NotchWindow.reassertSpacePresence`.
+    func reassertSpacePresence() {
+        collectionBehavior = Self.stickyBehavior
+        orderFrontRegardless()
     }
 
     /// Needed so buttons and controls inside the panel respond to clicks.

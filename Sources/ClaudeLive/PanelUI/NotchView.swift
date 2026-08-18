@@ -35,9 +35,6 @@ struct NotchView: View {
     let actions: PanelActions
 
     @Binding var isExpanded: Bool
-    /// Set when the projects button was used to expand, so the detail opens with
-    /// the project list first rather than the usage bars.
-    @Binding var emphasiseProjects: Bool
 
     /// Reports the detail's natural height so the controller knows how tall to
     /// animate the window. Measured at the final width, so it never changes
@@ -46,10 +43,15 @@ struct NotchView: View {
 
     private var barHeight: CGFloat { geometry.barHeight }
     private var scale: Double { settings.notchScale }
-    private var stripWidth: CGFloat { geometry.stripWidth(scale: scale) }
+    private var showsControls: Bool { settings.notchShowsControls }
+    private var stripWidth: CGFloat {
+        geometry.stripWidth(scale: scale, showsControls: showsControls)
+    }
     /// Width of the black *body* when collapsed — the window is wider than this
     /// by one flare on each side.
-    private var collapsedBodyWidth: CGFloat { geometry.collapsedBodyWidth(scale: scale) }
+    private var collapsedBodyWidth: CGFloat {
+        geometry.collapsedBodyWidth(scale: scale, showsControls: showsControls)
+    }
 
     var body: some View {
         // `Color.clear` is the anchor: it accepts exactly the size the window
@@ -131,13 +133,17 @@ struct NotchView: View {
     /// centred in it, so the two sides mirror each other around the cutout.
     private var leftStrip: some View {
         HStack(spacing: 0) {
-            NotchIconButton(
-                symbol: isExpanded ? "chevron.up" : "chevron.down",
-                help: isExpanded ? "Chiudi i dettagli" : "Apri i dettagli"
-            ) {
-                toggle(emphasisingProjects: false)
+            if showsControls {
+                NotchIconButton(
+                    symbol: isExpanded ? "chevron.up" : "chevron.down",
+                    help: isExpanded ? "Chiudi i dettagli" : "Apri i dettagli"
+                ) {
+                    toggle()
+                }
+                .frame(width: NotchGeometry.controlSlot)
+            } else {
+                Spacer().frame(width: NotchGeometry.ringOuterPad)
             }
-            .frame(width: NotchGeometry.controlSlot)
 
             ringButton(window: monitor.snapshot?.fiveHour, label: "5h", title: "Sessione 5h")
         }
@@ -149,25 +155,24 @@ struct NotchView: View {
         HStack(spacing: 0) {
             ringButton(window: monitor.snapshot?.sevenDay, label: "7g", title: "Settimana 7g")
 
-            projectsButton
-                .frame(width: NotchGeometry.controlSlot)
+            if showsControls {
+                projectsButton
+                    .frame(width: NotchGeometry.controlSlot)
+            } else {
+                Spacer().frame(width: NotchGeometry.ringOuterPad)
+            }
         }
         .padding(.leading, NotchGeometry.ringInset)
         .frame(width: stripWidth, height: barHeight)
     }
 
-    /// Projects button: opens the detail with the project list first, and carries
-    /// the count of projects waiting for input.
+    /// Projects button: opens the detail, and carries the count of projects waiting
+    /// for input.
     private var projectsButton: some View {
         let waiting = status.waitingCount
 
         return Button {
-            if isExpanded && emphasiseProjects {
-                setExpanded(false)
-            } else {
-                emphasiseProjects = true
-                setExpanded(true)
-            }
+            toggle()
         } label: {
             HStack(spacing: 1.5) {
                 Image(systemName: waiting > 0 ? "bell.badge.fill" : "folder")
@@ -188,12 +193,12 @@ struct NotchView: View {
         .help(waiting > 0 ? "\(waiting) progetti attendono input" : "Progetti")
     }
 
-    /// A ring that doubles as the "open the details" affordance. The exact
-    /// percentage is deliberately only in the expanded panel, so the tooltip
-    /// carries it for a quick look.
+    /// A ring that doubles as the "open the details" affordance — the only one
+    /// when the controls are hidden. The exact percentage is deliberately only in
+    /// the expanded panel, so the tooltip carries it for a quick look.
     private func ringButton(window: UsageWindow?, label: String, title: String) -> some View {
         Button {
-            toggle(emphasisingProjects: false)
+            toggle()
         } label: {
             UsageRing(
                 window: window,
@@ -225,23 +230,20 @@ struct NotchView: View {
 
             PendingRequestsView(status: status, onFocusProject: actions.focusProject)
 
-            if emphasiseProjects {
-                ProjectsSectionView(
-                    projects: projects,
-                    status: status,
-                    onInstallHooks: actions.installHooks
-                )
-                Divider().overlay(Color.white.opacity(0.12))
-                UsageSectionView(monitor: monitor, settings: settings)
-            } else {
-                UsageSectionView(monitor: monitor, settings: settings)
-                Divider().overlay(Color.white.opacity(0.12))
-                ProjectsSectionView(
-                    projects: projects,
-                    status: status,
-                    onInstallHooks: actions.installHooks
-                )
-            }
+            // Fixed order — utilizzo, poi progetti — whichever control opened the
+            // panel. It used to depend on that: the projects button put the list
+            // first, the chevron put it second, so the same panel had two layouts
+            // and you could not learn where anything was. It also matches the
+            // floating panel, which shares these very views.
+            UsageSectionView(monitor: monitor, settings: settings)
+
+            Divider().overlay(Color.white.opacity(0.12))
+
+            ProjectsSectionView(
+                projects: projects,
+                status: status,
+                onInstallHooks: actions.installHooks
+            )
 
             footer
         }
@@ -289,8 +291,7 @@ struct NotchView: View {
 
     // MARK: - Expansion
 
-    private func toggle(emphasisingProjects: Bool) {
-        if !isExpanded { emphasiseProjects = emphasisingProjects }
+    private func toggle() {
         setExpanded(!isExpanded)
     }
 

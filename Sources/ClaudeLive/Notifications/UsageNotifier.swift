@@ -9,6 +9,12 @@ final class UsageNotifier {
         case warning, danger
     }
 
+    private let settings: Settings
+
+    init(settings: Settings) {
+        self.settings = settings
+    }
+
     private var authorized = false
     private var authorizationRequested = false
     private var firedKeys: Set<String> = []
@@ -109,7 +115,7 @@ final class UsageNotifier {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        content.sound = .default
+        content.sound = NotificationSound.sound(named: settings.notificationSound)
 
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,

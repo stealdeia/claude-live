@@ -8,13 +8,21 @@ import SwiftUI
 /// - idle: grey, steady
 /// - unknown / no session: hollow grey outline
 struct StatusDot: View {
-    let status: ClaudeProjectStatus?
-
-    private let size: CGFloat = 6.5
+    /// Nil means "no session at all", which is drawn as a hollow outline.
+    let activity: ClaudeActivity?
+    private let size: CGFloat
 
     @State private var pulsing = false
 
-    private var activity: ClaudeActivity? { status?.state }
+    init(activity: ClaudeActivity?, size: CGFloat = 6.5) {
+        self.activity = activity
+        self.size = size
+    }
+
+    /// Convenience for a project's aggregate status.
+    init(status: ClaudeProjectStatus?, size: CGFloat = 6.5) {
+        self.init(activity: status?.state, size: size)
+    }
 
     private var color: Color {
         switch activity {

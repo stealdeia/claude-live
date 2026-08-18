@@ -56,10 +56,18 @@ struct NotchGeometry: Equatable {
     /// space anywhere.
     static let controlSlot: CGFloat = 32
 
-    private static var stripChrome: CGFloat { ringInset + controlSlot }
+    /// Space left outside a ring when the controls are hidden, so the ring does
+    /// not sit flush against the edge of the black body.
+    static let ringOuterPad: CGFloat = 8
+
+    private static func stripChrome(showsControls: Bool) -> CGFloat {
+        ringInset + (showsControls ? controlSlot : ringOuterPad)
+    }
 
     /// Exposed for previews that need to draw the whole bar, not just the cutout.
-    static var stripChromeWidth: CGFloat { stripChrome }
+    static func stripChromeWidth(showsControls: Bool) -> CGFloat {
+        stripChrome(showsControls: showsControls)
+    }
 
     /// Depth of the concave curve at the top corners — see `NotchShape`.
     ///
@@ -76,18 +84,21 @@ struct NotchGeometry: Equatable {
         min(Self.baseRingDiameter * scale, barHeight - 2)
     }
 
-    func stripWidth(scale: Double) -> CGFloat {
-        Self.stripChrome + ringDiameter(scale: scale)
+    /// Width of one strip. Narrower when the chevron and the projects button are
+    /// hidden: the whole bar shrinks with them, rather than keeping two empty
+    /// slots of black beside the rings.
+    func stripWidth(scale: Double, showsControls: Bool) -> CGFloat {
+        Self.stripChrome(showsControls: showsControls) + ringDiameter(scale: scale)
     }
 
     /// Black body of the collapsed surface: two strips hugging the cutout.
-    func collapsedBodyWidth(scale: Double) -> CGFloat {
-        stripWidth(scale: scale) * 2 + notchRect.width
+    func collapsedBodyWidth(scale: Double, showsControls: Bool) -> CGFloat {
+        stripWidth(scale: scale, showsControls: showsControls) * 2 + notchRect.width
     }
 
     /// Window width when collapsed — the body plus the two flares.
-    func collapsedWidth(scale: Double) -> CGFloat {
-        collapsedBodyWidth(scale: scale) + Self.flareRadius * 2
+    func collapsedWidth(scale: Double, showsControls: Bool) -> CGFloat {
+        collapsedBodyWidth(scale: scale, showsControls: showsControls) + Self.flareRadius * 2
     }
 
     /// Body width when expanded — deliberately much wider than collapsed, so
