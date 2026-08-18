@@ -17,13 +17,25 @@ import QuartzCore
 /// **transparent to the mouse** (`ignoresMouseEvents`), which is the one kind of
 /// oversized transparent window that cannot steal an event: the click is not
 /// discarded, it is never offered to us in the first place.
-final class NotchShadowWindow: NSPanel {
+final class NotchAuraWindow: NSPanel {
     /// Room around the notch shape for the blur to spread into. Only to the sides
     /// and below: the shape's top edge is the screen's, so anything above is off
     /// screen anyway.
     static let margin: CGFloat = 60
 
     private let shadowView = NotchShadowView()
+
+    /// The notification strip. Lives here rather than in the notch window because
+    /// it has to be drawn *outside* the shape — see `NotchGlowView`.
+    private let glowHost = NSHostingView(rootView: NotchGlowView(
+        palette: .solid(.waiting),
+        bottomCornerRadius: NotchGeometry.collapsedCornerRadius,
+        horizontalMargin: NotchAuraWindow.margin,
+        bottomMargin: NotchAuraWindow.margin,
+        fixedPhase: nil
+    ))
+    private var glow: NotchGlowPalette?
+    private var cornerRadius: CGFloat = NotchGeometry.collapsedCornerRadius
 
     init(contentRect: NSRect) {
         super.init(
@@ -49,6 +61,14 @@ final class NotchShadowWindow: NSPanel {
         isRestorable = false
 
         contentView = shadowView
+
+        glowHost.frame = shadowView.bounds
+        glowHost.autoresizingMask = [.width, .height]
+        // Hidden, not merely transparent: a `TimelineView` that is on screen keeps
+        // asking for a frame every refresh, and there is nothing to animate when no
+        // project is waiting.
+        glowHost.isHidden = true
+        shadowView.addSubview(glowHost)
     }
 
     override var canBecomeKey: Bool { false }
@@ -70,6 +90,30 @@ final class NotchShadowWindow: NSPanel {
     /// two can never drift apart.
     func reshape(notchSize: CGSize, bottomCornerRadius: CGFloat) {
         shadowView.reshape(notchSize: notchSize, bottomCornerRadius: bottomCornerRadius)
+        // Called on every frame of the open animation, and re-rendering SwiftUI at
+        // that rate for a value that only ever takes two values would be waste.
+        guard cornerRadius != bottomCornerRadius else { return }
+        cornerRadius = bottomCornerRadius
+        refreshGlow()
+    }
+
+    /// Nil turns the signal off.
+    func setGlow(_ palette: NotchGlowPalette?) {
+        guard glow != palette else { return }
+        glow = palette
+        refreshGlow()
+    }
+
+    private func refreshGlow() {
+        glowHost.isHidden = glow == nil
+        guard let glow else { return }
+        glowHost.rootView = NotchGlowView(
+            palette: glow,
+            bottomCornerRadius: cornerRadius,
+            horizontalMargin: Self.margin,
+            bottomMargin: Self.margin,
+            fixedPhase: nil
+        )
     }
 
     func setShadow(visible: Bool, duration: TimeInterval) {
@@ -114,7 +158,7 @@ private final class NotchShadowView: NSView {
 
         // `NotchShape` measures y downwards, an `NSView` upwards, and the shape
         // hangs from the top of this view: flip, then drop it into place.
-        let margin = NotchShadowWindow.margin
+        let margin = NotchAuraWindow.margin
         var flip = CGAffineTransform(scaleX: 1, y: -1)
             .concatenating(CGAffineTransform(translationX: margin, y: notchSize.height))
 

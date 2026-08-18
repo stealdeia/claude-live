@@ -10,6 +10,9 @@ import SwiftUI
 struct ProjectsSectionView: View {
     @ObservedObject var projects: ProjectsMonitor
     @ObservedObject var status: ClaudeStatusStore
+    /// Read for the glow palettes: a row lights in the same colour as the strip
+    /// around the notch, because it is reporting the same event.
+    @ObservedObject var settings: Settings
     let onInstallHooks: () -> Void
 
     private let rowHeight: CGFloat = 24
@@ -42,15 +45,11 @@ struct ProjectsSectionView: View {
 
             Spacer(minLength: 4)
 
-            // Draws attention only when something actually needs the user.
+            // A count, not a bell: the signal is the strip around the notch now.
             if status.waitingCount > 0 {
-                HStack(spacing: 3) {
-                    Image(systemName: "bell.badge")
-                        .font(.system(size: 8, weight: .semibold))
-                    Text("\(status.waitingCount)")
-                        .font(.system(size: 9, weight: .bold).monospacedDigit())
-                }
-                .foregroundStyle(PanelTheme.color(for: .warning))
+                Text("\(status.waitingCount) in attesa")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(PanelTheme.color(for: .warning))
             } else if !projects.projects.isEmpty {
                 Text("\(projects.projects.count)")
                     .font(PanelTheme.captionFont)
@@ -65,9 +64,14 @@ struct ProjectsSectionView: View {
                 ProjectRowView(
                     project: project,
                     status: status.status(for: project),
-                    sessions: status.sessions(for: project)
+                    sessions: status.sessions(for: project),
+                    alert: status.alert(for: project),
+                    palette: palette(for: status.alert(for: project))
                 ) {
                     projects.focus(project)
+                    // Clicking the project is the gesture that acknowledges its
+                    // alert, and so turns the strip off.
+                    status.clearAlert(for: project)
                 }
             }
         }
@@ -85,6 +89,13 @@ struct ProjectsSectionView: View {
                 rows
             }
         }
+    }
+
+    /// Nil when there is nothing to light, which is also what stops the rows from
+    /// animating when nothing is pending.
+    private func palette(for alert: ClaudeAlert?) -> NotchGlowPalette? {
+        guard settings.glowEnabled, let alert else { return nil }
+        return settings.glowStyle(for: alert.kind).palette
     }
 
     private var estimatedListHeight: CGFloat {
@@ -128,6 +139,10 @@ struct ProjectRowView: View {
     let status: ClaudeProjectStatus?
     /// Every Claude Code session in this project, most urgent first.
     let sessions: [ClaudeSessionStatus]
+    /// The unacknowledged event, if any. Nil means an ordinary row.
+    let alert: ClaudeAlert?
+    /// How to light it. Nil when the strip is off or there is no alert.
+    let palette: NotchGlowPalette?
     let onSelect: () -> Void
 
     @State private var isHovering = false
@@ -151,7 +166,13 @@ struct ProjectRowView: View {
             if showsChats {
                 VStack(spacing: 0) {
                     ForEach(sessions) { session in
-                        ChatRowView(session: session)
+                        ChatRowView(
+                            session: session,
+                            // Only the chat that raised it: with several running, "one
+                            // of them needs you" is the half of the message that was
+                            // missing.
+                            palette: session.sessionID == alert?.sessionID ? palette : nil
+                        )
                     }
                 }
             }
@@ -215,6 +236,7 @@ struct ProjectRowView: View {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .fill(rowBackground)
         )
+        .background(GlowRowBackground(palette: palette, cornerRadius: 5))
         .contentShape(Rectangle())
     }
 
@@ -233,8 +255,9 @@ struct ProjectRowView: View {
 
     private var rowBackground: Color {
         if isHovering && project.path != nil { return Color.primary.opacity(0.08) }
-        // A persistent tint so a waiting project stands out even without hover.
-        if isWaiting { return PanelTheme.color(for: .warning).opacity(0.12) }
+        // The pulsing background covers the "needs you" case now; this stays for a
+        // pending request the user has already acknowledged.
+        if isWaiting && palette == nil { return PanelTheme.color(for: .warning).opacity(0.12) }
         return .clear
     }
 
@@ -256,6 +279,7 @@ struct ProjectRowView: View {
 
     private var tooltip: String {
         var lines = [project.displayPath ?? "\(project.name) — percorso non trovato in workspaceStorage"]
+        if let alert { lines.append("\(alert.kind.label) — clicca per spegnere il segnale") }
         if project.windowCount > 1 { lines.append("\(project.windowCount) finestre di VS Code") }
         if let status { lines.append(status.tooltip) }
         return lines.joined(separator: "\n\n")
@@ -265,6 +289,7 @@ struct ProjectRowView: View {
 /// One Claude Code session inside a project: what that single chat is doing.
 private struct ChatRowView: View {
     let session: ClaudeSessionStatus
+    let palette: NotchGlowPalette?
 
     var body: some View {
         HStack(spacing: 3) {
@@ -294,6 +319,8 @@ private struct ChatRowView: View {
                 .foregroundStyle(PanelTheme.secondaryText.opacity(0.7))
         }
         .padding(.trailing, 5)
+        .padding(.vertical, 0.5)
+        .background(GlowRowBackground(palette: palette, cornerRadius: 4))
         .help(session.tooltip)
     }
 
@@ -305,6 +332,38 @@ private struct ChatRowView: View {
         case .waitingInput: return PanelTheme.color(for: .warning)
         case .error: return PanelTheme.color(for: .danger)
         case .idle, .unknown: return PanelTheme.secondaryText
+        }
+    }
+}
+
+
+/// The row's share of the notification signal: the same travelling light as the
+/// strip around the notch, in the same colour and the same rhythm, laid flat.
+///
+/// Both read from `GlowBand`, so they cannot drift apart — the point is that the
+/// notch says "something happened" and the row says "here". Kept faint: the row has
+/// text on it, and the aim is to draw the eye, not to become the content.
+private struct GlowRowBackground: View {
+    let palette: NotchGlowPalette?
+    let cornerRadius: CGFloat
+
+    /// Ceiling on the brightness. Anything stronger and the project's name stops
+    /// being readable at the moment the band passes under it.
+    private let maxOpacity: Double = 0.34
+
+    var body: some View {
+        if let palette {
+            // Nothing animates unless something is pending: with no alert this view
+            // is an `EmptyView` and no clock runs.
+            TimelineView(.animation) { context in
+                let stops = GlowBand.stops(
+                    phase: GlowBand.phase(at: context.date),
+                    palette: palette,
+                    maxOpacity: maxOpacity
+                )
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing))
+            }
         }
     }
 }

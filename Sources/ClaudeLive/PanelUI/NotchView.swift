@@ -166,31 +166,29 @@ struct NotchView: View {
         .frame(width: stripWidth, height: barHeight)
     }
 
-    /// Projects button: opens the detail, and carries the count of projects waiting
-    /// for input.
+    /// Projects button: opens the detail, and carries how many projects are open.
+    ///
+    /// It used to turn into a bell with a count when something needed the user. The
+    /// luminous strip says that now — all around the notch instead of in 10pt of
+    /// glyph — so this went back to being just a button.
     private var projectsButton: some View {
-        let waiting = status.waitingCount
-
-        return Button {
+        Button {
             toggle()
         } label: {
             HStack(spacing: 1.5) {
-                Image(systemName: waiting > 0 ? "bell.badge.fill" : "folder")
+                Image(systemName: "folder")
                     .font(.system(size: 9.5, weight: .semibold))
-                if waiting > 0 {
-                    Text("\(waiting)")
-                        .font(.system(size: 8.5, weight: .bold).monospacedDigit())
-                } else if !projects.projects.isEmpty {
+                if !projects.projects.isEmpty {
                     Text("\(projects.projects.count)")
                         .font(.system(size: 8.5, weight: .semibold).monospacedDigit())
                 }
             }
-            .foregroundStyle(waiting > 0 ? PanelTheme.color(for: .warning) : Color.white.opacity(0.75))
+            .foregroundStyle(Color.white.opacity(0.75))
             .frame(height: 18)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(waiting > 0 ? "\(waiting) progetti attendono input" : "Progetti")
+        .help("Progetti")
     }
 
     /// A ring that doubles as the "open the details" affordance — the only one
@@ -242,6 +240,7 @@ struct NotchView: View {
             ProjectsSectionView(
                 projects: projects,
                 status: status,
+                settings: settings,
                 onInstallHooks: actions.installHooks
             )
 

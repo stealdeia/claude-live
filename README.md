@@ -284,6 +284,41 @@ nessun processo fa read-modify-write sullo stesso file — zero race. L'app le
 raggruppa per `project_path` e mostra lo stato **più urgente**
 (`waiting_input` > `error` > `working` > `idle` > `unknown`).
 
+**Stato e avviso sono cose diverse**, e la differenza è il punto. Lo stato
+(`ClaudeActivity`) è ciò che una sessione sta facendo *adesso*, ricalcolato dal
+disco ogni pochi secondi. Un avviso (`ClaudeAlert`) è un **evento**: lo alza una
+transizione, sopravvive allo stato che l'ha causato, e se ne va quando l'utente
+l'ha visto — che è ciò che deve fare un segnale di notifica. «Claude ha finito»
+come stato non esiste: una sessione che ha finito e una appena aperta sono
+entrambe `idle`, e solo la prima ci arriva da `working`.
+
+| Transizione | Avviso |
+| --- | --- |
+| → `waiting_input` | chiede qualcosa |
+| `working`/`waiting_input` → `idle` | ha finito |
+| → `error` | si è interrotto |
+| `working` → `unknown` (silenzio da 10 min) | si è interrotto |
+| → `working` | azzera l'avviso: il turno nuovo rende moot quello vecchio |
+
+L'avviso si azzera anche quando il file di stato scompare, perché la riga di
+progetto che lo spegnerebbe può essere sparita con lui: una luce che nessuno può
+spegnere è peggio di una mancata.
+
+**Spegnerlo entrando nel progetto** (`FrontProjectWatcher`) costa un permesso, e
+il perché è istruttivo: sapere *quale* finestra dell'editor è davanti significa
+leggerne il **titolo**, e macOS lo protegge — `CGWindowListCopyWindowInfo` lo omette
+senza Registrazione Schermo, l'API di Accessibilità lo nega senza il proprio
+permesso. Senza uno dei due l'app può sapere solo «un editor è in primo piano», non
+quale progetto mostri. Quindi due livelli, e nessuno dei due è una bugia all'utente:
+col permesso di Accessibilità il titolo viene risolto in progetto attraverso lo
+stesso catalogo della lista progetti, quindi si spegne esattamente quell'avviso e
+funziona anche passando da una finestra all'altra; senza permesso, un editor che
+arriva in primo piano azzera l'avviso solo se ce n'è **uno solo** — e solo su un
+vero cambio di applicazione, non sul polling, altrimenti un avviso alzato mentre eri
+già nell'editor si spegnerebbe prima che tu lo veda. `AXUIElementSetMessagingTimeout`
+è a 0,25s perché il thread principale non resti in ostaggio di un editor occupato a
+indicizzare.
+
 **Una sessione è una chat.** Il riassunto per progetto (`statusesByPath`) resta,
 ma accanto vive l'elenco completo (`sessionsByPath`): la riga del progetto porta
 quante chat sono aperte e, quando sono più di una, le elenca sotto — una riga per
@@ -419,6 +454,22 @@ un monitor esterno.
 - **Utilizzo come anello** invece di `5h 11%`: la percentuale esatta vive solo nel
   pannello espanso (e nel tooltip). È ciò che tiene la superficie a 339pt: con il
   testo diventava larga 445pt.
+- **Segnale luminoso** (`NotchGlowView`): una striscia neon lungo il contorno,
+  che pulsa dal centro verso le estremità e torna. Sta nella finestra dell'aura,
+  **dietro** al notch, e il tratto è disegnato largo circa il doppio di quel che si
+  vede: il nero del pannello copre la metà interna, quindi è l'occlusione a fare da
+  maschera e resta una striscia che abbraccia il bordo da fuori. Niente da
+  ritagliare a mano, e la luce non può finire sopra il contenuto del pannello.
+  Il movimento non è un'animazione da sincronizzare con nulla: la luminosità è una
+  funzione della posizione orizzontale — una banda gaussiana centrata sulla distanza
+  `fase` dal centro — quindi **un solo gradiente** disegna entrambe le bande e la
+  simmetria è gratis. Sotto resta un filo acceso al 16%, che è ciò che la fa leggere
+  come una striscia con la luce che ci scorre dentro invece che come due puntini che
+  si inseguono. Le palette (`GlowStyle`) sono simmetriche per lo stesso motivo: un
+  arcobaleno da sinistra a destra metterebbe un colore diverso sotto ciascuna delle
+  due bande. `NotchGlowFilmstrip` ne scrive i fotogrammi su file, perché è
+  un'animazione su una finestra sopra la barra dei menu e `screencapture` richiede
+  il permesso di Registrazione Schermo.
 - **Ombra**: solo da espanso, in dissolvenza sulla stessa durata dell'apertura.
   Vive in una **finestra a parte** dietro a questa, perché la finestra del notch è
   grande esattamente quanto ciò che dipinge — l'invariante che le impedisce di

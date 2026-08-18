@@ -161,6 +161,18 @@ final class PanelController: NSObject {
     }
 
     func show() {
+        // Refused rather than obeyed when the notch is the surface in use.
+        //
+        // Not defensiveness for its own sake: showing the panel in notch mode puts
+        // two surfaces on screen at once and records `panelVisible = true`, so it
+        // outlives a restart and the only way back is switching mode twice. It has
+        // reached users that way once already, from a tapped notification. Every
+        // legitimate caller either is `applyDisplayMode` switching *to* the panel —
+        // which sets the mode first — or is offered only in floating mode.
+        guard settings.displayMode == .floating else {
+            Log.error("Richiesta di mostrare il pannello ignorata: la superficie attiva è il notch", category: .panel)
+            return
+        }
         settings.panelVisible = true
         applyPosition()
         // `orderFrontRegardless` shows the panel without activating the app,

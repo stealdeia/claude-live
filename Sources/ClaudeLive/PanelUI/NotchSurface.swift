@@ -40,7 +40,7 @@ final class NotchSurface: NSObject, ObservableObject {
 
     private let window: NotchWindow
     /// Behind `window`, and the only thing that draws the shadow — see `NotchShadow`.
-    private let shadowWindow: NotchShadowWindow
+    private let shadowWindow: NotchAuraWindow
     private let hosting: NSHostingController<NotchView>
 
     /// Natural height of the detail content, measured by the view at the final
@@ -110,8 +110,8 @@ final class NotchSurface: NSObject, ObservableObject {
         let initialFrame = geometry.frame(for: initial)
         window = NotchWindow(contentRect: initialFrame)
         window.contentViewController = hosting
-        shadowWindow = NotchShadowWindow(
-            contentRect: NotchShadowWindow.frame(forNotchFrame: initialFrame)
+        shadowWindow = NotchAuraWindow(
+            contentRect: NotchAuraWindow.frame(forNotchFrame: initialFrame)
         )
 
         super.init()
@@ -270,6 +270,11 @@ final class NotchSurface: NSObject, ObservableObject {
         self.geometry = geometry
         refreshRootView()
         applyFrame(expanded: isExpanded, animated: false)
+    }
+
+    /// Turns the notification strip on, in a given palette, or off with nil.
+    func setGlow(_ palette: NotchGlowPalette?) {
+        shadowWindow.setGlow(palette)
     }
 
     func setExpanded(_ expanded: Bool) {
@@ -436,7 +441,7 @@ final class NotchSurface: NSObject, ObservableObject {
     }
 
     private func syncShadow(notchFrame: CGRect) {
-        shadowWindow.setFrame(NotchShadowWindow.frame(forNotchFrame: notchFrame), display: false)
+        shadowWindow.setFrame(NotchAuraWindow.frame(forNotchFrame: notchFrame), display: false)
         shadowWindow.reshape(
             notchSize: notchFrame.size,
             // Matches the corner the view is drawing right now: the radius grows

@@ -19,6 +19,7 @@ final class NotchController {
 
     private var cancellables: Set<AnyCancellable> = []
     private var screenObserver: Any?
+    private var previewGeneration = 0
 
     /// True when there is any display to attach to — screens without a cutout get
     /// a drawn one, so in practice this is only false with no display at all.
@@ -48,6 +49,29 @@ final class NotchController {
         ) { [weak self] _ in
             Task { @MainActor in self?.syncIfActive() }
         }
+
+        // The strip reports unacknowledged alerts, so it follows them and the two
+        // settings that decide how they look.
+        status.$alerts
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.refreshGlow() }
+            }
+            .store(in: &cancellables)
+
+        settings.$glowEnabled
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.refreshGlow() }
+            }
+            .store(in: &cancellables)
+
+        settings.$glowStyles
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.refreshGlow() }
+            }
+            .store(in: &cancellables)
 
         settings.$notchScreenSelection
             .dropFirst()
@@ -108,6 +132,47 @@ final class NotchController {
         for surface in surfaces { surface.setExpanded(expanded) }
     }
 
+    /// The notification strip, on every surface: it reports a state of the world,
+    /// not of one display.
+    private func setGlow(_ palette: NotchGlowPalette?) {
+        for surface in surfaces { surface.setGlow(palette) }
+    }
+
+    /// Lights the strip for the most urgent unacknowledged alert, or turns it off.
+    ///
+    /// Thresholds are deliberately absent: they are not events in a project and
+    /// there is nothing to click to acknowledge them, so they stay as a banner and
+    /// as the colour of the rings.
+    private func refreshGlow() {
+        guard settings.glowEnabled, let alert = status.topAlert else {
+            setGlow(nil)
+            Log.debug("Segnale luminoso spento", category: .panel)
+            return
+        }
+        let style = settings.glowStyle(for: alert.kind)
+        setGlow(style.palette)
+        Log.debug(
+            "Segnale luminoso: \(alert.kind.rawValue) (\(style.mode.rawValue)) per «\(alert.projectName)»",
+            category: .panel
+        )
+    }
+
+    /// Lights it for a few seconds, for the «Prova» button in Settings.
+    ///
+    /// The generation counter is what makes a second tap restart the preview
+    /// instead of having the first one's timer switch it off mid-way.
+    func previewGlow(_ palette: NotchGlowPalette, seconds: TimeInterval = 8) {
+        previewGeneration += 1
+        let generation = previewGeneration
+        setGlow(palette)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard let self, self.previewGeneration == generation else { return }
+            // Back to whatever is really pending, which may well be something.
+            self.refreshGlow()
+        }
+    }
+
     func writeSnapshot(to url: URL) {
         surfaces.first?.writeSnapshot(to: url)
     }
@@ -163,5 +228,8 @@ final class NotchController {
                 surface.show()
             }
         }
+
+        // A surface created just now knows nothing about a pending alert.
+        refreshGlow()
     }
 }

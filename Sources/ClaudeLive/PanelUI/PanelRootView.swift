@@ -57,6 +57,7 @@ struct PanelRootView: View {
             ProjectsSectionView(
                 projects: projects,
                 status: status,
+                settings: settings,
                 onInstallHooks: actions.installHooks
             )
 

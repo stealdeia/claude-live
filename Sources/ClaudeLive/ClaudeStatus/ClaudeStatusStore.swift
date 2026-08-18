@@ -36,9 +36,18 @@ final class ClaudeStatusStore: ObservableObject {
     private var staleTicker: Timer?
     private var heartbeatTicker: Timer?
     private let settings: Settings
-    private let notifier: WaitingInputNotifier
+    private let notifier: ClaudeAlertNotifier
 
-    /// Previous state per project, so we only notify on an actual transition.
+    /// Unacknowledged events, one per project at most: the newest replaces the
+    /// previous, because a project has one row to click and one thing to say.
+    @Published private(set) var alerts: [String: ClaudeAlert] = [:]
+
+    /// The alert the notch strip should show: the most serious, then the newest.
+    var topAlert: ClaudeAlert? {
+        alerts.values.max { ClaudeAlert.moreUrgent($1, $0) }
+    }
+
+    /// Previous state per project, so we only act on an actual transition.
     private var previousStates: [String: ClaudeActivity] = [:]
 
     /// Known VS Code project roots, used to fold a session started in a
@@ -49,7 +58,7 @@ final class ClaudeStatusStore: ObservableObject {
 
     private var cancellables: Set<AnyCancellable> = []
 
-    init(settings: Settings, notifier: WaitingInputNotifier) {
+    init(settings: Settings, notifier: ClaudeAlertNotifier) {
         self.settings = settings
         self.notifier = notifier
     }
@@ -217,6 +226,64 @@ final class ClaudeStatusStore: ObservableObject {
         statusesByPath.values.filter { $0.state == .waitingInput }.count
     }
 
+    // MARK: - Alerts
+
+    /// Acknowledges a project's alert. Called when the user clicks its row, which
+    /// is the gesture that means "I have seen it".
+    ///
+    /// Deliberately does not care whether the underlying state is still there: a
+    /// permission request that is still pending stays visible *in the panel*, where
+    /// the answer buttons are. The strip reports what is new, not what is true.
+    func clearAlert(forPath path: String) {
+        guard alerts[path] != nil else { return }
+        alerts.removeValue(forKey: path)
+        Log.debug("Avviso azzerato per \(( path as NSString).lastPathComponent)", category: .status)
+    }
+
+    /// The alert of a VS Code project, wherever its sessions were filed.
+    func alert(for project: VSCodeProject) -> ClaudeAlert? {
+        guard let path = project.path else { return nil }
+        if let exact = alerts[path] { return exact }
+        return alerts
+            .filter { $0.key.hasPrefix(path + "/") }
+            .values
+            .max(by: { ClaudeAlert.moreUrgent($1, $0) })
+    }
+
+    func clearAlert(for project: VSCodeProject) {
+        guard let path = project.path else { return }
+        // Sessions of a project can be attributed to subdirectories of it, so the
+        // alert may be filed under one of those.
+        clearAlert(forPath: path)
+        for key in alerts.keys where key.hasPrefix(path + "/") {
+            clearAlert(forPath: key)
+        }
+    }
+
+    func clearAllAlerts() {
+        guard !alerts.isEmpty else { return }
+        alerts = [:]
+    }
+
+    private func raise(_ kind: ClaudeAlertKind, for status: ClaudeProjectStatus, at now: Date) {
+        let name = (status.projectPath as NSString).lastPathComponent
+        let alert = ClaudeAlert(
+            kind: kind,
+            projectPath: status.projectPath,
+            projectName: name,
+            // The group is sorted most urgent first, so its head is the session
+            // whose state the aggregate is reporting — the one that just changed.
+            sessionID: sessionsByPath[status.projectPath]?.first?.sessionID,
+            raisedAt: now,
+            detail: status.detail ?? status.badge
+        )
+        alerts[status.projectPath] = alert
+
+        // The pending session carries the command; the aggregate does not.
+        let summary = waitingSessions.first { $0.projectPath == status.projectPath }?.toolSummary
+        notifier.notify(alert, badge: status.badge, summary: summary)
+    }
+
     // MARK: - Scanning
 
     private func scan() {
@@ -270,7 +337,7 @@ final class ClaudeStatusStore: ObservableObject {
         guard aggregated != statusesByPath else { return }
 
         statusesByPath = aggregated
-        notifyTransitions(aggregated)
+        handleTransitions(aggregated, now: now)
 
         if aggregated.isEmpty {
             Log.debug("Nessuna sessione Claude Code attiva", category: .status)
@@ -333,31 +400,53 @@ final class ClaudeStatusStore: ObservableObject {
         return result
     }
 
-    private func notifyTransitions(_ statuses: [String: ClaudeProjectStatus]) {
+    /// Turns state changes into alerts, and alerts into notifications.
+    ///
+    /// Only *transitions* raise anything, which is what separates "Claude finished"
+    /// from "this session has been idle since it opened": both are `idle`, and only
+    /// the first one arrives from `working`.
+    private func handleTransitions(_ statuses: [String: ClaudeProjectStatus], now: Date) {
         for (path, status) in statuses {
             let previous = previousStates[path]
             previousStates[path] = status.state
+            guard previous != status.state else { continue }
 
-            guard settings.notifyOnWaitingInput,
-                  status.state == .waitingInput,
-                  previous != .waitingInput
-            else { continue }
+            switch status.state {
+            case .waitingInput:
+                raise(.waiting, for: status, at: now)
 
-            let name = (path as NSString).lastPathComponent
-            // The pending session carries the command; the aggregate does not.
-            let summary = waitingSessions.first { $0.projectPath == path }?.toolSummary
-            notifier.notifyWaiting(
-                projectName: name,
-                projectPath: path,
-                badge: status.badge,
-                summary: summary
-            )
+            case .idle:
+                // A turn that ended. A session seen for the first time is also
+                // `idle` and must not claim to have finished anything.
+                if previous == .working || previous == .waitingInput {
+                    raise(.done, for: status, at: now)
+                }
+
+            case .error:
+                raise(.failed, for: status, at: now)
+
+            case .unknown:
+                // Downgraded from `working` after minutes of silence: the session is
+                // stuck or died without a word, which is the other half of "it
+                // stopped for whatever reason".
+                if previous == .working {
+                    raise(.failed, for: status, at: now)
+                }
+
+            case .working:
+                // A new turn makes whatever was pending moot — including a `done`
+                // the user never looked at.
+                clearAlert(forPath: path)
+            }
         }
 
         // Forget projects whose status files are gone, so a later re-appearance
-        // counts as a fresh transition.
+        // counts as a fresh transition. Their alerts go too: the project row that
+        // would clear one may have gone with it, and a light nobody can turn off is
+        // worse than a missed one.
         for path in previousStates.keys where statuses[path] == nil {
             previousStates.removeValue(forKey: path)
+            clearAlert(forPath: path)
         }
     }
 

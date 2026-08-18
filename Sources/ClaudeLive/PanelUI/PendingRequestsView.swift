@@ -51,6 +51,7 @@ struct PendingRequestsView: View {
                         ForEach(openQuestions) { request in
                             OpenQuestionRow(request: request) {
                                 onFocusProject(request.projectPath)
+                                status.clearAlert(forPath: request.projectPath)
                             }
                         }
                     }

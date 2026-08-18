@@ -26,6 +26,11 @@ private struct SettingsData: Codable {
     var notificationsEnabled: Bool?
     var notifyOnWaitingInput: Bool?
     var notificationSound: String?
+    var notifyOnDone: Bool?
+    var notifyOnFailure: Bool?
+    var glowEnabled: Bool?
+    var clearAlertsOnFocus: Bool?
+    var glowStyles: [String: GlowStyle]?
     var debugLoggingEnabled: Bool?
     var panelOpacity: Double?
     var panelVisible: Bool?
@@ -86,6 +91,31 @@ final class Settings: ObservableObject {
 
     /// Notify when Claude Code starts waiting for input in some project.
     @Published var notifyOnWaitingInput: Bool = true { didSet { schedulePersist() } }
+
+    /// Notify when a turn ends normally.
+    ///
+    /// On, like the others. Worth knowing that this is the noisiest of the three —
+    /// a turn ends every few minutes while you work — and that the strip around the
+    /// notch says the same thing without interrupting, so this is the one to turn
+    /// off first if the banners get in the way.
+    @Published var notifyOnDone: Bool = true { didSet { schedulePersist() } }
+
+    /// Notify when a turn dies on an error, or a working session goes silent.
+    @Published var notifyOnFailure: Bool = true { didSet { schedulePersist() } }
+
+    /// Whether bringing a project's editor window to the front counts as having
+    /// seen its alert. See `FrontProjectWatcher` for what this can and cannot know
+    /// without the Accessibility permission.
+    @Published var clearAlertsOnFocus: Bool = true { didSet { schedulePersist() } }
+
+    /// Whether the notch shows the luminous strip at all.
+    @Published var glowEnabled: Bool = true { didSet { schedulePersist() } }
+
+    /// One style per kind of alert, keyed by `ClaudeAlertKind.rawValue`.
+    ///
+    /// A kind with no entry uses its default, so the file only ever holds what the
+    /// user actually changed.
+    @Published var glowStyles: [String: GlowStyle] = [:] { didSet { schedulePersist() } }
 
     /// Sound for every notification this app posts. Empty means the system
     /// default; anything else is a file name in /System/Library/Sounds — see
@@ -173,6 +203,23 @@ final class Settings: ObservableObject {
                 return
             }
             schedulePersist()
+        }
+    }
+
+    func glowStyle(for kind: ClaudeAlertKind) -> GlowStyle {
+        glowStyles[kind.rawValue] ?? .default(for: kind)
+    }
+
+    func setGlowStyle(_ style: GlowStyle, for kind: ClaudeAlertKind) {
+        guard glowStyles[kind.rawValue] != style else { return }
+        // A style that *is* the default is stored as "nothing", so the file keeps
+        // holding only what the user actually changed — «Ripristina» has to leave
+        // the settings as they were before the first change, not as an explicit copy
+        // of the defaults that would then survive a change of defaults.
+        if style == .default(for: kind) {
+            glowStyles.removeValue(forKey: kind.rawValue)
+        } else {
+            glowStyles[kind.rawValue] = style
         }
     }
 
@@ -321,6 +368,11 @@ final class Settings: ObservableObject {
         if let v = decoded.notificationsEnabled { notificationsEnabled = v }
         if let v = decoded.notifyOnWaitingInput { notifyOnWaitingInput = v }
         if let v = decoded.notificationSound { notificationSound = v }
+        if let v = decoded.notifyOnDone { notifyOnDone = v }
+        if let v = decoded.notifyOnFailure { notifyOnFailure = v }
+        if let v = decoded.glowEnabled { glowEnabled = v }
+        if let v = decoded.clearAlertsOnFocus { clearAlertsOnFocus = v }
+        if let v = decoded.glowStyles { glowStyles = v }
         if let v = decoded.debugLoggingEnabled { debugLoggingEnabled = v }
         if let v = decoded.panelOpacity { panelOpacity = v }
         if let v = decoded.displayMode { displayMode = v }
@@ -370,6 +422,11 @@ final class Settings: ObservableObject {
             notificationsEnabled: notificationsEnabled,
             notifyOnWaitingInput: notifyOnWaitingInput,
             notificationSound: notificationSound,
+            notifyOnDone: notifyOnDone,
+            notifyOnFailure: notifyOnFailure,
+            glowEnabled: glowEnabled,
+            clearAlertsOnFocus: clearAlertsOnFocus,
+            glowStyles: glowStyles,
             debugLoggingEnabled: debugLoggingEnabled,
             panelOpacity: panelOpacity,
             panelVisible: panelVisible,

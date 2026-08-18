@@ -8,8 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var monitor: UsageMonitor!
     private var projects: ProjectsMonitor!
     private var status: ClaudeStatusStore!
+    private var frontWatcher: FrontProjectWatcher!
     private var notifier: UsageNotifier!
-    private var waitingNotifier: WaitingInputNotifier!
+    private var alertNotifier: ClaudeAlertNotifier!
     private var menuBar: MenuBarController!
     private var panel: PanelController!
     private var notch: NotchController!
@@ -27,11 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         settings = Settings.shared
         updates = UpdateController()
         notifier = UsageNotifier(settings: settings)
-        waitingNotifier = WaitingInputNotifier(settings: settings)
+        alertNotifier = ClaudeAlertNotifier(settings: settings)
 
         monitor = UsageMonitor(settings: settings, notifier: notifier)
         projects = ProjectsMonitor(settings: settings)
-        status = ClaudeStatusStore(settings: settings, notifier: waitingNotifier)
+        status = ClaudeStatusStore(settings: settings, notifier: alertNotifier)
+        frontWatcher = FrontProjectWatcher(status: status, settings: settings)
 
         onboardingWindow = OnboardingWindowController(
             settings: settings,
@@ -49,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             // Evaluated when tapped, by which point `panel` exists — it is built a
             // few lines below this.
             onTogglePanelVisibility: { [weak self] in self?.togglePanelVisibility() },
+            onPreviewGlow: { [weak self] palette in self?.notch.previewGlow(palette) },
             onQuit: { NSApp.terminate(nil) }
         )
 
@@ -116,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         monitor.start()
         projects.start()
         status.start()
+        frontWatcher.start()
 
         // First launch: walk the user through requirements and permissions before
         // anything can silently fail.
@@ -141,6 +145,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                     to: Paths.supportDirectory.appendingPathComponent("notch-screens.png")
                 )
                 guard self.settings.displayMode == .notch else { return }
+
+                // The notification strip, one file per phase and per palette.
+                let collapsed = CGSize(width: 281, height: 32)
+                let expanded = CGSize(width: 624, height: 243)
+                NotchGlowFilmstrip.write(
+                    to: Paths.supportDirectory,
+                    notchSize: collapsed,
+                    bottomCornerRadius: NotchGeometry.collapsedCornerRadius,
+                    palette: .solid(.done),
+                    phases: [0, 0.35, 0.7, 1],
+                    name: "verde"
+                )
+                NotchGlowFilmstrip.write(
+                    to: Paths.supportDirectory,
+                    notchSize: collapsed,
+                    bottomCornerRadius: NotchGeometry.collapsedCornerRadius,
+                    palette: .rainbow,
+                    phases: [0.7],
+                    name: "arcobaleno"
+                )
+                NotchGlowFilmstrip.write(
+                    to: Paths.supportDirectory,
+                    notchSize: collapsed,
+                    bottomCornerRadius: NotchGeometry.collapsedCornerRadius,
+                    palette: .blend(.waiting, .failed),
+                    phases: [0.7],
+                    name: "sfumatura"
+                )
+                NotchGlowFilmstrip.write(
+                    to: Paths.supportDirectory,
+                    notchSize: expanded,
+                    bottomCornerRadius: NotchGeometry.expandedCornerRadius,
+                    palette: .solid(.waiting),
+                    phases: [0.55],
+                    name: "aperto"
+                )
+
+                // Lights the real strip on the real notch for a while, so a run of
+                // the snapshot diagnostic also shows it moving on screen.
+                self.notch.previewGlow(.solid(.done), seconds: 12)
+
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 self.notch.writeSnapshot(to: Paths.supportDirectory.appendingPathComponent("notch-collapsed.png"))
                 self.notch.setExpanded(true)
@@ -200,6 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         monitor?.stop()
         projects?.stop()
         status?.stop()
+        frontWatcher?.stop()
         settings?.persistNow()
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
@@ -220,6 +266,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         settingsWindow.show()
         return true
+    }
+
+    /// Brings the *active* surface to the user's attention.
+    ///
+    /// Whatever the reason for showing something — a tapped notification today —
+    /// it must be the surface the user chose. Calling `panel.show()` here was the
+    /// bug: in notch mode it put the floating panel on screen **next to** the
+    /// notch, and nothing ever took it away again. Worse, `show()` records
+    /// `panelVisible = true`, so the state survived a restart and the only way out
+    /// was switching to the floating panel and back.
+    private func revealActiveSurface() {
+        guard settings.displayMode == .notch, notch.isSupported else {
+            panel.show()
+            return
+        }
+        // The notch is always on screen; what it can do is open its detail, which
+        // is where the numbers the notification is about actually are. A click
+        // anywhere else closes it again.
+        notch.setExpanded(true)
     }
 
     // MARK: - Reachability
@@ -274,9 +339,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         Task { @MainActor in
             if let path, !path.isEmpty {
                 self.projects.focus(path: path)
+                // Tapping the banner is as much an acknowledgement as clicking the
+                // row, so the strip must not stay lit for something already seen.
+                self.status.clearAlert(forPath: path)
             } else {
-                // Threshold notifications carry no project: show the panel instead.
-                self.panel.show()
+                // Threshold notifications carry no project, so there is nothing to
+                // focus: show the numbers instead — on whichever surface is in use.
+                self.revealActiveSurface()
             }
             completionHandler()
         }
@@ -332,6 +401,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         settings.displayMode = original
         try? await Task.sleep(nanoseconds: 300_000_000)
         Log.info("[selftest] modo ripristinato: \(original.rawValue)")
+
+        // The regression that brought this check: tapping a notification with no
+        // project called `panel.show()` unconditionally, so in notch mode the
+        // floating panel appeared beside the notch and stayed there — across
+        // restarts, because showing it records the preference.
+        revealActiveSurface()
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        let leaked = settings.displayMode == .notch && panel.isVisible
+        Log.info(
+            "[selftest] notifica senza progetto: pannello=\(panel.isVisible ? "visibile" : "nascosto") "
+            + "notch=\(notch.isVisible ? "visibile" : "nascosto") panelVisible=\(settings.panelVisible) "
+            + "\(leaked ? "✗ il pannello è comparso sopra il notch" : "✓")"
+        )
+        if settings.displayMode == .notch { notch.setExpanded(false) }
 
         guard settings.displayMode == .notch else { return }
 

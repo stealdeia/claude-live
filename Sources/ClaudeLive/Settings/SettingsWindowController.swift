@@ -24,6 +24,7 @@ final class SettingsWindowController {
     private let onInstallHooks: () -> Void
     private let onShowOnboarding: () -> Void
     private let onTogglePanelVisibility: () -> Void
+    private let onPreviewGlow: (NotchGlowPalette) -> Void
     private let onQuit: () -> Void
 
     private static let contentSize = NSSize(width: 480, height: 660)
@@ -37,6 +38,7 @@ final class SettingsWindowController {
         onInstallHooks: @escaping () -> Void,
         onShowOnboarding: @escaping () -> Void,
         onTogglePanelVisibility: @escaping () -> Void,
+        onPreviewGlow: @escaping (NotchGlowPalette) -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.settings = settings
@@ -47,6 +49,7 @@ final class SettingsWindowController {
         self.onInstallHooks = onInstallHooks
         self.onShowOnboarding = onShowOnboarding
         self.onTogglePanelVisibility = onTogglePanelVisibility
+        self.onPreviewGlow = onPreviewGlow
         self.onQuit = onQuit
     }
 
@@ -70,6 +73,7 @@ final class SettingsWindowController {
                 onInstallHooks: onInstallHooks,
                 onShowOnboarding: onShowOnboarding,
                 onTogglePanelVisibility: onTogglePanelVisibility,
+                onPreviewGlow: onPreviewGlow,
                 onQuit: onQuit
             )
         )
