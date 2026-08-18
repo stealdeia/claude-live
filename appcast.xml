@@ -5,6 +5,26 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.6.0</title>
+      <sparkle:version>0.6.0</sparkle:version>
+      <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 18 Aug 2026 16:35:02 +0000</pubDate>
+      <description>&lt;p&gt;Il notch si accende. Una striscia luminosa attorno al ritaglio, che pulsa dal centro verso le punte e torna: un colore per tipo di avviso, e nella lista si illumina il progetto — e la chat — che ti sta chiamando.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Una striscia luminosa attorno al notch, al posto della campanellina.** Pulsa dal centro verso le due estremità e torna, lentamente. Si accende quando Claude chiede qualcosa (giallo), quando ha finito (verde) e quando si interrompe (rosso), e si spegne quando apri il pannello e clicchi il progetto che l&amp;#x27;ha accesa. Non compare per il superamento delle soglie: quello non è un evento di un progetto e non ci sarebbe niente da cliccare — restano la notifica e il colore degli anelli.&lt;/li&gt;
+&lt;li&gt;**Anche il progetto si illumina, e la chat esatta.** Nella lista, la riga del progetto che ha alzato l&amp;#x27;avviso pulsa dello stesso colore e nello stesso ritmo della striscia attorno al notch — e se ha più di una chat, si accende anche quella precisa che ti riguarda. Con quattro progetti aperti non serve più indovinare quale ti sta chiamando.&lt;/li&gt;
+&lt;li&gt;**Il segnale resta acceso qualche secondo, poi si spegne da solo** se sei già nella finestra di quel progetto: senza un tempo minimo il caso più comune sarebbe anche il peggiore — Claude finisce mentre stai lavorando lì, il controllo scatta subito e la striscia fa un lampo che si legge come un difetto, non come un avviso. Cinque secondi, circa due pulsazioni complete.&lt;/li&gt;
+&lt;li&gt;**Il segnale si spegne anche entrando nel progetto**, senza passare dal pannello. Riconoscere *quale* finestra hai davanti richiede il permesso di Accessibilità, perché macOS protegge i titoli delle finestre: con il permesso il riconoscimento è esatto e funziona anche passando da una finestra all&amp;#x27;altra; senza, il segnale si spegne quando porti l&amp;#x27;editor in primo piano ma solo se c&amp;#x27;è un unico avviso in sospeso. Il permesso si concede da Impostazioni → Segnale luminoso, e l&amp;#x27;app funziona benissimo anche senza.&lt;/li&gt;
+&lt;li&gt;**I colori si scelgono, uno per tipo di avviso** (Impostazioni → Segnale luminoso): tinta unita, sfumatura fra due colori tuoi — dal centro verso le punte — oppure arcobaleno. Ogni riga ha un «Prova» che accende la striscia vera per qualche secondo e un «Ripristina» che torna al colore di serie.&lt;/li&gt;
+&lt;li&gt;**Notifiche nuove: «Claude ha finito» e «Claude si è interrotto».** La prima è la più chiacchierona delle tre, perché un turno finisce ogni pochi minuti: se dà fastidio si spegne da sola in Impostazioni → Notifiche, e la striscia continua a dirlo senza interrompere. «Si è interrotto» copre sia il turno morto su un errore sia la sessione che stava lavorando e ha smesso di rispondere.&lt;/li&gt;
+&lt;li&gt;**Una notifica non apre più il pannello flottante sopra il notch.** Cliccando un avviso che non riguarda un progetto — il superamento di una soglia, la prova del suono — comparivano due superfici insieme, e lo stato veniva ricordato: l&amp;#x27;unico modo di tornare indietro era passare al pannello e poi di nuovo al notch. Ora la notifica apre la superficie che stai usando.&lt;/li&gt;
+&lt;li&gt;**La campanellina è sparita dal notch**: il pulsante è tornato a essere una cartella con il numero di progetti. Nel pannello flottante compresso resta, perché lì non c&amp;#x27;è nessuna striscia a sostituirla.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.6.0/Claude.Live.0.6.0.dmg" length="2679415" type="application/octet-stream" sparkle:edSignature="BzS84ZG0W2vqAJF3MB55InlGB5l2/GzKAHMZuDfy33aMBtVX8rSLZoYzTk46EmOKM+vpJ/WhZVLm+9KNPClCCw==" />
+    </item>
+    <item>
       <title>Versione 0.5.4</title>
       <sparkle:version>0.5.4</sparkle:version>
       <sparkle:shortVersionString>0.5.4</sparkle:shortVersionString>
