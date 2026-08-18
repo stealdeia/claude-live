@@ -5,6 +5,27 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.5.4</title>
+      <sparkle:version>0.5.4</sparkle:version>
+      <sparkle:shortVersionString>0.5.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Tue, 18 Aug 2026 15:05:31 +0000</pubDate>
+      <description>&lt;p&gt;Ogni progetto mostra le sue chat una per una, il suono delle notifiche si sceglie, e la barra si può ridurre ai due soli contatori.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Quante chat, e cosa sta facendo ciascuna.** Ogni progetto porta accanto al nome il numero di conversazioni Claude Code aperte (e il numero di finestre di VS Code, quando è più di una). Se le chat sono più di una, sono elencate sotto il progetto: una riga per chat, con il suo stato — al lavoro, in attesa, errore — e da quanto non si muove. Il pallino del progetto continua a riassumere la più urgente.&lt;/li&gt;
+&lt;li&gt;**Sezione «Notifiche», e suono a scelta.** Tutte le notifiche dell&amp;#x27;app stanno ora in una sezione loro: quando Claude attende input, al superamento delle soglie, e il suono — uno dei suoni di macOS — con un pulsante «Prova» che manda una notifica vera, così quel che si sente è esattamente quel che si sentirà. Prima i due interruttori erano in due sezioni diverse, nessuna delle quali parlava di notifiche.&lt;/li&gt;
+&lt;li&gt;**Le notifiche non si perdono più se l&amp;#x27;app è in primo piano.** macOS scarta in silenzio — nessun avviso, nessun suono, nessun errore — una notifica che arriva mentre l&amp;#x27;app è quella attiva, a meno che l&amp;#x27;app non chieda esplicitamente di mostrarla. Non si notava, perché un&amp;#x27;app della barra dei menu non è quasi mai quella attiva: si notava dalla finestra delle impostazioni, dove il pulsante «Prova» non faceva assolutamente nulla.&lt;/li&gt;
+&lt;li&gt;**Barra riducibile ai due contatori.** L&amp;#x27;interruttore «Mostra freccia e icona progetti» (Impostazioni → Superficie) toglie i due comandi ai lati: la barra si restringe e resta il notch con i due anelli. Per aprire il pannello basta cliccare un contatore, per chiuderlo cliccare fuori dal pannello — cosa che ora funziona sempre, anche con la freccia visibile.&lt;/li&gt;
+&lt;li&gt;**Il pannello ha un ordine solo.** Utilizzo prima, progetti dopo, da qualunque comando lo apri. Prima dipendeva da quello: l&amp;#x27;icona dei progetti metteva la lista in cima, la freccia la metteva in fondo, così lo stesso pannello aveva due disposizioni.&lt;/li&gt;
+&lt;li&gt;**La dimensione dei contatori è passata** in «Scelta schermi e dimensioni notch», con le altre misure della barra, e «Ripristina dimensioni» ora riporta anche lei al 100%.&lt;/li&gt;
+&lt;li&gt;**Il notch resta fermo cambiando scrivania.** Una scrivania creata dopo l&amp;#x27;avvio dell&amp;#x27;app non riceveva la finestra: il pannello restava agganciato alla scrivania di partenza e scorreva via con essa. Ora, a ogni cambio di scrivania, la superficie viene riagganciata a quella attiva — vale anche per il pannello flottante.&lt;/li&gt;
+&lt;li&gt;**Il pannello aperto ha un&amp;#x27;ombra.** Compare in dissolvenza mentre il pannello si apre e sparisce mentre si chiude, così il pannello si stacca dallo sfondo invece di essere un rettangolo nero appoggiato lì. Da collassato non c&amp;#x27;è ombra: la barra deve continuare a sembrare il ritaglio dello schermo, non una finestra.&lt;/li&gt;
+&lt;li&gt;**L&amp;#x27;icona nella barra dei menu si può togliere** (Impostazioni → Barra dei menu). Nel notch le percentuali sono già sullo schermo, quindi in barra sono un doppione. Tutto ciò che stava solo in quel menu è ora anche nelle impostazioni — aggiorna ora, aggiorna progetti, mostra o nascondi il pannello, apri il log, esci da Claude Live — e le impostazioni si aprono dalla rotella nel pannello. Se anche il pannello è nascosto, riaprire Claude Live dal Finder apre le impostazioni; e se restasse comunque irraggiungibile, l&amp;#x27;icona torna da sola.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.5.4/Claude.Live.0.5.4.dmg" length="2730812" type="application/octet-stream" sparkle:edSignature="UhLbWYlHhf3DDqKdC6gZqgCOC78hJSBXYD0sa8vGbz+Kt3/A66hA6xkUNO5cfWLApufnGYWiY7CazqMiG4X6Aw==" />
+    </item>
+    <item>
       <title>Versione 0.5.3</title>
       <sparkle:version>0.5.3</sparkle:version>
       <sparkle:shortVersionString>0.5.3</sparkle:shortVersionString>
