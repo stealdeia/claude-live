@@ -1,4 +1,6 @@
 import Foundation
+import UserNotifications
+import UIKit
 import CryptoKit
 import ClaudeLiveKit
 
@@ -54,8 +56,50 @@ final class RemoteStore: ObservableObject {
         isPaired = true
         problem = nil
 
+        // Pairing is also when this phone says where to reach it. Without this
+        // the app reads perfectly and is never told anything: the Mac publishes,
+        // the relay has no address to push to, and you find out only by opening
+        // the app on a hunch — which is the one thing it exists to avoid.
+        Task { await requestPushPermission() }
         Task { await refresh() }
         return true
+    }
+
+    // MARK: - Notifiche
+
+    func requestPushPermission() async {
+        do {
+            let granted = try await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge])
+            guard granted else {
+                problem = "Notifiche negate: l'app non potrà avvisarti."
+                return
+            }
+            await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+        } catch {
+            problem = "Permesso notifiche non concesso: \(error.localizedDescription)"
+        }
+    }
+
+    /// The address APNs gave this phone, handed to the relay.
+    func registerDevice(token: Data) async {
+        let hex = token.map { String(format: "%02x", $0) }.joined()
+        guard isPaired,
+              let url = URL(string: relayURL + "/register"),
+              let secret = RemoteSecrets.read(.pairSecret)
+        else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["deviceToken": hex])
+        request.timeoutInterval = 15
+
+        // Re-sent on every launch, not only at pairing: iOS may hand out a new
+        // token after a reinstall or a restore, and a stale one on the relay
+        // fails silently — APNs accepts the request and delivers to nobody.
+        _ = try? await URLSession.shared.data(for: request)
     }
 
     func unpair() {

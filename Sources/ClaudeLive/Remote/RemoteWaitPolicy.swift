@@ -111,7 +111,7 @@ final class RemoteWaitPolicy: ObservableObject {
         guard away != isAway else { return }
         isAway = away
         status.awayWaitSeconds = away ? Self.awaySeconds : nil
-        Log.info(
+        Log.important(
             away
                 ? "Sei via (\(screenIsLocked ? "schermo bloccato" : "inattivo")): i permessi aspettano fino a \(Int(Self.awaySeconds))s per una risposta dal telefono"
                 : "Sei tornato: i permessi tornano ad aspettare \(Int(settings.decisionWaitSeconds))s",

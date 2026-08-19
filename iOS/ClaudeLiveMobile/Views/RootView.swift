@@ -87,6 +87,15 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.startRefreshing() } else { store.stopRefreshing() }
         }
+        .onAppear {
+            AppDelegate.store = store
+            // Re-asserted on every launch: iOS can hand out a new token after a
+            // reinstall or a restore, and the relay would go on pushing to the
+            // old one — accepted by APNs, delivered to nobody.
+            if store.isPaired {
+                Task { await store.requestPushPermission() }
+            }
+        }
         .refreshable { await store.refresh() }
     }
 
