@@ -25,10 +25,16 @@ struct ProjectsSectionView: View {
         VStack(alignment: .leading, spacing: 6) {
             header
 
-            if !projects.isEditorRunning {
-                emptyState("Visual Studio Code non è in esecuzione")
-            } else if projects.projects.isEmpty {
-                emptyState(projects.isRefreshing ? "Lettura progetti…" : "Nessun progetto aperto")
+            // Sessions outside the editor are checked first, because they are
+            // the case where every "nothing here" message would be a lie: the
+            // strip can be lit for one of them while the panel claims there is
+            // nothing open.
+            if projects.projects.isEmpty && sessionsWithoutEditor.isEmpty {
+                if !projects.isEditorRunning {
+                    emptyState("Visual Studio Code non è in esecuzione")
+                } else {
+                    emptyState(projects.isRefreshing ? "Lettura progetti…" : "Nessun progetto aperto")
+                }
             } else {
                 list
                 if !status.hooksInstalled {
@@ -51,29 +57,70 @@ struct ProjectsSectionView: View {
                 Text("\(status.waitingCount) in attesa")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(PanelTheme.color(for: .warning))
-            } else if !projects.projects.isEmpty {
-                Text("\(projects.projects.count)")
+            } else if !projects.projects.isEmpty || !sessionsWithoutEditor.isEmpty {
+                Text("\(projects.projects.count + sessionsWithoutEditor.count)")
                     .font(PanelTheme.captionFont)
                     .foregroundStyle(PanelTheme.secondaryText)
             }
         }
     }
 
+    /// Claude Code sessions that belong to no open VS Code project: a chat
+    /// started in a terminal, or in a VS Code window with no folder open.
+    ///
+    /// Without these the panel is not merely incomplete, it is wrong. Alerts are
+    /// raised from session state and know nothing about the editor, so the strip
+    /// lights up for a session that has no row — and then cannot be turned off,
+    /// because every way of acknowledging one goes through its row or its window.
+    ///
+    /// Presented as ordinary rows with no windows, which is exactly what they are.
+    private var sessionsWithoutEditor: [VSCodeProject] {
+        let editorPaths = projects.projects.compactMap(\.path)
+
+        return status.statusesByPath.keys
+            .filter { path in
+                // Same containment rule the session-to-project matching uses, so
+                // a chat already shown under a project is not shown twice.
+                !editorPaths.contains { path == $0 || path.hasPrefix($0 + "/") }
+            }
+            .sorted()
+            .map { path in
+                VSCodeProject(
+                    name: (path as NSString).lastPathComponent,
+                    path: path,
+                    windowCount: 0,
+                    bundleID: EditorApp.vsCode.bundleID,
+                    lastUsed: nil
+                )
+            }
+    }
+
+    /// One row. `canFocus` is false for a session with no editor window: there
+    /// is nothing to bring forward, and asking VS Code to open the folder would
+    /// answer a click with something nobody asked for.
+    private func row(for project: VSCodeProject, canFocus: Bool) -> some View {
+        ProjectRowView(
+            project: project,
+            status: status.status(for: project),
+            sessions: status.sessions(for: project),
+            alert: status.alert(for: project),
+            palette: palette(for: status.alert(for: project))
+        ) {
+            if canFocus { projects.focus(project) }
+            // Clicking the project is the gesture that acknowledges its alert,
+            // and so turns the strip off. It is the only one available to a
+            // session with no window, which is why it must work without focus.
+            status.clearAlert(for: project)
+        }
+    }
+
     private var list: some View {
         let rows = VStack(spacing: 1) {
             ForEach(projects.projects) { project in
-                ProjectRowView(
-                    project: project,
-                    status: status.status(for: project),
-                    sessions: status.sessions(for: project),
-                    alert: status.alert(for: project),
-                    palette: palette(for: status.alert(for: project))
-                ) {
-                    projects.focus(project)
-                    // Clicking the project is the gesture that acknowledges its
-                    // alert, and so turns the strip off.
-                    status.clearAlert(for: project)
-                }
+                row(for: project, canFocus: true)
+            }
+            ForEach(sessionsWithoutEditor) { project in
+                row(for: project, canFocus: false)
             }
         }
 
@@ -100,7 +147,9 @@ struct ProjectsSectionView: View {
     }
 
     private var estimatedListHeight: CGFloat {
-        projects.projects.reduce(0) { total, project in
+        // Both kinds of row, or the list would grow past the point where it was
+        // meant to start scrolling.
+        (projects.projects + sessionsWithoutEditor).reduce(0) { total, project in
             let chats = status.sessions(for: project).count
             // Chats are only listed when there is more than one — see ProjectRowView.
             return total + rowHeight + (chats > 1 ? CGFloat(chats) * chatRowHeight : 0)
