@@ -16,6 +16,9 @@ dist/
 *.p12
 *.pem
 *.key
+# Chiavi di autenticazione Apple: la chiave APNs del companion iPhone è un .p8,
+# e chi ce l'ha può mandare notifiche all'app a nome nostro.
+*.p8
 BACKUP-*
 *chiave*
 *private*
