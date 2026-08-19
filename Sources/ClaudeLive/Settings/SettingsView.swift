@@ -411,6 +411,25 @@ struct SettingsView: View {
                 }
             }
 
+            LabeledContent("Accesso al portachiavi") {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(keychainTint)
+                        .frame(width: 8, height: 8)
+                    Text(keychainLabel)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if monitor.keychainAuthorization == .notAuthorized {
+                // The one fact that explains an unexpected dialog, and the only one
+                // nobody can guess: the authorisation is per **path**.
+                Text("L'autorizzazione del portachiavi vale per il **percorso** dell'app, e questa copia gira da «\(Bundle.main.bundlePath)». Alla prossima lettura macOS chiederà la password: scegli «Sempre» e non la richiederà più per questa copia. Se ne tieni una sola, in Applicazioni, la richiesta non torna più.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Toggle("Log di debug su file", isOn: $settings.debugLoggingEnabled)
 
             if settings.debugLoggingEnabled {
@@ -524,6 +543,25 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Slider(value: value, in: range)
+        }
+    }
+
+    private var keychainLabel: String {
+        switch monitor.keychainAuthorization {
+        case .granted: return "concesso a questa copia"
+        case .notAuthorized: return "non concesso a questa copia"
+        case .notFound: return "credenziali assenti"
+        case .failed(let status): return "errore \(status)"
+        case nil: return "verifica…"
+        }
+    }
+
+    private var keychainTint: Color {
+        switch monitor.keychainAuthorization {
+        case .granted: return PanelTheme.color(for: .normal)
+        case .notAuthorized, .notFound: return PanelTheme.color(for: .warning)
+        case .failed: return PanelTheme.color(for: .danger)
+        case nil: return .secondary
         }
     }
 

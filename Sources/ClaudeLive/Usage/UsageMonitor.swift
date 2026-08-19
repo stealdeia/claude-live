@@ -55,6 +55,10 @@ final class UsageMonitor: ObservableObject {
     /// on the modification date means the payload is read once per token refresh
     /// (~8h) instead of once per poll, *and* a refresh is noticed immediately
     /// rather than when our own clock says the old token should have died.
+    /// Whether the keychain will hand over the credentials without asking. Nil
+    /// until the first probe lands.
+    @Published private(set) var keychainAuthorization: KeychainAuthorization?
+
     private var cachedCredentials: ClaudeCredentials?
     private var cachedModificationDate: Date?
 
@@ -119,7 +123,12 @@ final class UsageMonitor: ObservableObject {
 
     func start() {
         restartTimer()
-        Task { await refresh(reason: "avvio") }
+        // Probed before the first read, so the log says whether the dialog that may
+        // follow was expected.
+        Task {
+            await refreshKeychainAuthorization()
+            await refresh(reason: "avvio")
+        }
     }
 
     func stop() {
@@ -327,6 +336,33 @@ final class UsageMonitor: ObservableObject {
     /// keychain serialises behind it, so even this query blocks. Observed live: a
     /// dialog left unanswered stopped the polling loop entirely, because 0.4.0 put
     /// the timeout only on the payload read and left this one unbounded.
+    /// Probes the keychain and records the answer. Never shows a dialog.
+    ///
+    /// Logged with the bundle's path, because the path *is* the identity as far as
+    /// the keychain is concerned, and "which copy of the app is running" is the one
+    /// question that explains a dialog nobody asked for.
+    func refreshKeychainAuthorization() async {
+        let state = (try? await KeychainQueue.run { CredentialsStore.authorizationState() })
+            ?? .failed(errSecInternalError)
+        keychainAuthorization = state
+
+        let path = Bundle.main.bundlePath
+        switch state {
+        case .granted:
+            Log.info("Accesso al portachiavi concesso a «\(path)»", category: .keychain)
+        case .notAuthorized:
+            Log.error(
+                "Accesso al portachiavi non concesso a «\(path)»: alla prossima lettura macOS chiederà la password. "
+                + "L'autorizzazione è per percorso, quindi vale solo per la copia a cui è stata data.",
+                category: .keychain
+            )
+        case .notFound:
+            Log.error("Nessuna credenziale Claude Code nel portachiavi", category: .keychain)
+        case .failed(let status):
+            Log.error("Sonda portachiavi fallita: codice \(status)", category: .keychain)
+        }
+    }
+
     private func modificationDate() async -> Date? {
         // The flag, not the timeout, is what bounds this: giving up waiting does
         // not unblock the query, so without it every poll would leave another
@@ -355,6 +391,8 @@ final class UsageMonitor: ObservableObject {
     /// waits on the same dialog instead of stacking a second one behind it, and so
     /// its result is still picked up if it lands after the timeout.
     private func startCredentialsRead(modificationDate: Date?) -> Task<ClaudeCredentials, Error> {
+        let startedAt = Date()
+
         let read = Task<ClaudeCredentials, Error> {
             try await KeychainQueue.run { try CredentialsStore.load() }
         }
@@ -365,6 +403,23 @@ final class UsageMonitor: ObservableObject {
             guard let loaded = try? await read.value else { return }
             self.cachedCredentials = loaded
             self.cachedModificationDate = modificationDate
+
+            // A silent read takes milliseconds; anything slow was spent with a
+            // password dialog on screen waiting for an answer. Recorded because
+            // "it asked me again" is otherwise impossible to confirm afterwards.
+            let elapsed = Date().timeIntervalSince(startedAt)
+            if elapsed > 1 {
+                Log.error(
+                    String(format: "Lettura credenziali durata %.1fs: macOS ha chiesto l'autorizzazione", elapsed),
+                    category: .keychain
+                )
+            }
+
+            // Probed *after* the read, never before: a read that just succeeded may
+            // have succeeded because the user answered a dialog, so the state from
+            // before it says nothing about now — and the probe must not be in flight
+            // while the read is, or it would suppress the dialog it is describing.
+            await self.refreshKeychainAuthorization()
             if let expiry = loaded.expiresAt {
                 Log.info(
                     "Credenziali in cache fino a \(Format.clock.string(from: expiry))",

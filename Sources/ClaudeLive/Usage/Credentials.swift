@@ -77,10 +77,15 @@ struct ClaudeCredentials: Sendable {
 /// "già in corso". A dedicated queue keeps the blocking where it starves
 /// nothing else.
 enum KeychainQueue {
+    /// **Serial on purpose.** `authorizationState()` turns user interaction off for
+    /// the whole process while it probes, so a real read running at the same time
+    /// would be failed in silence instead of raising its dialog — a spurious "no
+    /// credentials" caused by the diagnostic meant to explain them. Nothing here
+    /// needs to run in parallel: it is one keychain, and a read that puts a dialog on
+    /// screen should hold the queue until it is answered.
     private static let queue = DispatchQueue(
         label: "it.aldeialab.ClaudeLive.keychain",
-        qos: .utility,
-        attributes: .concurrent
+        qos: .utility
     )
 
     static func run<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
@@ -113,6 +118,20 @@ enum CredentialsError: LocalizedError {
             return "Credenziali in formato inatteso: \(detail)"
         }
     }
+}
+
+/// Whether macOS will let us read the item without asking the user first.
+enum KeychainAuthorization: Equatable {
+    /// Readable in silence.
+    case granted
+    /// The item is there, but this copy of the app is not authorised for it: the
+    /// next real read raises the password dialog — or fails outright, if the user
+    /// once answered "Deny".
+    case notAuthorized
+    case notFound
+    case failed(OSStatus)
+
+    var isGranted: Bool { self == .granted }
 }
 
 /// **Read-only** access to Claude Code's credentials — permanently.
@@ -156,6 +175,47 @@ enum CredentialsStore {
               let attributes = result as? [String: Any]
         else { return nil }
         return attributes[kSecAttrModificationDate as String] as? Date
+    }
+
+    /// Asks whether a read would be allowed, **without ever showing a dialog**.
+    ///
+    /// Exists because the dialog was indistinguishable from a mystery. The keychain
+    /// authorises by **path**: the entry lists `/Applications/Claude Live.app`, so a
+    /// copy run from anywhere else — a build directory, a disk image, the Downloads
+    /// folder — is a different application as far as the keychain is concerned, and
+    /// "Always allow" granted to one says nothing about the other. That is invisible
+    /// from the outside: the app looks identical and the dialog looks random.
+    ///
+    /// `SecKeychainSetUserInteractionAllowed(false)` is what makes this safe to run
+    /// whenever we like: with interaction off, a read that would have prompted fails
+    /// with `errSecInteractionNotAllowed` instead. It is process-global, hence the
+    /// immediate restore.
+    static func authorizationState() -> KeychainAuthorization {
+        SecKeychainSetUserInteractionAllowed(false)
+        defer { SecKeychainSetUserInteractionAllowed(true) }
+
+        do {
+            _ = try readItem(service: primaryService)
+            return .granted
+        } catch CredentialsError.notFound {
+            return .notFound
+        } catch CredentialsError.accessDenied(let status) {
+            // Two codes mean the same thing here, and the difference was found by
+            // running the probe from an unauthorised path: `interactionNotAllowed`
+            // is "would have asked", `authFailed` is what the keychain actually
+            // returns when the requesting binary is not on the item's list. Treating
+            // only the first as "not authorised" reported the second as an internal
+            // error — the very confusion this probe exists to remove.
+            switch status {
+            case errSecInteractionNotAllowed, errSecAuthFailed: return .notAuthorized
+            default: return .failed(status)
+            }
+        } catch let error as CredentialsError {
+            if case .keychainFailure(let status) = error { return .failed(status) }
+            return .failed(errSecInternalError)
+        } catch {
+            return .failed(errSecInternalError)
+        }
     }
 
     static func load() throws -> ClaudeCredentials {

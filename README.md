@@ -735,6 +735,43 @@ Attenzione a due cose che restano vere:
   una volta l'accesso alla voce Keychain. È una tantum, non si ripete agli
   aggiornamenti successivi finché l'identità resta la stessa.
 
+### L'ACL del portachiavi autorizza per percorso
+
+Vale la pena sapere com'è fatta la voce `Claude Code-credentials`, perché spiega la
+richiesta di password che sembra arrivare a caso. Letta con
+`SecAccessCopyACLList` (leggere l'ACL non decifra nulla, quindi non chiede niente):
+
+```text
+ACL 0 — Decrypt
+  applicazioni autorizzate: /Applications/Claude Live.app
+                            /usr/bin/security     ← è così che accede Claude Code
+  Partitions: [ apple-tool:, teamid:G7PDRQRC29 ]
+```
+
+Due meccanismi, entrambi da soddisfare: la lista di applicazioni è per **percorso**
+(30 byte per voce: solo la stringa del path), e la partition list è per **team id**
+della firma. Le conseguenze pratiche:
+
+* una copia eseguita da `build/` o dal DMG è un'altra applicazione per il
+  portachiavi, e «Consenti sempre» dato a una non vale per l'altra. Durante lo
+  sviluppo è la causa di praticamente ogni richiesta di password;
+* un aggiornamento che sostituisce `/Applications/Claude Live.app` mantiene
+  l'autorizzazione, perché il percorso non cambia e il team id nemmeno;
+* «Consenti» (una volta) e «Sempre» sono cose diverse: solo il secondo scrive nella
+  lista.
+
+`CredentialsStore.authorizationState()` interroga tutto questo **senza mai mostrare
+una finestra**: `SecKeychainSetUserInteractionAllowed(false)` fa fallire la lettura
+con un codice invece di aprire il dialogo. Due codici significano «non autorizzato»
+e la differenza si scopre solo provando — `errSecInteractionNotAllowed` è «avrebbe
+chiesto», `errSecAuthFailed` è quel che il portachiavi risponde davvero quando il
+binario non è nella lista. Il flag è **globale al processo**, quindi la coda del
+portachiavi è seriale: una sonda in parallelo a una lettura vera la farebbe fallire
+in silenzio, trasformando la diagnostica nella causa del problema che descrive.
+Impostazioni → Diagnostica mostra lo stato, e una lettura che dura più di un secondo
+viene registrata come «macOS ha chiesto l'autorizzazione» — perché «me l'ha chiesta
+di nuovo» altrimenti non è verificabile a posteriori.
+
 ## File su disco
 
 ```text
