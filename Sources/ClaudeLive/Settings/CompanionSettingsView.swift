@@ -24,23 +24,31 @@ struct CompanionSettingsView: View {
                 .help("Finché è spento, nessun dato lascia questo Mac.")
 
             if settings.remoteEnabled {
-                LabeledContent("Indirizzo") {
-                    TextField("https://…workers.dev", text: $settings.remoteRelayURL)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 260)
-                }
+                // The hint goes inside the field as a prompt. Passed as a
+                // TextField label it renders *beside* the box on macOS, where it
+                // reads as a second label rather than as an example of what to
+                // type — which is how an address ended up saved without its
+                // scheme.
+                TextField(
+                    "Indirizzo",
+                    text: $settings.remoteRelayURL,
+                    prompt: Text("claude-live-relay.esempio.workers.dev")
+                )
+                .onSubmit { tidyURL() }
+                .onChange(of: settings.remoteEnabled) { _, _ in tidyURL() }
 
-                LabeledContent("Parola d'ordine") {
-                    HStack(spacing: 8) {
-                        SecureField("condivisa col relay", text: $secret)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(minWidth: 200)
-                        Button("Salva") {
-                            RemoteSecrets.write(secret, to: .pairSecret)
-                            remote.publishNow()
-                        }
-                        .disabled(secret.isEmpty)
+                HStack(spacing: 8) {
+                    SecureField(
+                        "Parola d'ordine",
+                        text: $secret,
+                        prompt: Text("condivisa col relay")
+                    )
+                    Button("Salva") {
+                        tidyURL()
+                        RemoteSecrets.write(secret, to: .pairSecret)
+                        remote.publishNow()
                     }
+                    .disabled(secret.isEmpty)
                 }
 
                 LabeledContent("Stato") {
@@ -94,6 +102,15 @@ struct CompanionSettingsView: View {
         } message: {
             Text("Verranno cancellate la parola d'ordine e la chiave. L'app sull'iPhone smetterà di leggere e andrà riaccoppiata con un nuovo QR.")
         }
+    }
+
+    /// Writes the address back in the form the publisher will actually use, so
+    /// what is on screen is what is in effect. Silently correcting a value while
+    /// still showing the old one is how a setting comes to look wrong when it is
+    /// right — or the reverse.
+    private func tidyURL() {
+        guard let tidy = RemotePublisher.normalised(settings.remoteRelayURL) else { return }
+        if tidy != settings.remoteRelayURL { settings.remoteRelayURL = tidy }
     }
 
     private var stateColour: Color {

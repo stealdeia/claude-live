@@ -164,11 +164,34 @@ final class RemotePublisher: ObservableObject {
     }
 
     private func relayURL(path: String) -> URL? {
-        let base = settings.remoteRelayURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !base.isEmpty, let url = URL(string: base + path), url.scheme == "https" else {
+        guard let base = Self.normalised(settings.remoteRelayURL) else { return nil }
+        return URL(string: base + path)
+    }
+
+    /// Accepts what a person actually types.
+    ///
+    /// Rejecting `claude-live-relay.example.workers.dev` for want of a `https://`
+    /// is technically correct and useless: the state goes to "not configured"
+    /// and nothing says why. Nobody means `http`, and nobody means a trailing
+    /// slash, so both are handled rather than refused.
+    ///
+    /// Returns nil only when there is genuinely nothing usable.
+    static func normalised(_ raw: String) -> String? {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+
+        if text.hasPrefix("http://") {
+            text = "https://" + text.dropFirst("http://".count)
+        } else if !text.hasPrefix("https://") {
+            text = "https://" + text
+        }
+
+        while text.hasSuffix("/") { text.removeLast() }
+
+        guard let url = URL(string: text), url.scheme == "https", url.host?.isEmpty == false else {
             return nil
         }
-        return url
+        return text
     }
 
     // MARK: - Accoppiamento
