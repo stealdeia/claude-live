@@ -163,9 +163,21 @@ final class ClaudeStatusStore: ObservableObject {
         awayWaitSeconds ?? settings.decisionWaitSeconds
     }
 
+    /// Tools worth stopping for while away. Read-only ones are absent on purpose:
+    /// they cannot change anything, and asking about them would turn one task
+    /// into twenty questions on a phone screen.
+    static let gatedTools = ["Bash", "Write", "Edit", "NotebookEdit"]
+
     private func writeHubConfig() {
         try? FileManager.default.createDirectory(at: Paths.hubDirectory, withIntermediateDirectories: true)
-        let config: [String: Any] = ["decision_wait_seconds": effectiveWaitSeconds]
+        let config: [String: Any] = [
+            "decision_wait_seconds": effectiveWaitSeconds,
+            // The hook holds a tool call only while this is true. It is the same
+            // condition that lengthens the wait: away from the Mac, with a phone
+            // able to answer.
+            "away": awayWaitSeconds != nil,
+            "gated_tools": Self.gatedTools,
+        ]
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted]) else { return }
         try? data.write(to: Paths.hubConfigFile, options: .atomic)
         Log.debug(
