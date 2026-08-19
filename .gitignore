@@ -9,6 +9,11 @@ dist/
 # Configurazione dell'editor: locale, non del progetto
 .vscode/
 
+# Preferenze personali di Xcode: cambiano da persona a persona e non
+# descrivono il progetto.
+.swiftpm/
+xcuserdata/
+
 # Local overrides
 *.local
 

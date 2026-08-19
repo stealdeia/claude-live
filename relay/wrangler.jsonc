@@ -4,9 +4,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-19",
 
-  // Holds the phone's APNs token. The id is filled in by:
+  // Holds the phone's APNs token. Created with:
   //   npx wrangler kv namespace create DEVICES
-  "kv_namespaces": [{ "binding": "DEVICES", "id": "DA_COMPILARE" }],
+  "kv_namespaces": [
+    { "binding": "DEVICES", "id": "0a783891aea94ef3a0246b1d2df1e202" }
+  ],
 
   // Public settings. The two secrets — APNS_KEY (the .p8) and PAIR_SECRET —
   // are never written here; they go in with `wrangler secret put`, which

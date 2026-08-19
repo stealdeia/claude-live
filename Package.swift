@@ -3,29 +3,20 @@ import PackageDescription
 
 let package = Package(
     name: "ClaudeLive",
-    // iOS is declared for `ClaudeLiveKit` alone: the companion app consumes the
-    // library product, never the executable, which stays macOS-only in practice.
-    platforms: [.macOS(.v14), .iOS(.v17)],
-    products: [
-        // What the iPhone companion's Xcode project links against.
-        .library(name: "ClaudeLiveKit", targets: ["ClaudeLiveKit"])
-    ],
+    platforms: [.macOS(.v14)],
     dependencies: [
         // Standard auto-update framework for apps distributed outside the App Store.
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0")
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+        // Everything both platforms share. Its own package, so the iPhone project
+        // can depend on it without dragging Sparkle — which is macOS-only — into
+        // its dependency graph.
+        .package(path: "ClaudeLiveKit")
     ],
     targets: [
-        // Everything both platforms need: the domain models, the status/alert
-        // vocabulary, and the glow primitives. Foundation and SwiftUI only — no
-        // AppKit outside a `canImport` guard, or the companion cannot compile it.
-        .target(
-            name: "ClaudeLiveKit",
-            path: "Sources/ClaudeLiveKit"
-        ),
         .executableTarget(
             name: "ClaudeLive",
             dependencies: [
-                "ClaudeLiveKit",
+                .product(name: "ClaudeLiveKit", package: "ClaudeLiveKit"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/ClaudeLive",

@@ -7,11 +7,15 @@ options:
   createIntermediateGroups: true
 
 packages:
-  # The shared package at the repository root. Linking it here is not a
-  # convenience: it is what proves the extraction actually paid off, because the
-  # phone compiles the same models the Mac uses rather than a copy of them.
+  # The shared package. Linking it here is not a convenience: it is what proves
+  # the extraction paid off, because the phone compiles the same models the Mac
+  # uses rather than a copy of them.
+  #
+  # Points at the package itself, not at the repository root: the root package
+  # depends on Sparkle, which is macOS-only, and resolving it from here would
+  # download it on every clean checkout for nothing.
   ClaudeLiveKit:
-    path: ..
+    path: ../ClaudeLiveKit
 
 targets:
   ClaudeLiveMobile:
