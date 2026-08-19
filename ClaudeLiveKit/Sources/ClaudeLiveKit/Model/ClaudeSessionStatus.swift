@@ -69,6 +69,15 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
     /// showing Allow/Deny buttons can lead somewhere.
     public let decidable: Bool
 
+    /// The tail of what Claude last said, when the hook was able to read it.
+    ///
+    /// Optional and often nil: the hook receives `transcript_path` on every
+    /// event, but reading it is a separate decision from reporting a state, and
+    /// it is the first thing in this system that carries the *content* of a
+    /// conversation rather than a fact about it. Nil means "not read", never
+    /// "said nothing".
+    public let lastMessage: String?
+
     public var id: String { "\(projectPath)#\(sessionID)" }
 
     /// Enough of the session id to tell two chats apart in a row.
@@ -161,6 +170,10 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         toolSummary = (rawSummary?.isEmpty == false) ? rawSummary : nil
         decidable = (json["decidable"] as? Bool) ?? false
 
+        let rawMessage = (json["last_message"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        lastMessage = (rawMessage?.isEmpty == false) ? rawMessage : nil
+
         if let epoch = json["updated_at_epoch"] as? Double {
             updatedAt = Date(timeIntervalSince1970: epoch)
         } else {
@@ -183,6 +196,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         requestID: String?,
         toolName: String?,
         toolSummary: String?,
+        lastMessage: String?,
         decidable: Bool
     ) {
         self.projectPath = projectPath
@@ -199,6 +213,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         self.requestID = requestID
         self.toolName = toolName
         self.toolSummary = toolSummary
+        self.lastMessage = lastMessage
         self.decidable = decidable
     }
 
@@ -231,6 +246,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
             requestID: requestID,
             toolName: toolName,
             toolSummary: toolSummary,
+            lastMessage: lastMessage,
             decidable: decidable
         )
     }
@@ -256,6 +272,7 @@ extension ClaudeSessionStatus {
             requestID: requestID,
             toolName: toolName,
             toolSummary: toolSummary,
+            lastMessage: lastMessage,
             decidable: decidable
         )
     }

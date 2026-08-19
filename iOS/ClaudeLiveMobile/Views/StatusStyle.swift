@@ -53,31 +53,6 @@ struct StatusDot: View {
     }
 }
 
-/// A section with a title, used for the three bands of the screen.
-struct SectionCard<Content: View>: View {
-    let title: String
-    var subtitle: String?
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            content
-        }
-        .padding(14)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
 #Preview("Pallini") {
     HStack(spacing: 24) {
         ForEach([ClaudeActivity.waitingInput, .working, .error, .idle, .unknown], id: \.self) { state in
