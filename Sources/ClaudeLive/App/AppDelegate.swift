@@ -27,6 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         Paths.ensureDirectories()
         Log.info("Claude Live avviata (bundle: \(Bundle.main.bundleIdentifier ?? "nessuno"))")
 
+        // Before any window can appear: without a main menu, Cmd+V does nothing
+        // in every text field the app has.
+        EditMenu.install()
+
         settings = Settings.shared
         updates = UpdateController()
         notifier = UsageNotifier(settings: settings)
