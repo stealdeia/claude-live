@@ -27,3 +27,6 @@ xcuserdata/
 BACKUP-*
 *chiave*
 *private*
+
+# Worktree delle sessioni Claude Code: repository a sé, non contenuto di questo.
+.claude/

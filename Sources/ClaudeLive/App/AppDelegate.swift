@@ -29,6 +29,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         Paths.ensureDirectories()
         Log.info("Claude Live avviata (bundle: \(Bundle.main.bundleIdentifier ?? "nessuno"))")
 
+        // Before anything shared is touched — see `yieldToRunningInstance`.
+        // First of all, because it can end the launch: anything set up above it
+        // would be work done by a copy that is about to bow out.
+        if let existing = olderRunningInstance() {
+            yieldTo(existing)
+            return
+        }
+
+        // The other half of the same deal: a second copy asks *this* one to show
+        // itself instead of starting up beside it.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(showSettingsRequested),
+            name: Self.showSettingsNotification,
+            object: nil
+        )
+
         // Before any window can appear: without a main menu, Cmd+V does nothing
         // in every text field the app has.
         EditMenu.install()
@@ -303,6 +320,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // is where the numbers the notification is about actually are. A click
         // anywhere else closes it again.
         notch.setExpanded(true)
+    }
+
+    // MARK: - One copy at a time
+
+    /// Cross-process request to show Settings, used by a second copy on its way out.
+    private static let showSettingsNotification = Notification.Name("it.aldeialab.ClaudeLive.showSettings")
+
+    @objc private func showSettingsRequested() {
+        Task { @MainActor in settingsWindow?.show() }
+    }
+
+    /// The instance that was here first, if there is one.
+    ///
+    /// Two copies of Claude Live on one Mac fight in ways that look like bugs in the
+    /// app rather than like two copies: they share `settings.json`, so whichever
+    /// saves last wins and settings appear to change by themselves; each posts its
+    /// own notifications; each draws its own notch. Worst of all, each asks VS Code
+    /// for its window list with `code --status`, and **cannot recognise the other's
+    /// question** — the self-noise filter only knows its own spawns — so each takes
+    /// the other's spawn for a real editor launch and asks again, forever. The
+    /// visible symptom is a second VS Code icon flashing in the Dock every few
+    /// seconds, which is exactly how this was reported.
+    ///
+    /// Compares launch dates rather than just asking "is anyone else there": two
+    /// copies started together would otherwise both see each other and both quit.
+    /// `CLAUDELIVE_ALLOW_SECOND_INSTANCE=1` skips the check, because running two on
+    /// purpose is a reasonable thing to want while developing the app.
+    private func olderRunningInstance() -> NSRunningApplication? {
+        guard ProcessInfo.processInfo.environment["CLAUDELIVE_ALLOW_SECOND_INSTANCE"] != "1",
+              let bundleID = Bundle.main.bundleIdentifier
+        else { return nil }
+
+        let mine = ProcessInfo.processInfo.processIdentifier
+        let myLaunch = NSRunningApplication.current.launchDate
+        return NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            .filter { $0.processIdentifier != mine }
+            .first { other in
+                guard let theirs = other.launchDate, let myLaunch else {
+                    // No dates to compare: the lower pid was almost certainly first.
+                    return other.processIdentifier < mine
+                }
+                return theirs < myLaunch
+                    || (theirs == myLaunch && other.processIdentifier < mine)
+            }
+    }
+
+    /// Steps aside for the copy already running.
+    ///
+    /// `exit` rather than `NSApp.terminate`: terminating runs the usual teardown, and
+    /// this process must touch **nothing** shared on its way out — the teardown
+    /// deletes the hook heartbeat file, which belongs to the instance that is staying
+    /// and whose absence makes Claude Code stop waiting for answers from the panel.
+    /// Nothing has been started yet either, so there is nothing of ours to close.
+    private func yieldTo(_ existing: NSRunningApplication) {
+        Log.important(
+            "Claude Live è già in esecuzione (pid \(existing.processIdentifier), "
+            + "\(existing.bundleURL?.path ?? "percorso sconosciuto")): questa copia si chiude. "
+            + "Per tenerne due di proposito: CLAUDELIVE_ALLOW_SECOND_INSTANCE=1"
+        )
+        // Something visible has to happen, or launching the app looks broken.
+        DistributedNotificationCenter.default().postNotificationName(
+            Self.showSettingsNotification,
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+        existing.activate()
+        exit(0)
     }
 
     // MARK: - Reachability

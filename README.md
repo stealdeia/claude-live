@@ -789,6 +789,33 @@ Impostazioni → Diagnostica mostra lo stato, e una lettura che dura più di un 
 viene registrata come «macOS ha chiesto l'autorizzazione» — perché «me l'ha chiesta
 di nuovo» altrimenti non è verificabile a posteriori.
 
+### Una sola copia per volta
+
+Due copie accese insieme non sono un caso di scuola: succede appena si prova una
+build mentre quella installata è in esecuzione, e il modo in cui si rompono non
+somiglia per niente alla causa. Condividono `settings.json` (vince chi salva per
+ultimo, e le preferenze sembrano cambiare da sole), raddoppiano le notifiche,
+disegnano due notch — e ognuna chiede a VS Code la lista delle finestre con
+`code --status`, **senza poter riconoscere la domanda dell'altra**: il filtro
+anti-auto-innesco di `ProjectsMonitor` conosce solo i propri spawn, quindi ciascuna
+prende quello dell'altra per un avvio vero dell'editor e si aggiorna, per sempre. Il
+sintomo osservato è una seconda icona di VS Code che lampeggia nel Dock ogni pochi
+secondi, e non suggerisce in alcun modo «hai due copie accese».
+
+`olderRunningInstance()` confronta le **date di avvio** invece di chiedere solo «c'è
+qualcun altro con questo bundle id?»: due copie lanciate insieme si vedrebbero a
+vicenda e si chiuderebbero entrambe. La più giovane esce con `exit`, non con
+`NSApp.terminate`, perché il teardown normale cancella l'heartbeat degli hook — che
+appartiene alla copia che resta, e senza il quale Claude Code smette di attendere le
+risposte dal pannello. Per lo stesso motivo il controllo gira **prima** di costruire
+qualunque cosa condivisa, log su file compreso: da qui `Log.important`, che persiste
+anche a debug spento.
+
+`LSMultipleInstancesProhibited` nell'Info.plist sarebbe stata la scorciatoia, ed è
+stata scartata di proposito: la deciderebbe LaunchServices prima che il nostro codice
+esista, quindi non lascerebbe scampo a chi sviluppa. Il controllo a runtime invece si
+salta con `CLAUDELIVE_ALLOW_SECOND_INSTANCE=1`.
+
 ## File su disco
 
 ```text

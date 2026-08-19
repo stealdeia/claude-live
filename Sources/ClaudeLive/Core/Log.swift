@@ -43,6 +43,14 @@ enum Log {
         appendToFile("INFO", category, message)
     }
 
+    /// For events that are not failures but must survive a user who never turned
+    /// debug logging on — «a second copy tried to start and stood down» is one:
+    /// without it on disk, the symptom (a flashing Dock icon) has no trace at all.
+    static func important(_ message: String, category: Category = .app) {
+        logger(for: category).info("\(message, privacy: .public)")
+        appendToFile("INFO", category, message, force: true)
+    }
+
     static func error(_ message: String, category: Category = .app) {
         logger(for: category).error("\(message, privacy: .public)")
         // Errors are worth persisting even with debug logging switched off.
