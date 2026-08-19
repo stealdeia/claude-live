@@ -40,8 +40,10 @@ struct RootView: View {
                     HomeView(
                         snapshot: snapshot,
                         problem: problem,
-                        inFlight: [],
-                        onDecide: { _, _, _ in },
+                        inFlight: store.inFlight,
+                        onDecide: { session, allow, remember in
+                            Task { await store.decide(session, allow: allow, remember: remember) }
+                        },
                         onOpenProjects: { tab = .projects },
                         onOpenUsage: { tab = .usage }
                     )
@@ -50,7 +52,13 @@ struct RootView: View {
 
             Tab("Progetti", systemImage: "folder", value: AppTab.projects) {
                 shell(title: "Progetti") {
-                    ProjectsTabView(snapshot: snapshot, inFlight: [], onDecide: { _, _, _ in })
+                    ProjectsTabView(
+                        snapshot: snapshot,
+                        inFlight: store.inFlight,
+                        onDecide: { session, allow, remember in
+                            Task { await store.decide(session, allow: allow, remember: remember) }
+                        }
+                    )
                 }
             }
 

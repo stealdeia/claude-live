@@ -134,6 +134,25 @@ def strip_our_hooks(settings):
     return removed
 
 
+def hook_timeout(event):
+    """How long Claude Code lets our hook run, in seconds.
+
+    Everything but PermissionRequest writes a file and exits, so a few seconds
+    is generous. PermissionRequest is different: it *waits* for an answer, and
+    the timeout has to be longer than the wait or Claude Code kills the hook
+    mid-wait and the answer is lost.
+
+    This used to be 5 for every event, against a default wait of 8 — so an
+    answer given between the fifth and the eighth second went nowhere. With the
+    iPhone companion the wait can reach a couple of minutes, because a session
+    frozen while nobody is at the Mac costs nothing.
+
+    The value is only a ceiling: the hook returns as soon as it has an answer,
+    or as soon as `decision_wait_seconds` elapses.
+    """
+    return 180 if event == "PermissionRequest" else 5
+
+
 def add_our_hooks(settings):
     hooks = settings.setdefault("hooks", {})
 
@@ -142,7 +161,7 @@ def add_our_hooks(settings):
             "type": "command",
             # Quoted so a home directory containing spaces still works.
             "command": f"'{HOOK_DEST}' {state}",
-            "timeout": 5,
+            "timeout": hook_timeout(event),
         }
         if is_async:
             entry["async"] = True

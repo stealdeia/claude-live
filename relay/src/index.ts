@@ -259,6 +259,43 @@ export default {
       return json({ payload, storedAt: storedAt ? Number(storedAt) : null })
     }
 
+    // The phone answers a permission request. Sealed like everything else: the
+    // id travels in the clear only so the Mac can address and delete it, and an
+    // opaque identifier discloses nothing about what was decided.
+    if (url.pathname === '/command' && request.method === 'POST') {
+      const body = (await request.json()) as { id?: string; payload?: string }
+      if (typeof body.id !== 'string' || !/^[0-9A-Fa-f-]{8,64}$/.test(body.id)) {
+        return json({ error: 'id mancante o malformato' }, 400)
+      }
+      if (typeof body.payload !== 'string' || body.payload.length === 0) {
+        return json({ error: 'payload mancante' }, 400)
+      }
+      // Five minutes: far longer than any hook will wait, short enough that a
+      // command nobody collected disappears instead of being obeyed much later.
+      await env.DEVICES.put(`${PAIR_ID}:cmd:${body.id}`, body.payload, { expirationTtl: 300 })
+      return json({ ok: true })
+    }
+
+    // The Mac collects what is waiting for it.
+    if (url.pathname === '/commands' && request.method === 'GET') {
+      const listed = await env.DEVICES.list({ prefix: `${PAIR_ID}:cmd:` })
+      const commands = await Promise.all(
+        listed.keys.map(async (entry) => ({
+          id: entry.name.slice(`${PAIR_ID}:cmd:`.length),
+          payload: await env.DEVICES.get(entry.name),
+        }))
+      )
+      return json({ commands: commands.filter((c) => c.payload !== null) })
+    }
+
+    // …and says it has dealt with one, so it is not carried out twice.
+    if (url.pathname === '/commands' && request.method === 'DELETE') {
+      const id = url.searchParams.get('id')
+      if (!id) return json({ error: 'id mancante' }, 400)
+      await env.DEVICES.delete(`${PAIR_ID}:cmd:${id}`)
+      return json({ ok: true })
+    }
+
     // The phone reports what it saw. Nothing is stored: the number is the point,
     // and it is already in the response the Mac is waiting on.
     if (url.pathname === '/ack' && request.method === 'POST') {

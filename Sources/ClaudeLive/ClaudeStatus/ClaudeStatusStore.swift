@@ -142,12 +142,36 @@ final class ClaudeStatusStore: ObservableObject {
         try? data.write(to: Paths.heartbeatFile, options: .atomic)
     }
 
+    /// Set while the user is away and the phone can answer instead, so the hook
+    /// waits long enough for a human to notice a notification. See `RemoteWaitPolicy`.
+    var awayWaitSeconds: Double? {
+        didSet {
+            guard awayWaitSeconds != oldValue else { return }
+            writeHubConfig()
+        }
+    }
+
+    /// The wait the hook should use right now.
+    ///
+    /// Measured on 2026-08-19: a notification reaches the phone in 1.2s, but the
+    /// time for a person to notice and answer was 11s *while expecting it* — and
+    /// unbounded when not. So a single number cannot be right. At the Mac, a long
+    /// wait is pure obstruction; away from it, a session frozen while nobody is
+    /// watching costs nothing, and the wait is the only thing that makes answering
+    /// from the phone possible at all.
+    private var effectiveWaitSeconds: Double {
+        awayWaitSeconds ?? settings.decisionWaitSeconds
+    }
+
     private func writeHubConfig() {
         try? FileManager.default.createDirectory(at: Paths.hubDirectory, withIntermediateDirectories: true)
-        let config: [String: Any] = ["decision_wait_seconds": settings.decisionWaitSeconds]
+        let config: [String: Any] = ["decision_wait_seconds": effectiveWaitSeconds]
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted]) else { return }
         try? data.write(to: Paths.hubConfigFile, options: .atomic)
-        Log.debug("Attesa risposta permessi: \(Int(settings.decisionWaitSeconds))s", category: .status)
+        Log.debug(
+            "Attesa risposta permessi: \(Int(effectiveWaitSeconds))s\(awayWaitSeconds == nil ? "" : " (sei via)")",
+            category: .status
+        )
     }
 
     /// Answers a permission request the hook is blocked on.

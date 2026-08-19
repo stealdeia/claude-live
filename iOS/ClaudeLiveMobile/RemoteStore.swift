@@ -125,6 +125,58 @@ final class RemoteStore: ObservableObject {
         }
     }
 
+    // MARK: - Comandi
+
+    /// Requests whose answer is on its way, so a button cannot be pressed twice
+    /// while the network thinks about it.
+    @Published private(set) var inFlight: Set<String> = []
+
+    func decide(_ session: ClaudeSessionStatus, allow: Bool, remember: Bool) async {
+        guard let requestID = session.requestID else { return }
+        guard let url = URL(string: relayURL + "/command"),
+              let secret = RemoteSecrets.read(.pairSecret),
+              let keyText = RemoteSecrets.read(.encryptionKey),
+              let key = try? RemoteCrypto.importKey(keyText)
+        else { return }
+
+        let envelope = RemoteCommandEnvelope(
+            command: .decide(requestID: requestID, allow: allow, remember: remember)
+        )
+        guard let sealed = try? RemoteCrypto.seal(envelope, with: key) else { return }
+
+        inFlight.insert(session.id)
+        defer { inFlight.remove(session.id) }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        // The envelope's own id travels in the clear so the Mac can address and
+        // delete it. An opaque identifier says nothing about what was decided.
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["id": envelope.id, "payload": sealed]
+        )
+        request.timeoutInterval = 15
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if code != 200 {
+                problem = "Il relay ha rifiutato la risposta (\(code))."
+                return
+            }
+        } catch {
+            problem = "Non sono riuscito a mandare la risposta."
+            return
+        }
+
+        // Fetch straight away rather than waiting for the next tick: the Mac
+        // collects within a couple of seconds, and the row should stop showing a
+        // decision that has been made.
+        try? await Task.sleep(for: .seconds(3))
+        await refresh()
+    }
+
     /// Polls while the app is on screen. Stopped when it is not: a phone that
     /// keeps asking from a pocket spends battery to learn things nobody reads.
     func startRefreshing(every seconds: Duration = .seconds(5)) {

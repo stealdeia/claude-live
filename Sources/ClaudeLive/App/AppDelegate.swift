@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var status: ClaudeStatusStore!
     private var frontWatcher: FrontProjectWatcher!
     private var remote: RemotePublisher!
+    private var commands: RemoteCommandReceiver!
+    private var waitPolicy: RemoteWaitPolicy!
     private var notifier: UsageNotifier!
     private var alertNotifier: ClaudeAlertNotifier!
     private var menuBar: MenuBarController!
@@ -43,6 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Observes the same stores the panel draws from, so the phone and the
         // panel cannot disagree. Publishes nothing until switched on.
         remote = RemotePublisher(settings: settings, status: status, usage: monitor)
+        // Listens only while a hook is actually waiting: outside that window
+        // nothing the phone says has anywhere to land.
+        commands = RemoteCommandReceiver(settings: settings, status: status)
+        // Lengthens the permission wait only while the screen is locked and the
+        // phone can answer in your place.
+        waitPolicy = RemoteWaitPolicy(settings: settings, status: status)
 
         onboardingWindow = OnboardingWindowController(
             settings: settings,
