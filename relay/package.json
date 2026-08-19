@@ -1,0 +1,17 @@
+{
+  "name": "claude-live-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Intermediario fra il Mac e l'app iPhone di Claude Live",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260819.1",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.124.0"
+  }
+}

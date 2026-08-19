@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "claude-live-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-19",
+
+  // Holds the phone's APNs token. The id is filled in by:
+  //   npx wrangler kv namespace create DEVICES
+  "kv_namespaces": [{ "binding": "DEVICES", "id": "DA_COMPILARE" }],
+
+  // Public settings. The two secrets — APNS_KEY (the .p8) and PAIR_SECRET —
+  // are never written here; they go in with `wrangler secret put`, which
+  // stores them on Cloudflare's side and keeps them out of the repo.
+  "vars": {
+    "APNS_KEY_ID": "2JZXN9U87K",
+    "APNS_TEAM_ID": "G7PDRQRC29",
+    "APNS_TOPIC": "it.aldeialab.ClaudeLiveMobile",
+
+    // "sandbox" for a build installed from Xcode, "production" for TestFlight.
+    // Getting this wrong makes every push fail with BadDeviceToken.
+    "APNS_ENV": "sandbox"
+  },
+
+  "observability": { "enabled": true }
+}

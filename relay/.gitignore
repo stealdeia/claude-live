@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+
+# Segreti in locale per `wrangler dev`. Non devono MAI finire nel repo,
+# che è pubblico.
+.dev.vars
