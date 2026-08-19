@@ -5,6 +5,22 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.6.1</title>
+      <sparkle:version>0.6.1</sparkle:version>
+      <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 19 Aug 2026 07:49:52 +0000</pubDate>
+      <description>&lt;p&gt;Perché macOS chiede la password del portachiavi, e come sapere se l&amp;#x27;accesso è concesso senza aspettare la prossima volta.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**La richiesta di password non era casuale: dipende dal percorso dell&amp;#x27;app.** La voce &lt;code&gt;Claude Code-credentials&lt;/code&gt; autorizza l&amp;#x27;accesso per **percorso**, non per applicazione: la sua lista contiene esattamente &lt;code&gt;/Applications/Claude Live.app&lt;/code&gt; (e &lt;code&gt;/usr/bin/security&lt;/code&gt;, che è il modo in cui Claude Code stesso la legge). Una copia eseguita da un&amp;#x27;altra cartella — la cartella di build, il DMG ancora montato, i Download — per il portachiavi è un&amp;#x27;altra applicazione, e «Consenti sempre» dato a una non vale per l&amp;#x27;altra. Tienine una sola, in Applicazioni, e la richiesta non torna: nemmeno agli aggiornamenti, perché il percorso non cambia.&lt;/li&gt;
+&lt;li&gt;**Impostazioni → Diagnostica → «Accesso al portachiavi»** dice adesso se è concesso *a questa copia*, e se non lo è mostra da quale percorso stai eseguendo l&amp;#x27;app. Lo verifica senza mai provocare la finestra della password: la lettura viene fatta fallire con un codice invece di aprire il dialogo.&lt;/li&gt;
+&lt;li&gt;**Una lettura lenta finisce nel log.** Se una lettura delle credenziali supera il secondo, viene registrata come «macOS ha chiesto l&amp;#x27;autorizzazione»: prima, «me l&amp;#x27;ha chiesta di nuovo» non era verificabile a posteriori, e senza una prova non si aggiusta niente.&lt;/li&gt;
+&lt;li&gt;Ricorda che **«Consenti» e «Sempre» non sono la stessa cosa**: solo il secondo scrive l&amp;#x27;autorizzazione nella voce del portachiavi. Il primo vale per quella singola lettura, e il token di Claude Code si rinnova ogni poche ore.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.6.1/Claude.Live.0.6.1.dmg" length="2684922" type="application/octet-stream" sparkle:edSignature="HT4VzZivP4p7vphr+bdFcXDdBcu+659y6xJ301C19I0m0owtRHa4t9ZIJbxc9wMs9byBtpWn8qeKAWOC3XZ9BA==" />
+    </item>
+    <item>
       <title>Versione 0.6.0</title>
       <sparkle:version>0.6.0</sparkle:version>
       <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
