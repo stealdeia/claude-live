@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import ClaudeLiveKit
 
 /// Posts a macOS notification for what happened in a project.
 ///

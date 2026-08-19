@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeLiveKit
 
 /// Where a notch surface goes, and how big it is.
 ///

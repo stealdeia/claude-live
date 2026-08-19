@@ -1,5 +1,6 @@
 import AppKit
 import Sparkle
+import ClaudeLiveKit
 
 /// Automatic updates, via Sparkle.
 ///

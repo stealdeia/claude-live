@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ClaudeLiveKit
 
 /// Coordinates the notch surfaces: which screens get one, and their lifecycle.
 ///

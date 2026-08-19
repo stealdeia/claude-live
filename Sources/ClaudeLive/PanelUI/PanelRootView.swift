@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// Actions the panel needs from its host. Keeping them in a struct (rather than
 /// reaching for AppKit) is what lets the same view tree be hosted elsewhere —

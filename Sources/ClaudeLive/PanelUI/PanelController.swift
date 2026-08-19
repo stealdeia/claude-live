@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import ClaudeLiveKit
 
 /// Owns the floating panel: hosting, sizing, corner anchoring, drag persistence.
 ///

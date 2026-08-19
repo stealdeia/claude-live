@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// One labelled progress bar: name, percentage, coloured fill, reset countdown.
 struct UsageBarView: View {

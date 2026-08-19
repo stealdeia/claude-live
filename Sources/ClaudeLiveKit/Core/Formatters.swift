@@ -1,8 +1,8 @@
 import Foundation
 
-enum Format {
+public enum Format {
     /// Compact countdown: "4g 2h", "3h 12m", "8m", "42s", "ora".
-    static func countdown(to date: Date, now: Date = Date()) -> String {
+    public static func countdown(to date: Date, now: Date = Date()) -> String {
         let seconds = Int(date.timeIntervalSince(now).rounded())
         guard seconds > 0 else { return "ora" }
 
@@ -17,12 +17,12 @@ enum Format {
     }
 
     /// "0.174" → "17%". Rounds half-up and never shows 100% below the real cap.
-    static func percent(_ fraction: Double) -> String {
+    public static func percent(_ fraction: Double) -> String {
         "\(Int((fraction * 100).rounded(.toNearestOrAwayFromZero)))%"
     }
 
     /// Relative age of a snapshot: "aggiornato ora", "2m fa", "1h 5m fa".
-    static func age(since date: Date, now: Date = Date()) -> String {
+    public static func age(since date: Date, now: Date = Date()) -> String {
         let seconds = Int(now.timeIntervalSince(date).rounded())
         if seconds < 10 { return "ora" }
         if seconds < 60 { return "\(seconds)s fa" }
@@ -34,7 +34,7 @@ enum Format {
         return "\(hours / 24)g fa"
     }
 
-    static let clock: DateFormatter = {
+    public static let clock: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         return f

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ClaudeLiveKit
 
 /// One-shot requests from outside the settings window — currently just "open the
 /// screens sheet", so the menu bar can jump straight to it instead of asking the

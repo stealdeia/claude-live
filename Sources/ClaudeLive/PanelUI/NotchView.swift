@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// The notch surface.
 ///

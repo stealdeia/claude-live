@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// All visual constants in one place. The panel views read only from here and
 /// from the view models — never from AppKit — so the same views can later be

@@ -9,7 +9,7 @@ import Foundation
 /// which is what a notification signal has to be. "Claude ha finito" is invisible
 /// as a state, because a finished session and a session that just opened are both
 /// `idle`; it only exists as the transition into it.
-enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable {
+public enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Claude is waiting for an answer: a permission, a question, a choice.
     case waiting
     /// A turn ended normally.
@@ -17,9 +17,9 @@ enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable {
     /// A turn died on an error, or a working session went silent.
     case failed
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var label: String {
+    public var label: String {
         switch self {
         case .waiting: return "Claude chiede qualcosa"
         case .done: return "Claude ha finito"
@@ -29,7 +29,7 @@ enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable {
 
     /// Ranking for the one case the strip cannot express: several projects with
     /// different alerts at the same time. One light, so the most serious wins.
-    var urgency: Int {
+    public var urgency: Int {
         switch self {
         case .failed: return 3
         case .waiting: return 2
@@ -37,7 +37,7 @@ enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var defaultColor: GlowRGB {
+    public var defaultColor: GlowRGB {
         switch self {
         case .waiting: return .waiting
         case .done: return .done
@@ -46,7 +46,7 @@ enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable {
     }
 
     /// Title of the macOS notification, which names the project.
-    func notificationTitle(project: String) -> String {
+    public func notificationTitle(project: String) -> String {
         switch self {
         case .waiting: return "Claude ti aspetta in \(project)"
         case .done: return "Claude ha finito in \(project)"
@@ -55,21 +55,39 @@ enum ClaudeAlertKind: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-struct ClaudeAlert: Equatable {
-    let kind: ClaudeAlertKind
-    let projectPath: String
-    let projectName: String
+public struct ClaudeAlert: Equatable, Sendable {
+    public let kind: ClaudeAlertKind
+    public let projectPath: String
+    public let projectName: String
     /// The session that raised it, so the panel can light *that* chat and not just
     /// the project. Nil only if the group was empty by the time we looked.
-    let sessionID: String?
-    let raisedAt: Date
+    public let sessionID: String?
+    public let raisedAt: Date
     /// The tool being run, the error, the kind of request — whatever the status
     /// file carried at the moment of the transition.
-    let detail: String?
+    public let detail: String?
+
+    /// Spelled out because a public struct keeps its memberwise initialiser to
+    /// itself, and the store that raises these lives in another module.
+    public init(
+        kind: ClaudeAlertKind,
+        projectPath: String,
+        projectName: String,
+        sessionID: String?,
+        raisedAt: Date,
+        detail: String?
+    ) {
+        self.kind = kind
+        self.projectPath = projectPath
+        self.projectName = projectName
+        self.sessionID = sessionID
+        self.raisedAt = raisedAt
+        self.detail = detail
+    }
 
     /// Most serious first, then most recent: the order the strip and the panel
     /// both need.
-    static func moreUrgent(_ lhs: ClaudeAlert, _ rhs: ClaudeAlert) -> Bool {
+    public static func moreUrgent(_ lhs: ClaudeAlert, _ rhs: ClaudeAlert) -> Bool {
         lhs.kind.urgency == rhs.kind.urgency
             ? lhs.raisedAt > rhs.raisedAt
             : lhs.kind.urgency > rhs.kind.urgency

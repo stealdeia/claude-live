@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 import QuartzCore
+import ClaudeLiveKit
 
 /// One notch surface on one screen: its window, its geometry and its animation.
 ///

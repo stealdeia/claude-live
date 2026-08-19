@@ -1,4 +1,5 @@
 import Foundation
+import ClaudeLiveKit
 
 /// Result of one usage probe. A 429 is a *success* here: the response still
 /// carries the rate-limit headers, which is all we actually wanted.

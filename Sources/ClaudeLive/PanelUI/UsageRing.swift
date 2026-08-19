@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// A usage window drawn as a ring: the label sits in the middle, the stroke fills
 /// clockwise with the utilisation and takes the threshold colour.

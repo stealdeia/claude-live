@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import ClaudeLiveKit
 
 /// Reads the status files written by the Claude Code hooks and exposes one
 /// aggregated status per project path.

@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import QuartzCore
+import ClaudeLiveKit
 
 /// The soft shadow that detaches the expanded panel from whatever is behind it.
 ///

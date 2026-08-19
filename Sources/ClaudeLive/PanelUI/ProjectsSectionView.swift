@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// The project list: one compact row per open VS Code project, each carrying the
 /// live Claude Code status from the hooks, the number of editor windows it is

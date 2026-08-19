@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import UserNotifications
+import ClaudeLiveKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {

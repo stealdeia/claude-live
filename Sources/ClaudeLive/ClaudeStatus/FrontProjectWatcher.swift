@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Combine
+import ClaudeLiveKit
 
 /// Turns the signal off when the user goes to the project's own window, instead of
 /// making them come through the panel.

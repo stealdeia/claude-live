@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// How one kind of alert lights the strip, in a form that can be stored.
 ///

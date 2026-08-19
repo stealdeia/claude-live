@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import ClaudeLiveKit
 
 /// Fires at most one notification per (window, threshold, reset period), so a
 /// five-minute poll can't turn into a five-minute nag.

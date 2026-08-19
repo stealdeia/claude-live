@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// Everything Claude Code is currently waiting on, split by what the user can
 /// actually do about it.

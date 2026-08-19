@@ -1,7 +1,7 @@
 import Foundation
 
 /// What Claude Code is doing in a project.
-enum ClaudeActivity: String, Codable, Comparable {
+public enum ClaudeActivity: String, Codable, Comparable, Sendable {
     /// A prompt is being worked on.
     case working
     /// Waiting for the user: a permission request or a question.
@@ -25,11 +25,11 @@ enum ClaudeActivity: String, Codable, Comparable {
         }
     }
 
-    static func < (lhs: ClaudeActivity, rhs: ClaudeActivity) -> Bool {
+    public static func < (lhs: ClaudeActivity, rhs: ClaudeActivity) -> Bool {
         lhs.urgency < rhs.urgency
     }
 
-    var label: String {
+    public var label: String {
         switch self {
         case .working: return "al lavoro"
         case .waitingInput: return "attende input"
@@ -41,43 +41,43 @@ enum ClaudeActivity: String, Codable, Comparable {
 }
 
 /// One status file, as written by the hook script.
-struct ClaudeSessionStatus: Identifiable, Equatable {
-    let projectPath: String
-    let projectName: String
-    let sessionID: String
-    let state: ClaudeActivity
+public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
+    public let projectPath: String
+    public let projectName: String
+    public let sessionID: String
+    public let state: ClaudeActivity
     /// Directory `claude` was launched from. Often the project root, but not
     /// always — it is what tells two chats in the same project apart.
-    let cwd: String?
+    public let cwd: String?
     /// Tool name, notification message or error type, depending on the event.
-    let detail: String?
+    public let detail: String?
     /// `permission`, `notification`, a notification type, …
-    let requestKind: String?
-    let event: String
-    let permissionMode: String?
-    let updatedAt: Date
+    public let requestKind: String?
+    public let event: String
+    public let permissionMode: String?
+    public let updatedAt: Date
     /// True when the record claimed to be busy but stopped being refreshed, so
     /// its state was downgraded rather than trusted. See `ClaudeStatusStore`.
-    let isStale: Bool
+    public let isStale: Bool
 
     /// Identifier of the permission request the hook is blocked on, if any.
-    let requestID: String?
-    let toolName: String?
+    public let requestID: String?
+    public let toolName: String?
     /// One readable line describing what Claude wants to do.
-    let toolSummary: String?
+    public let toolSummary: String?
     /// True while the hook is actually waiting for an answer from this app, so
     /// showing Allow/Deny buttons can lead somewhere.
-    let decidable: Bool
+    public let decidable: Bool
 
-    var id: String { "\(projectPath)#\(sessionID)" }
+    public var id: String { "\(projectPath)#\(sessionID)" }
 
     /// Enough of the session id to tell two chats apart in a row.
-    var shortSessionID: String { String(sessionID.prefix(6)) }
+    public var shortSessionID: String { String(sessionID.prefix(6)) }
 
     /// Label for one chat inside a project: the subdirectory it was started in
     /// when that differs from the project root — the only thing the hook gives us
     /// that a human recognises — and the short session id otherwise.
-    var chatLabel: String {
+    public var chatLabel: String {
         if let cwd, !cwd.isEmpty, cwd != projectPath {
             if cwd.hasPrefix(projectPath + "/") {
                 let relative = String(cwd.dropFirst(projectPath.count + 1))
@@ -91,7 +91,7 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     }
 
     /// One line for the chat row: what this session is doing, in words.
-    var activityLabel: String {
+    public var activityLabel: String {
         switch state {
         case .working: return detail.map { "al lavoro · \($0)" } ?? "al lavoro"
         case .waitingInput: return detail ?? requestKind ?? "attende una risposta"
@@ -101,7 +101,7 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
         }
     }
 
-    var tooltip: String {
+    public var tooltip: String {
         var lines = ["Claude Code: \(state.label)\(isStale ? " (dato vecchio)" : "")"]
         if let detail { lines.append(detail) }
         if let cwd, !cwd.isEmpty { lines.append(cwd) }
@@ -111,20 +111,20 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     }
 
     /// A permission request this app can answer.
-    var isDecidable: Bool {
+    public var isDecidable: Bool {
         decidable && state == .waitingInput && !(requestID ?? "").isEmpty
     }
 
     /// Waiting on the user, but not something we can answer — an open question,
     /// so the only useful action is to bring its window forward.
-    var needsTerminal: Bool {
+    public var needsTerminal: Bool {
         state == .waitingInput && !isDecidable
     }
 
     /// Decoded by hand: the file is written by a Python hook with snake_case keys,
     /// and being lenient about missing or extra fields means an older hook keeps
     /// working after the app is updated, and vice versa.
-    init?(json: [String: Any]) {
+    public init?(json: [String: Any]) {
         guard let projectPath = json["project_path"] as? String, !projectPath.isEmpty else {
             return nil
         }
@@ -207,7 +207,7 @@ struct ClaudeSessionStatus: Identifiable, Equatable {
     /// The hook can only resolve a git root; a session started in a subdirectory
     /// of a non-git project would otherwise look like a project of its own.
     /// `candidates` are the workspace roots VS Code knows about.
-    func movedToProjectRoot(among candidates: [String]) -> ClaudeSessionStatus {
+    public func movedToProjectRoot(among candidates: [String]) -> ClaudeSessionStatus {
         var best: String?
         for candidate in candidates {
             guard projectPath == candidate || projectPath.hasPrefix(candidate + "/") else { continue }
@@ -240,7 +240,7 @@ extension ClaudeSessionStatus {
     /// Same session with its state replaced, for the store's "claimed to be busy
     /// but stopped reporting" downgrade. `isStale` records that it happened, so a
     /// row can say so instead of silently showing something else.
-    func downgraded(to state: ClaudeActivity) -> ClaudeSessionStatus {
+    public func downgraded(to state: ClaudeActivity) -> ClaudeSessionStatus {
         ClaudeSessionStatus(
             projectPath: projectPath,
             projectName: projectName,
@@ -262,19 +262,39 @@ extension ClaudeSessionStatus {
 }
 
 /// The aggregate status of one project, across all of its Claude Code sessions.
-struct ClaudeProjectStatus: Equatable {
-    let projectPath: String
-    let state: ClaudeActivity
-    let detail: String?
-    let requestKind: String?
-    let updatedAt: Date
-    let sessionCount: Int
+public struct ClaudeProjectStatus: Equatable, Sendable {
+    public let projectPath: String
+    public let state: ClaudeActivity
+    public let detail: String?
+    public let requestKind: String?
+    public let updatedAt: Date
+    public let sessionCount: Int
     /// True when we downgraded a `working` record that had gone quiet.
-    let isStale: Bool
+    public let isStale: Bool
+
+    /// Spelled out because a public struct keeps its memberwise initialiser to
+    /// itself, and the store that aggregates these lives in another module.
+    public init(
+        projectPath: String,
+        state: ClaudeActivity,
+        detail: String?,
+        requestKind: String?,
+        updatedAt: Date,
+        sessionCount: Int,
+        isStale: Bool
+    ) {
+        self.projectPath = projectPath
+        self.state = state
+        self.detail = detail
+        self.requestKind = requestKind
+        self.updatedAt = updatedAt
+        self.sessionCount = sessionCount
+        self.isStale = isStale
+    }
 
     /// A short badge for the panel row: the kind of thing being awaited, or the
     /// tool currently running.
-    var badge: String? {
+    public var badge: String? {
         switch state {
         case .waitingInput:
             switch requestKind {
@@ -291,7 +311,7 @@ struct ClaudeProjectStatus: Equatable {
         }
     }
 
-    var tooltip: String {
+    public var tooltip: String {
         var lines = ["Claude Code: \(state.label)\(isStale ? " (dato vecchio)" : "")"]
         if let detail { lines.append(detail) }
         if sessionCount > 1 { lines.append("\(sessionCount) sessioni") }

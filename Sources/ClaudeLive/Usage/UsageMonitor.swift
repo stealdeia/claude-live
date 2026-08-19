@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import CoreGraphics
+import ClaudeLiveKit
 
 /// Thrown when a wait gives up. Not an error in the usual sense: the operation is
 /// still running, we simply stopped waiting for it.

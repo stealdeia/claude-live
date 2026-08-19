@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// The per-project Claude Code status indicator.
 ///

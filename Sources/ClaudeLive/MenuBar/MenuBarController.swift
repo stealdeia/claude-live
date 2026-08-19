@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ClaudeLiveKit
 
 /// The menu bar item: shows the 5h session percentage and hosts the app's menu.
 ///

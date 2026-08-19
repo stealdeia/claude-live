@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import ClaudeLiveKit
 
 enum PanelAnchor: String, Codable, CaseIterable, Identifiable {
     case topLeft, topRight, bottomLeft, bottomRight, free
@@ -462,11 +463,5 @@ final class Settings: ObservableObject {
         } catch {
             Log.error("Salvataggio settings fallito: \(error.localizedDescription)")
         }
-    }
-}
-
-extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
-        min(max(self, range.lowerBound), range.upperBound)
     }
 }
