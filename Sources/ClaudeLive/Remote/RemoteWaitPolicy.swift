@@ -19,13 +19,20 @@ import AppKit
 @MainActor
 final class RemoteWaitPolicy: ObservableObject {
 
-    /// How long to wait when the screen is locked and the phone can answer.
+    /// How long to wait when you are away and the phone can answer.
     ///
-    /// Two minutes, which is far more than the eleven seconds measured but far
-    /// less than "until you come back": past a couple of minutes the answer
-    /// stops being useful even if it arrives, because you have lost the thread
-    /// of what was being asked.
-    private static let awaySeconds: Double = 120
+    /// Was two minutes, on the reasoning that a later answer would arrive after
+    /// you had lost the thread of the question. Watching a real attempt showed
+    /// that reasoning to be wrong twice over: the app *shows* the question, so
+    /// nothing is lost by answering late — and two minutes is not enough for
+    /// what actually happens, which is noticing, unlocking the phone, opening
+    /// the app, reading a command and deciding. One measured attempt took 169
+    /// seconds and missed the window by a minute.
+    ///
+    /// Five minutes costs nothing when nobody is at the Mac: the session would
+    /// have sat idle regardless. It only ever ends early, the moment you come
+    /// back.
+    private static let awaySeconds: Double = 300
 
     /// Untouched for this long counts as away, even with the screen unlocked.
     ///

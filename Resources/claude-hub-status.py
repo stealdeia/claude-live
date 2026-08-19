@@ -219,7 +219,7 @@ def app_is_running():
 def wait_seconds():
     config = read_json(CONFIG, {})
     try:
-        return max(0, min(180, float(config.get("decision_wait_seconds", DEFAULT_WAIT_SECONDS))))
+        return max(0, min(600, float(config.get("decision_wait_seconds", DEFAULT_WAIT_SECONDS))))
     except Exception:
         return DEFAULT_WAIT_SECONDS
 

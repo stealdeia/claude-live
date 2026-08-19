@@ -158,7 +158,7 @@ def hook_timeout(event):
     The value is only a ceiling: the hook returns as soon as it has an answer,
     or as soon as `decision_wait_seconds` elapses.
     """
-    return 180 if event in ("PermissionRequest", "PreToolUse") else 5
+    return 600 if event in ("PermissionRequest", "PreToolUse") else 5
 
 
 def add_our_hooks(settings):
