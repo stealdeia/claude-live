@@ -735,7 +735,7 @@ Attenzione a due cose che restano vere:
   una volta l'accesso alla voce Keychain. È una tantum, non si ripete agli
   aggiornamenti successivi finché l'identità resta la stessa.
 
-### L'ACL del portachiavi autorizza per percorso
+### La richiesta di password del portachiavi, e perché «Sempre» non bastava
 
 Vale la pena sapere com'è fatta la voce `Claude Code-credentials`, perché spiega la
 richiesta di password che sembra arrivare a caso. Letta con
@@ -755,10 +755,27 @@ della firma. Le conseguenze pratiche:
 * una copia eseguita da `build/` o dal DMG è un'altra applicazione per il
   portachiavi, e «Consenti sempre» dato a una non vale per l'altra. Durante lo
   sviluppo è la causa di praticamente ogni richiesta di password;
-* un aggiornamento che sostituisce `/Applications/Claude Live.app` mantiene
-  l'autorizzazione, perché il percorso non cambia e il team id nemmeno;
 * «Consenti» (una volta) e «Sempre» sono cose diverse: solo il secondo scrive nella
   lista.
+
+Ma il percorso è **metà** della storia, e l'altra metà è quella che conta:
+**Claude Code, quando riscrive la voce per rinnovare il token, azzera la lista.**
+Misurato — voce riscritta alle 09:47:02, richiesta di password alle 09:48:51 dalla
+copia in `/Applications`, la stessa che nove minuti prima aveva letto in silenzio.
+L'autorizzazione la distrugge il proprietario della voce, ogni poche ore: nessun
+numero di «Sempre» può sopravvivere. `cdat` resta al 3 giugno mentre `mdat` avanza,
+quindi la voce non viene ricreata — viene aggiornata, e l'aggiornamento si porta via
+l'ACL.
+
+L'unica voce che sopravvive è **`/usr/bin/security`**, perché è lo strumento con cui
+Claude Code scrive e ogni scrittura la ri-aggiunge — ed è anche il motivo per cui
+Claude Code non si vede mai chiedere nulla. Quindi `readItem` legge **attraverso di
+lui** (`security find-generic-password -s … -w`, uscita su pipe, mai su disco, mai
+nel log): la richiesta arriva da un'applicazione autorizzata per costruzione, 46 ms
+senza finestra, contro gli 80 secondi di attesa di un dialogo con l'API diretta.
+L'API diretta resta come ripiego, perché quella voce nell'ACL è un dettaglio
+d'implementazione di un altro programma: se un giorno smettesse di esserci, la
+lettura funziona ancora — solo, può chiedere.
 
 `CredentialsStore.authorizationState()` interroga tutto questo **senza mai mostrare
 una finestra**: `SecKeychainSetUserInteractionAllowed(false)` fa fallire la lettura
