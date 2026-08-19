@@ -130,6 +130,28 @@ timed_out = run(dict(BASH, tool_use_id="toolu_silence"))
 check("nessuno risponde → nessuna decisione", timed_out, "")
 print(f"       ha atteso e mollato dopo: {time.time() - started:.1f}s")
 
+print("\n— torni al Mac mentre la richiesta è in sospeso —")
+configure(away=True, decision_wait_seconds=60)
+
+
+def come_back_after(delay):
+    def go():
+        time.sleep(delay)
+        configure(away=False, decision_wait_seconds=60)
+    threading.Thread(target=go, daemon=True).start()
+
+
+come_back_after(0.5)
+started = time.time()
+returned = run(dict(BASH, tool_use_id="toolu_back"))
+elapsed = time.time() - started
+# Lets go at once instead of holding for the full minute: the person who can
+# answer is now sitting in front of the terminal, which is the whole reason the
+# away/home distinction exists.
+check("smette di aspettare", returned, "")
+check("senza arrivare in fondo ai 60s", elapsed < 5, True)
+print(f"       ha mollato dopo: {elapsed:.1f}s")
+
 print("\n— cosa vede il pannello mentre aspetta —")
 configure(away=True, decision_wait_seconds=1)
 run(dict(BASH, tool_use_id="toolu_look"))

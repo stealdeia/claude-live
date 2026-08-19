@@ -317,11 +317,19 @@ def emit_decision(behavior, event):
     sys.stdout.flush()
 
 
-def await_decision(request_id, timeout):
-    """Polls for the app's answer. Returns (behavior, remember) or None."""
+def await_decision(request_id, timeout, tool=None):
+    """Polls for the app's answer. Returns (behavior, remember) or None.
+
+    Gives up early if the user comes back to the Mac. The app clears `away` the
+    moment it sees input again, and continuing to hold the call would leave
+    Claude frozen with the person who could answer it sitting right there — the
+    exact situation the whole away/home distinction exists to avoid.
+    """
     path = os.path.join(DECISIONS_DIR, f"{request_id}.json")
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if tool is not None and not gating(tool):
+            return None
         if os.path.exists(path):
             answer = read_json(path, {})
             try:
@@ -411,7 +419,7 @@ def main():
     if not decidable:
         return
 
-    answer = await_decision(request_id, timeout)
+    answer = await_decision(request_id, timeout, tool if event == "PreToolUse" else None)
     if answer is None:
         # No answer in time: print nothing, so Claude Code prompts in the terminal
         # exactly as it would without this hook.
