@@ -5,6 +5,23 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.6.2</title>
+      <sparkle:version>0.6.2</sparkle:version>
+      <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 19 Aug 2026 07:59:44 +0000</pubDate>
+      <description>&lt;p&gt;La richiesta di password del portachiavi non torna più: la lettura passa da dove Claude Code stesso la fa.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Perché «Consenti sempre» non bastava, e non era colpa tua.** L&amp;#x27;autorizzazione vive dentro la voce &lt;code&gt;Claude Code-credentials&lt;/code&gt;, e **Claude Code la azzera ogni volta che riscrive quella voce per rinnovare il token** — cioè ogni poche ore. Misurato: voce riscritta alle 09:47:02, richiesta di password alle 09:48:51, dalla stessa copia dell&amp;#x27;app che nove minuti prima aveva letto in silenzio. Nessun numero di «Sempre» poteva sopravvivere a questo, perché chi cancella il permesso è il proprietario della voce.&lt;/li&gt;
+&lt;li&gt;**La soluzione.** Nella lista delle applicazioni autorizzate c&amp;#x27;è una voce che sopravvive sempre: &lt;code&gt;/usr/bin/security&lt;/code&gt;, lo strumento con cui Claude Code scrive, che quindi si ri-autorizza da solo a ogni rinnovo — ed è il motivo per cui Claude Code non si vede mai chiedere niente. Claude Live ora legge le credenziali attraverso di lui: 46 millisecondi, nessuna finestra, e resiste ai rinnovi del token. L&amp;#x27;API diretta resta come ripiego, perché quella voce è un dettaglio interno di un altro programma: se un giorno non ci fosse più, l&amp;#x27;app funziona ancora — solo, può chiedere.&lt;/li&gt;
+&lt;li&gt;Le credenziali continuano a non essere **mai** scritte da questa app, né su disco né nel log: la lettura esce su una pipe e il contenuto non viene registrato da nessuna parte.&lt;/li&gt;
+&lt;li&gt;**Se una lettura fosse ancora lenta finisce nel log** come «macOS ha chiesto l&amp;#x27;autorizzazione». È così che è stato scoperto il vero motivo, dieci minuti dopo aver pubblicato la spiegazione sbagliata nella 0.6.1: senza una misura, «me l&amp;#x27;ha chiesta di nuovo» non è verificabile.&lt;/li&gt;
+&lt;li&gt;Resta vero che **l&amp;#x27;autorizzazione è legata al percorso** dell&amp;#x27;app: una copia eseguita dal DMG o da un&amp;#x27;altra cartella è un&amp;#x27;altra applicazione per il portachiavi. Tienine una sola, in Applicazioni. Lo stato lo trovi in Impostazioni → Diagnostica → «Accesso al portachiavi».&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.6.2/Claude.Live.0.6.2.dmg" length="2691506" type="application/octet-stream" sparkle:edSignature="WPkf6vNAVI5Zj7Vb9vwJbfo4qX8sAgJxGQeUCd7e8No85Me++qxx79ImPierWq4EO9o20yetQCT3CdwZ0yC9DQ==" />
+    </item>
+    <item>
       <title>Versione 0.6.1</title>
       <sparkle:version>0.6.1</sparkle:version>
       <sparkle:shortVersionString>0.6.1</sparkle:shortVersionString>
