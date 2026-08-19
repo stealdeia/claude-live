@@ -177,8 +177,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
 
+    // Answers before the authorisation check, so it can be used to tell "the
+    // relay is down" from "the password is wrong" — and therefore says only
+    // that it is alive. It used to report the APNs environment and the bundle
+    // id, which is free information for anyone who guesses the address.
     if (url.pathname === '/health') {
-      return json({ ok: true, env: env.APNS_ENV, topic: env.APNS_TOPIC })
+      return json({ ok: true })
     }
 
     if (!authorised(request, env)) {
