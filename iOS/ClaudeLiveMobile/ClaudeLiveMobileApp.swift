@@ -30,7 +30,7 @@ struct ClaudeLiveMobileApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ProbeView(probe: probe)
+            RootView(probe: probe)
                 .onAppear { AppDelegate.probe = probe }
         }
     }
