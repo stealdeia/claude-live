@@ -5,6 +5,23 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.6.3</title>
+      <sparkle:version>0.6.3</sparkle:version>
+      <sparkle:shortVersionString>0.6.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 19 Aug 2026 08:35:37 +0000</pubDate>
+      <description>&lt;p&gt;Una sola copia di Claude Live per Mac: la seconda si accorge della prima e si chiude, invece di litigarci.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Due copie accese insieme facevano danni che sembravano difetti dell&amp;#x27;app.** Condividono lo stesso file di impostazioni, quindi l&amp;#x27;ultima che salva vince e le preferenze sembrano cambiare da sole; ognuna manda le proprie notifiche e disegna il proprio notch. E soprattutto: ognuna chiede a VS Code la lista delle finestre con &lt;code&gt;code --status&lt;/code&gt; — la cosa che fa comparire per un istante una seconda icona di VS Code nel Dock — e **non può riconoscere la domanda dell&amp;#x27;altra**, perché il filtro contro l&amp;#x27;auto-innesco conosce solo i propri comandi. Così ognuna prendeva la domanda dell&amp;#x27;altra per un avvio vero di VS Code e richiedeva: icona lampeggiante ogni pochi secondi, all&amp;#x27;infinito.&lt;/li&gt;
+&lt;li&gt;**Ora la seconda copia si chiude da sola** e chiede alla prima di mostrarsi, così lanciarla non sembra che non abbia fatto niente. Confronta le date di avvio invece di limitarsi a chiedere «c&amp;#x27;è qualcun altro?»: due copie lanciate insieme si vedrebbero a vicenda e si chiuderebbero entrambe.&lt;/li&gt;
+&lt;li&gt;**Chi sviluppa l&amp;#x27;app può ancora tenerne due** di proposito, con &lt;code&gt;CLAUDELIVE_ALLOW_SECOND_INSTANCE=1&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;La copia che si fa da parte **non tocca niente di condiviso** uscendo: in particolare non cancella il file di heartbeat degli hook, che appartiene alla copia che resta e senza il quale Claude Code smette di aspettare le risposte dal pannello.&lt;/li&gt;
+&lt;li&gt;L&amp;#x27;evento finisce nel log anche a log di debug spento: senza una traccia su disco, il sintomo — un&amp;#x27;icona che lampeggia nel Dock — non porta a nessuna spiegazione.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.6.3/Claude.Live.0.6.3.dmg" length="2693323" type="application/octet-stream" sparkle:edSignature="A3N22VhKp+3LGlik2nuEimJkI/RvhWLi4zCx1j3X9AMecAQ6+80tcnHmTjWaoNBBK8I1u8isiQlhotyqenpVAw==" />
+    </item>
+    <item>
       <title>Versione 0.6.2</title>
       <sparkle:version>0.6.2</sparkle:version>
       <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
