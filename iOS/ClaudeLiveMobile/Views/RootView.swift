@@ -12,13 +12,26 @@ import ClaudeLiveKit
 /// useless: a design is judged against content.
 struct RootView: View {
     @ObservedObject var probe: RelayProbe
+    @StateObject private var store = RemoteStore()
     @State private var themes = ThemeStore()
     @State private var tab: AppTab = .home
     @State private var showingSettings = false
+    @State private var showingPairing = false
+    @Environment(\.scenePhase) private var scenePhase
 
     enum AppTab: Hashable { case home, projects, usage }
 
-    private var snapshot: RemoteSnapshot { RemoteSnapshot.sample(now: Date()) }
+    /// The sample only until a Mac is paired. After that, whatever it published
+    /// — and nothing invented to fill a gap: an empty screen that is true beats
+    /// a full one that is not.
+    private var snapshot: RemoteSnapshot? {
+        store.isPaired ? store.snapshot : RemoteSnapshot.sample(now: Date())
+    }
+
+    private var problem: String? {
+        if !store.isPaired { return "Dati d'esempio: nessun Mac accoppiato." }
+        return store.problem
+    }
 
     var body: some View {
         TabView(selection: $tab) {
@@ -26,6 +39,7 @@ struct RootView: View {
                 shell(title: "Claude Live") {
                     HomeView(
                         snapshot: snapshot,
+                        problem: problem,
                         inFlight: [],
                         onDecide: { _, _, _ in },
                         onOpenProjects: { tab = .projects },
@@ -52,8 +66,20 @@ struct RootView: View {
         // is no light version of it that would still meet the Dynamic Island.
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) {
-            SettingsSheet(probe: probe, themes: themes)
+            SettingsSheet(probe: probe, themes: themes, store: store) {
+                showingSettings = false
+                showingPairing = true
+            }
         }
+        .sheet(isPresented: $showingPairing) {
+            PairingView(store: store)
+        }
+        // Polls only while on screen: a phone asking from a pocket spends
+        // battery to learn things nobody is reading.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { store.startRefreshing() } else { store.stopRefreshing() }
+        }
+        .refreshable { await store.refresh() }
     }
 
     /// Navigation stack, gradient, title and the settings button — the frame
@@ -86,6 +112,8 @@ struct RootView: View {
 struct SettingsSheet: View {
     @ObservedObject var probe: RelayProbe
     @Bindable var themes: ThemeStore
+    @ObservedObject var store: RemoteStore
+    let onPair: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -95,6 +123,34 @@ struct SettingsSheet: View {
                     .environment(\.theme, themes.theme)
                 ScrollView {
                     VStack(spacing: 16) {
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Mac")
+                                    .font(.subheadline.weight(.semibold))
+
+                                if store.isPaired {
+                                    Label("Accoppiato", systemImage: "checkmark.circle.fill")
+                                        .font(.footnote)
+                                        .foregroundStyle(GlowRGB.done.color)
+                                    Button("Disaccoppia", role: .destructive) { store.unpair() }
+                                        .font(.footnote)
+                                } else {
+                                    Text("Nessun Mac accoppiato: l'app mostra dati d'esempio.")
+                                        .font(.footnote)
+                                        .foregroundStyle(.white.opacity(0.6))
+                                    Button {
+                                        onPair()
+                                    } label: {
+                                        Label("Accoppia con il Mac", systemImage: "qrcode.viewfinder")
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 4)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
                         GlassCard {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text("Tema")

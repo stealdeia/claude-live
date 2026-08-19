@@ -1,7 +1,7 @@
 import Foundation
 import Security
 import CryptoKit
-import ClaudeLiveKit
+
 
 /// The two secrets the companion needs, kept in the Keychain.
 ///
@@ -11,17 +11,17 @@ import ClaudeLiveKit
 ///
 /// Our own Keychain item, unlike the Claude Code credentials this app only
 /// reads — so it is created, updated and deleted here.
-enum RemoteSecrets {
+public enum RemoteSecrets {
     private static let service = "it.aldeialab.ClaudeLive.remote"
 
-    enum Item: String {
+    public enum Item: String {
         /// Shared with the relay: proves a request comes from our devices.
         case pairSecret
         /// Never leaves the Mac except by QR: what actually protects the payload.
         case encryptionKey
     }
 
-    static func read(_ item: Item) -> String? {
+    public static func read(_ item: Item) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -38,7 +38,7 @@ enum RemoteSecrets {
     }
 
     @discardableResult
-    static func write(_ value: String, to item: Item) -> Bool {
+    public static func write(_ value: String, to item: Item) -> Bool {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -57,13 +57,15 @@ enum RemoteSecrets {
         insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
 
         let status = SecItemAdd(insert as CFDictionary, nil)
+        // The caller logs: this package has no logger, deliberately — it is
+        // shared with an app that has a different one.
         if status != errSecSuccess {
-            Log.error("Salvataggio del segreto «\(item.rawValue)» fallito: \(status)")
+
         }
         return status == errSecSuccess
     }
 
-    static func delete(_ item: Item) {
+    public static func delete(_ item: Item) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -75,18 +77,18 @@ enum RemoteSecrets {
     // MARK: - Comodità
 
     /// The key, generating and storing one the first time it is asked for.
-    static func encryptionKey() -> SymmetricKey? {
+    public static func encryptionKey() -> SymmetricKey? {
         if let stored = read(.encryptionKey), let key = try? RemoteCrypto.importKey(stored) {
             return key
         }
         let fresh = RemoteCrypto.newKey()
         guard write(RemoteCrypto.export(fresh), to: .encryptionKey) else { return nil }
-        Log.info("Generata una nuova chiave di cifratura per il companion")
+
         return fresh
     }
 
     /// Forgets everything, so a new phone starts from a clean pairing.
-    static func reset() {
+    public static func reset() {
         delete(.pairSecret)
         delete(.encryptionKey)
     }

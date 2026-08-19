@@ -9,6 +9,10 @@ import ClaudeLiveKit
 /// as two rings with no dates — the details are one tap away, not absent.
 struct HomeView: View {
     let snapshot: RemoteSnapshot?
+    /// Why the screen may not be telling the truth: not paired, unreachable,
+    /// wrong key. Shown above everything, because it changes how to read the
+    /// rest of the page.
+    var problem: String?
     let inFlight: Set<String>
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
     let onOpenProjects: () -> Void
@@ -17,6 +21,18 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if let problem {
+                    HStack(spacing: 9) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(GlowRGB.waiting.color)
+                        Text(problem)
+                            .font(.footnote)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(GlowRGB.waiting.color.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
+                }
+
                 if let snapshot {
                     pending(snapshot)
                     projects(snapshot)

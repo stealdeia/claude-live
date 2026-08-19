@@ -42,6 +42,7 @@ targets:
       properties:
         CFBundleDisplayName: Claude Live
         UILaunchScreen: {}
+        NSCameraUsageDescription: La fotocamera serve solo a inquadrare il codice di accoppiamento mostrato dal Mac.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
     entitlements:
