@@ -9,6 +9,7 @@ struct SettingsView: View {
     @ObservedObject var monitor: UsageMonitor
     @ObservedObject var projects: ProjectsMonitor
     @ObservedObject var status: ClaudeStatusStore
+    @ObservedObject var remote: RemotePublisher
     @ObservedObject var updates: UpdateController
     let onInstallHooks: () -> Void
     let onShowOnboarding: () -> Void
@@ -30,6 +31,7 @@ struct SettingsView: View {
             notificationsSection
             if settings.displayMode == .notch { glowSection }
             hooksSection
+            CompanionSettingsView(settings: settings, remote: remote)
             if settings.displayMode == .floating { panelSection }
             diagnosticsSection
             aboutSection

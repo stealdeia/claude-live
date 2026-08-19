@@ -60,6 +60,8 @@ private struct SettingsData: Codable {
     var launchAtLogin: Bool?
     var hasCompletedOnboarding: Bool?
     var decisionWaitSeconds: Double?
+    var remoteEnabled: Bool?
+    var remoteRelayURL: String?
 }
 
 @MainActor
@@ -132,6 +134,18 @@ final class Settings: ObservableObject {
             schedulePersist()
         }
     }
+
+    /// Whether anything at all is sent to the companion.
+    ///
+    /// Off by default, and it is the only switch in this app that decides
+    /// whether data leaves the machine: everything else Claude Live does happens
+    /// locally. A default of on would mean a version bump quietly started
+    /// publishing, which is not a thing an update should be able to do.
+    @Published var remoteEnabled: Bool = false { didSet { schedulePersist() } }
+
+    /// The relay's address. Not a secret — the password and the encryption key
+    /// live in the Keychain, see `RemoteSecrets`.
+    @Published var remoteRelayURL: String = "" { didSet { schedulePersist() } }
 
     @Published var debugLoggingEnabled: Bool = false {
         didSet {
@@ -399,6 +413,8 @@ final class Settings: ObservableObject {
         if let v = decoded.launchAtLogin { launchAtLogin = v }
         if let v = decoded.hasCompletedOnboarding { hasCompletedOnboarding = v }
         if let v = decoded.decisionWaitSeconds { decisionWaitSeconds = v }
+        if let v = decoded.remoteEnabled { remoteEnabled = v }
+        if let v = decoded.remoteRelayURL { remoteRelayURL = v }
 
         Log.info("Settings caricati da \(Paths.settingsFile.path)")
     }
@@ -453,7 +469,9 @@ final class Settings: ObservableObject {
             showMenuBarIcon: showMenuBarIcon,
             launchAtLogin: launchAtLogin,
             hasCompletedOnboarding: hasCompletedOnboarding,
-            decisionWaitSeconds: decisionWaitSeconds
+            decisionWaitSeconds: decisionWaitSeconds,
+            remoteEnabled: remoteEnabled,
+            remoteRelayURL: remoteRelayURL
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

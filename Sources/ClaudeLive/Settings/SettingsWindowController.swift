@@ -21,6 +21,7 @@ final class SettingsWindowController {
     private let monitor: UsageMonitor
     private let projects: ProjectsMonitor
     private let status: ClaudeStatusStore
+    private let remote: RemotePublisher
     private let updates: UpdateController
     private let onInstallHooks: () -> Void
     private let onShowOnboarding: () -> Void
@@ -35,6 +36,7 @@ final class SettingsWindowController {
         monitor: UsageMonitor,
         projects: ProjectsMonitor,
         status: ClaudeStatusStore,
+        remote: RemotePublisher,
         updates: UpdateController,
         onInstallHooks: @escaping () -> Void,
         onShowOnboarding: @escaping () -> Void,
@@ -46,6 +48,7 @@ final class SettingsWindowController {
         self.monitor = monitor
         self.projects = projects
         self.status = status
+        self.remote = remote
         self.updates = updates
         self.onInstallHooks = onInstallHooks
         self.onShowOnboarding = onShowOnboarding
@@ -70,6 +73,7 @@ final class SettingsWindowController {
                 monitor: monitor,
                 projects: projects,
                 status: status,
+                remote: remote,
                 updates: updates,
                 onInstallHooks: onInstallHooks,
                 onShowOnboarding: onShowOnboarding,

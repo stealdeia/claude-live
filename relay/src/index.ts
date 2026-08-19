@@ -17,7 +17,7 @@
  */
 
 export interface Env {
-  /** Device tokens, keyed by pair id. */
+  /** Device tokens and the latest snapshot, keyed by pair id. */
   DEVICES: KVNamespace
   /** Contents of the AuthKey_*.p8 downloaded from Apple. A secret. */
   APNS_KEY: string
@@ -215,6 +215,48 @@ export default {
         return json({ error: 'APNs ha rifiutato', ...result }, 502)
       }
       return json({ ok: true, sentAt, acceptedInMs: Date.now() - sentAt })
+    }
+
+    // The Mac publishes what it knows. The body is a sealed box: this Worker
+    // stores and forwards it without being able to read it, which is the whole
+    // reason it can be somebody else's computer.
+    if (url.pathname === '/publish' && request.method === 'POST') {
+      const body = (await request.json()) as { payload?: string; notify?: string }
+      if (typeof body.payload !== 'string' || body.payload.length === 0) {
+        return json({ error: 'payload mancante' }, 400)
+      }
+      // A snapshot is worthless once superseded, so it is stored with a short
+      // life: if the Mac stops publishing, the record expires instead of sitting
+      // there looking current.
+      await env.DEVICES.put(`${PAIR_ID}:snapshot`, body.payload, { expirationTtl: 600 })
+      await env.DEVICES.put(`${PAIR_ID}:snapshotAt`, String(Date.now()), { expirationTtl: 600 })
+
+      let pushed: unknown = null
+      if (body.notify) {
+        const deviceToken = await env.DEVICES.get(PAIR_ID)
+        if (deviceToken) {
+          // Deliberately generic wording. The alert text is visible to Apple and
+          // to this Worker, so naming the project here would undo the encryption
+          // for exactly the field a passer-by would find most interesting. The
+          // app says what happened once it has decrypted the snapshot.
+          pushed = await sendPush(env, deviceToken, {
+            aps: {
+              alert: { title: 'Claude Live', body: body.notify },
+              sound: 'default',
+            },
+          })
+        }
+      }
+
+      return json({ ok: true, pushed })
+    }
+
+    // The phone asks for the latest picture.
+    if (url.pathname === '/state' && request.method === 'GET') {
+      const payload = await env.DEVICES.get(`${PAIR_ID}:snapshot`)
+      if (!payload) return json({ error: 'nessuno snapshot' }, 404)
+      const storedAt = await env.DEVICES.get(`${PAIR_ID}:snapshotAt`)
+      return json({ payload, storedAt: storedAt ? Number(storedAt) : null })
     }
 
     // The phone reports what it saw. Nothing is stored: the number is the point,

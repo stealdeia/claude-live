@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var projects: ProjectsMonitor!
     private var status: ClaudeStatusStore!
     private var frontWatcher: FrontProjectWatcher!
+    private var remote: RemotePublisher!
     private var notifier: UsageNotifier!
     private var alertNotifier: ClaudeAlertNotifier!
     private var menuBar: MenuBarController!
@@ -35,6 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         projects = ProjectsMonitor(settings: settings)
         status = ClaudeStatusStore(settings: settings, notifier: alertNotifier)
         frontWatcher = FrontProjectWatcher(status: status, settings: settings)
+        // Observes the same stores the panel draws from, so the phone and the
+        // panel cannot disagree. Publishes nothing until switched on.
+        remote = RemotePublisher(settings: settings, status: status, usage: monitor)
 
         onboardingWindow = OnboardingWindowController(
             settings: settings,
@@ -46,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             monitor: monitor,
             projects: projects,
             status: status,
+            remote: remote,
             updates: updates,
             onInstallHooks: { [weak self] in self?.installHooks() },
             onShowOnboarding: { [weak self] in self?.onboardingWindow.show() },
