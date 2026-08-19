@@ -78,18 +78,24 @@ struct PendingDecisionCard: View {
                 .tint(.white)
             }
 
-            // Set apart and behind a confirmation, unlike the other two. They
-            // answer this one request; this one answers every request like it,
-            // for good. Same size and position would make the difference invisible
-            // exactly when it matters most.
+            // Behind a confirmation and visually below the other two, but a
+            // button and not a caption. They answer this one request; this one
+            // answers every request like it, for good — so it must be reachable
+            // without being as easy to hit by reflex.
             Button {
                 confirmingAlways = true
             } label: {
                 Label("Consenti sempre questo comando", systemImage: "infinity")
-                    .font(.caption)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(.white.opacity(0.09), in: Capsule())
+                    .overlay {
+                        Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 0.5)
+                    }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.55))
             .padding(.top, 2)
             .confirmationDialog(
                 "Consentire sempre?",
