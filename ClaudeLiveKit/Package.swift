@@ -14,6 +14,7 @@ let package = Package(
         .library(name: "ClaudeLiveKit", targets: ["ClaudeLiveKit"])
     ],
     targets: [
-        .target(name: "ClaudeLiveKit")
+        .target(name: "ClaudeLiveKit"),
+        .testTarget(name: "ClaudeLiveKitTests", dependencies: ["ClaudeLiveKit"])
     ]
 )

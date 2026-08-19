@@ -319,3 +319,11 @@ public struct ClaudeProjectStatus: Equatable, Sendable {
         return lines.joined(separator: "\n")
     }
 }
+
+/// Transmissible, for the iPhone companion.
+///
+/// Being sendable over a wire is not something the panel ever needed: it is a
+/// consequence of there being a second device. Synthesised — every stored
+/// property is a `String`, `Date`, `Bool` or an enum that codes itself.
+extension ClaudeSessionStatus: Codable {}
+extension ClaudeProjectStatus: Codable {}

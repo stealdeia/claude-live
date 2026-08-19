@@ -93,3 +93,6 @@ public struct ClaudeAlert: Equatable, Sendable {
             : lhs.kind.urgency > rhs.kind.urgency
     }
 }
+
+/// Transmissible, so the phone can light up for the same event the notch does.
+extension ClaudeAlert: Codable {}
