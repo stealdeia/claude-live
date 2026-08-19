@@ -1,0 +1,9 @@
+# Generato da `xcodegen generate` a partire da project.yml, che è la fonte di
+# verità. Tenerlo fuori dal repo evita i conflitti su un file che nessuno
+# modifica a mano, nello stesso spirito per cui il Mac usa build.sh invece di un
+# progetto Xcode.
+ClaudeLiveMobile.xcodeproj/
+
+# Prodotti di build
+DerivedData/
+build/

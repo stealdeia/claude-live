@@ -1,0 +1,49 @@
+name: ClaudeLiveMobile
+
+options:
+  bundleIdPrefix: it.aldeialab
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  # The shared package at the repository root. Linking it here is not a
+  # convenience: it is what proves the extraction actually paid off, because the
+  # phone compiles the same models the Mac uses rather than a copy of them.
+  ClaudeLiveKit:
+    path: ..
+
+targets:
+  ClaudeLiveMobile:
+    type: application
+    platform: iOS
+    sources:
+      - ClaudeLiveMobile
+    dependencies:
+      - package: ClaudeLiveKit
+        product: ClaudeLiveKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: it.aldeialab.ClaudeLiveMobile
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # The team the Apple Developer Program membership belongs to.
+        DEVELOPMENT_TEAM: G7PDRQRC29
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: ClaudeLiveMobile/Info.plist
+      properties:
+        CFBundleDisplayName: Claude Live
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    entitlements:
+      path: ClaudeLiveMobile/ClaudeLiveMobile.entitlements
+      properties:
+        # "development" pairs with APNs sandbox, which is where a build
+        # installed from Xcode is registered. TestFlight needs "production",
+        # and the relay's APNS_ENV has to move with it.
+        aps-environment: development
