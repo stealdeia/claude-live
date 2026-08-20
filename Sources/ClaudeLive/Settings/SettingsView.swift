@@ -18,25 +18,69 @@ struct SettingsView: View {
     let onQuit: () -> Void
 
     @State private var showNotchScreens = false
+    @State private var tab: Tab = .appearance
+
+    /// Le sezioni della finestra, nell'ordine della barra laterale.
+    ///
+    /// Erano undici sezioni in un'unica lista da scorrere, e trovarne una voleva
+    /// dire ricordarsi a che altezza stava. Raggruppate per la domanda a cui
+    /// rispondono, non per l'ordine in cui sono state scritte.
+    private enum Tab: String, CaseIterable, Identifiable, Hashable {
+        case appearance, glow, notifications, claudeCode, phone, refresh, diagnostics, about
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .appearance: return "Aspetto"
+            case .glow: return "Segnale luminoso"
+            case .notifications: return "Notifiche"
+            case .claudeCode: return "Claude Code"
+            case .phone: return "iPhone"
+            case .refresh: return "Frequenza"
+            case .diagnostics: return "Diagnostica"
+            case .about: return "Informazioni"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .appearance: return "paintbrush"
+            case .glow: return "light.beacon.max"
+            case .notifications: return "bell"
+            case .claudeCode: return "terminal"
+            case .phone: return "iphone"
+            case .refresh: return "timer"
+            case .diagnostics: return "stethoscope"
+            case .about: return "info.circle"
+            }
+        }
+    }
+
+    /// Il segnale luminoso esiste solo sul notch, quindi la sua voce non c'è
+    /// quando il notch non c'è: una sezione vuota è una domanda senza risposta.
+    private var tabs: [Tab] {
+        Tab.allCases.filter { $0 != .glow || settings.displayMode == .notch }
+    }
 
     var body: some View {
-        // No explicit width or `fixedSize` here on purpose: the window decides
-        // the size and the form fills it. Doing it the other way round made the
-        // content wider than the window and clipped both edges.
-        Form {
-            surfaceSection
-            menuBarSection
-            updateSection
-            thresholdsSection
-            notificationsSection
-            if settings.displayMode == .notch { glowSection }
-            hooksSection
-            CompanionSettingsView(settings: settings, remote: remote)
-            if settings.displayMode == .floating { panelSection }
-            diagnosticsSection
-            aboutSection
+        NavigationSplitView {
+            List(selection: $tab) {
+                ForEach(tabs) { item in
+                    Label(item.title, systemImage: item.icon).tag(item)
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 176, ideal: 188, max: 230)
+        } detail: {
+            // No explicit width or `fixedSize` here on purpose: the window decides
+            // the size and the form fills it. Doing it the other way round made the
+            // content wider than the window and clipped both edges.
+            Form {
+                sections(for: tab)
+            }
+            .formStyle(.grouped)
+            .navigationTitle(tab.title)
         }
-        .formStyle(.grouped)
         .sheet(isPresented: $showNotchScreens) {
             NotchScreensView(settings: settings) { showNotchScreens = false }
         }
@@ -49,10 +93,91 @@ struct SettingsView: View {
         }
     }
 
+    @ViewBuilder
+    private func sections(for tab: Tab) -> some View {
+        switch tab {
+        case .appearance:
+            surfaceSection
+            if settings.displayMode == .notch { themeSection }
+            menuBarSection
+            if settings.displayMode == .floating { panelSection }
+        case .glow:
+            glowSection
+        case .notifications:
+            notificationsSection
+            thresholdsSection
+        case .claudeCode:
+            hooksSection
+        case .phone:
+            CompanionSettingsView(settings: settings, remote: remote)
+        case .refresh:
+            updateSection
+        case .diagnostics:
+            diagnosticsSection
+        case .about:
+            aboutSection
+        }
+    }
+
+    // MARK: - Tema del pannello
+
+    private var themeSection: some View {
+        Section("Tema") {
+            LabeledContent("Colore del pannello") {
+                HStack(spacing: 8) {
+                    ForEach(ColorTheme.all) { theme in
+                        let chosen = settings.panelThemeID == theme.id
+                        Button { settings.panelThemeID = theme.id } label: {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [.black, theme.bloom, theme.deep],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ))
+                                .frame(width: 36, height: 24)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .strokeBorder(
+                                            chosen ? Color.accentColor : Color.primary.opacity(0.18),
+                                            lineWidth: chosen ? 2 : 1
+                                        )
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .help(theme.name)
+                        .accessibilityLabel(theme.name)
+                    }
+                }
+            }
+
+            // L'anteprima, larga come merita: è su un'altezza vera che il
+            // gradiente si vede, e cliccare un quadratino da un centimetro
+            // significava scegliere alla cieca.
+            VStack(spacing: 8) {
+                NotchThemePreview(theme: chosenTheme)
+                Text(chosenTheme.name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+            .animation(.easeOut(duration: 0.18), value: settings.panelThemeID)
+
+            Text("Il bordo superiore resta nero in ogni tema: è quello che fa sparire il pannello nel ritaglio del MacBook. Il colore arriva scendendo, quindi da chiuso non si vede.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var chosenTheme: ColorTheme {
+        ColorTheme.all.first { $0.id == settings.panelThemeID } ?? ColorTheme.midnight
+    }
+
     // MARK: - Sections
 
     private var updateSection: some View {
-        Section("Aggiornamento") {
+        Section("Ogni quanto rileggere") {
             LabeledContent("Intervallo") {
                 HStack(spacing: 8) {
                     Text("\(Int(settings.refreshIntervalMinutes)) min")

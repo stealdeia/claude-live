@@ -94,16 +94,36 @@ struct NotchView: View {
 
     /// Fills the window, so the flares and the rounded bottom corners always sit
     /// on the window's edge rather than on the content's.
+    ///
+    /// Nero opaco alla base, e il colore del tema **sopra**: così l'opacità
+    /// regola quanto il colore si vede senza rendere il pannello traslucido.
+    /// Riempirlo direttamente con un gradiente trasparente lo renderebbe una
+    /// finestra semitrasparente, e a quel punto smetterebbe di leggersi come un
+    /// prolungamento del ritaglio del MacBook — che è tutto ciò che tiene in
+    /// piedi l'illusione.
     private var background: some View {
-        NotchShape(
-            topFlareRadius: NotchGeometry.flareRadius,
-            bottomCornerRadius: isExpanded
-                ? NotchGeometry.expandedCornerRadius
-                : NotchGeometry.collapsedCornerRadius
-        )
-        // Pure black, not a material: anything translucent would stop the panel
-        // reading as an extension of the notch.
-        .fill(Color.black)
+        GeometryReader { proxy in
+            let shape = NotchShape(
+                topFlareRadius: NotchGeometry.flareRadius,
+                bottomCornerRadius: isExpanded
+                    ? NotchGeometry.expandedCornerRadius
+                    : NotchGeometry.collapsedCornerRadius
+            )
+            ZStack {
+                shape.fill(Color.black)
+                shape.fill(themeWash(height: proxy.size.height))
+            }
+        }
+    }
+
+    /// Il colore che scende verso il basso del pannello aperto.
+    ///
+    /// La formula sta nel Kit, perché la usa anche l'anteprima nelle
+    /// impostazioni: se stesse qui, l'anteprima ne avrebbe una copia e prima o
+    /// poi mostrerebbe un colore che il pannello non ha.
+    private func themeWash(height: CGFloat) -> LinearGradient {
+        let theme = ColorTheme.all.first { $0.id == settings.panelThemeID } ?? ColorTheme.midnight
+        return theme.panelWash(blackUntil: height > 0 ? min(1, barHeight / height) : 1)
     }
 
     /// Fixed at the expanded width so no measurement or layout depends on the

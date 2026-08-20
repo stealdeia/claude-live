@@ -184,7 +184,7 @@ struct SettingsSheet: View {
 
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 12) {
-                                        ForEach(AppTheme.all) { theme in
+                                        ForEach(ColorTheme.all) { theme in
                                             themeChip(theme)
                                         }
                                     }
@@ -219,7 +219,7 @@ struct SettingsSheet: View {
         }
     }
 
-    private func themeChip(_ theme: AppTheme) -> some View {
+    private func themeChip(_ theme: ColorTheme) -> some View {
         Button {
             themes.theme = theme
         } label: {

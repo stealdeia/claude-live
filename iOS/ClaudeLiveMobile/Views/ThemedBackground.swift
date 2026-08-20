@@ -1,4 +1,5 @@
 import SwiftUI
+import ClaudeLiveKit
 
 /// The background: black at the top, colour at the bottom, and not a straight
 /// line between them.
@@ -89,7 +90,7 @@ struct GlassCard<Content: View>: View {
 #Preview("Temi") {
     ScrollView(.horizontal) {
         HStack(spacing: 0) {
-            ForEach(AppTheme.all) { theme in
+            ForEach(ColorTheme.all) { theme in
                 ZStack {
                     ThemedBackground()
                         .environment(\.theme, theme)

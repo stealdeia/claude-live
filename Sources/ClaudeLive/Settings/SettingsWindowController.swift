@@ -29,7 +29,9 @@ final class SettingsWindowController {
     private let onPreviewGlow: (NotchGlowPalette) -> Void
     private let onQuit: () -> Void
 
-    private static let contentSize = NSSize(width: 480, height: 660)
+    // Larga per la barra laterale: 480 punti bastavano a una lista da scorrere, non
+    // a due colonne. La minima è quella sotto cui il dettaglio diventa illeggibile.
+    private static let contentSize = NSSize(width: 760, height: 620)
 
     init(
         settings: Settings,
@@ -93,7 +95,7 @@ final class SettingsWindowController {
         window.title = "Impostazioni Claude Live"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.setContentSize(Self.contentSize)
-        window.contentMinSize = NSSize(width: 420, height: 360)
+        window.contentMinSize = NSSize(width: 620, height: 420)
         window.isReleasedWhenClosed = false
         window.level = .normal
         window.center()

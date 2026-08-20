@@ -27,6 +27,7 @@ private struct SettingsData: Codable {
     var notificationsEnabled: Bool?
     var notifyOnWaitingInput: Bool?
     var notificationSound: String?
+    var panelThemeID: String?
     var notifyOnDone: Bool?
     var notifyOnFailure: Bool?
     var glowEnabled: Bool?
@@ -123,6 +124,22 @@ final class Settings: ObservableObject {
     /// Sound for every notification this app posts. Empty means the system
     /// default; anything else is a file name in /System/Library/Sounds — see
     /// `NotificationSound`.
+    /// Il tema del pannello, per identificativo.
+    ///
+    /// Per identificativo e non per valore: i colori vivono nel Kit e cambiano
+    /// con gli aggiornamenti, mentre un identificativo salvato resta valido — e
+    /// se un giorno un tema sparisce, si torna al predefinito invece di
+    /// ritrovarsi colori che nessuno ha più.
+    @Published var panelThemeID: String = ColorTheme.midnight.id {
+        didSet {
+            guard ColorTheme.all.contains(where: { $0.id == panelThemeID }) else {
+                panelThemeID = ColorTheme.midnight.id
+                return
+            }
+            schedulePersist()
+        }
+    }
+
     @Published var notificationSound: String = NotificationSound.systemDefault {
         didSet {
             // A name whose file is gone would deliver a silent notification, so
@@ -383,6 +400,7 @@ final class Settings: ObservableObject {
         if let v = decoded.notificationsEnabled { notificationsEnabled = v }
         if let v = decoded.notifyOnWaitingInput { notifyOnWaitingInput = v }
         if let v = decoded.notificationSound { notificationSound = v }
+        if let v = decoded.panelThemeID { panelThemeID = v }
         if let v = decoded.notifyOnDone { notifyOnDone = v }
         if let v = decoded.notifyOnFailure { notifyOnFailure = v }
         if let v = decoded.glowEnabled { glowEnabled = v }
@@ -442,6 +460,7 @@ final class Settings: ObservableObject {
             notificationsEnabled: notificationsEnabled,
             notifyOnWaitingInput: notifyOnWaitingInput,
             notificationSound: notificationSound,
+            panelThemeID: panelThemeID,
             notifyOnDone: notifyOnDone,
             notifyOnFailure: notifyOnFailure,
             glowEnabled: glowEnabled,
