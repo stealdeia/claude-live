@@ -194,14 +194,26 @@ struct HomeView: View {
         .padding(.top, 2)
     }
 
+    /// Accoppiati, ma il Mac non ha ancora pubblicato niente.
+    ///
+    /// Era una rotella e tre parole, e una rotella che gira per sempre non
+    /// spiega nulla: quando manca qualcosa è quasi sempre una di queste due
+    /// cose, e sono entrambe sull'altra macchina — dove chi sta guardando il
+    /// telefono non è.
     private var waiting: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
             ProgressView().tint(.white)
             Text("In attesa del Mac…")
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(.white.opacity(0.7))
+            Text("Il Mac deve essere sveglio, e «Pubblica sul relay» acceso nelle impostazioni di Claude Live.")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.5))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 28)
         }
-        .padding(.top, 80)
+        .padding(.top, 72)
     }
 }
 

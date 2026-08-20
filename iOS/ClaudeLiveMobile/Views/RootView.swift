@@ -7,9 +7,8 @@ import ClaudeLiveKit
 /// answers "does anything need me?" in one glance and links onwards; the other
 /// two are where you go when the answer is yes, or when you want the detail.
 ///
-/// The Mac cannot publish yet, so everything runs on the sample snapshot and the
-/// app says so on Home. Showing the real, empty screen would be truthful and
-/// useless: a design is judged against content.
+/// Visible only once a Mac is paired. Before that there is nothing true to show,
+/// and `WelcomeView` explains how to get there instead.
 struct RootView: View {
     @ObservedObject var probe: RelayProbe
     @StateObject private var store = RemoteStore()
@@ -21,51 +20,24 @@ struct RootView: View {
 
     enum AppTab: Hashable { case home, projects, usage }
 
-    /// The sample only until a Mac is paired. After that, whatever it published
-    /// — and nothing invented to fill a gap: an empty screen that is true beats
-    /// a full one that is not.
-    private var snapshot: RemoteSnapshot? {
-        store.isPaired ? store.snapshot : RemoteSnapshot.sample(now: Date())
-    }
-
-    private var problem: String? {
-        if !store.isPaired { return "Dati d'esempio: nessun Mac accoppiato." }
-        return store.problem
-    }
+    /// Whatever the Mac published, and nothing invented to fill a gap.
+    ///
+    /// It used to fall back to a sample snapshot when no Mac was paired, from
+    /// when the Mac could not publish at all and a design had to be judged
+    /// against something. Kept past that point it became an app showing invented
+    /// numbers to whoever opened it for the first time — for a tool whose only
+    /// job is to say what is actually happening, the worst thing it could do.
+    private var snapshot: RemoteSnapshot? { store.snapshot }
 
     var body: some View {
-        TabView(selection: $tab) {
-            Tab("Home", systemImage: "house", value: AppTab.home) {
-                shell(title: "Claude Live") {
-                    HomeView(
-                        snapshot: snapshot,
-                        problem: problem,
-                        inFlight: store.inFlight,
-                        onDecide: { session, allow, remember in
-                            Task { await store.decide(session, allow: allow, remember: remember) }
-                        },
-                        onOpenProjects: { tab = .projects },
-                        onOpenUsage: { tab = .usage }
-                    )
-                }
-            }
-
-            Tab("Progetti", systemImage: "folder", value: AppTab.projects) {
-                shell(title: "Progetti") {
-                    ProjectsTabView(
-                        snapshot: snapshot,
-                        inFlight: store.inFlight,
-                        onDecide: { session, allow, remember in
-                            Task { await store.decide(session, allow: allow, remember: remember) }
-                        }
-                    )
-                }
-            }
-
-            Tab("Utilizzo", systemImage: "chart.pie", value: AppTab.usage) {
-                shell(title: "Utilizzo") {
-                    UsageTabView(snapshot: snapshot)
-                }
+        Group {
+            if store.isPaired {
+                tabs
+            } else {
+                WelcomeView(
+                    onPair: { showingPairing = true },
+                    onOpenSettings: { showingSettings = true }
+                )
             }
         }
         .tint(themes.theme.accent)
@@ -94,6 +66,43 @@ struct RootView: View {
             // old one — accepted by APNs, delivered to nobody.
             if store.isPaired {
                 Task { await store.requestPushPermission() }
+            }
+        }
+    }
+
+    private var tabs: some View {
+        TabView(selection: $tab) {
+            Tab("Home", systemImage: "house", value: AppTab.home) {
+                shell(title: "Claude Live") {
+                    HomeView(
+                        snapshot: snapshot,
+                        problem: store.problem,
+                        inFlight: store.inFlight,
+                        onDecide: { session, allow, remember in
+                            Task { await store.decide(session, allow: allow, remember: remember) }
+                        },
+                        onOpenProjects: { tab = .projects },
+                        onOpenUsage: { tab = .usage }
+                    )
+                }
+            }
+
+            Tab("Progetti", systemImage: "folder", value: AppTab.projects) {
+                shell(title: "Progetti") {
+                    ProjectsTabView(
+                        snapshot: snapshot,
+                        inFlight: store.inFlight,
+                        onDecide: { session, allow, remember in
+                            Task { await store.decide(session, allow: allow, remember: remember) }
+                        }
+                    )
+                }
+            }
+
+            Tab("Utilizzo", systemImage: "chart.pie", value: AppTab.usage) {
+                shell(title: "Utilizzo") {
+                    UsageTabView(snapshot: snapshot)
+                }
             }
         }
         .refreshable { await store.refresh() }
@@ -152,7 +161,7 @@ struct SettingsSheet: View {
                                     Button("Disaccoppia", role: .destructive) { store.unpair() }
                                         .font(.footnote)
                                 } else {
-                                    Text("Nessun Mac accoppiato: l'app mostra dati d'esempio.")
+                                    Text("Nessun Mac accoppiato.")
                                         .font(.footnote)
                                         .foregroundStyle(.white.opacity(0.6))
                                     Button {
