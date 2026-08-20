@@ -43,6 +43,22 @@ final class RemotePublisher: ObservableObject {
     private var pending: Task<Void, Never>?
     private static let debounce: Duration = .seconds(2)
 
+    /// Publishes even when nothing changed, because silence is ambiguous.
+    ///
+    /// A Mac that is simply quiet — Claude thinking for a few minutes, nothing
+    /// else moving — looked exactly like one that had gone away: publishing only
+    /// on change meant the snapshot aged, and the app warns as soon as it is over
+    /// two minutes old. Which reads as "the Mac is disconnected", and sends you to
+    /// check on it — the very trip this is meant to spare you. Observed doing
+    /// precisely that on 2026-08-19.
+    ///
+    /// Sixty seconds, chosen against the app's two-minute warning rather than
+    /// against the relay's ten-minute expiry: a heartbeat that only beat inside
+    /// the expiry would still let the warning appear before every beat, which is
+    /// the symptom, not the storage.
+    private var heartbeat: Task<Void, Never>?
+    private static let heartbeatInterval: Duration = .seconds(60)
+
     /// The alert already announced, so a snapshot published for another reason
     /// does not push the same notification twice.
     private var announcedAlert: ClaudeAlert?
@@ -55,7 +71,13 @@ final class RemotePublisher: ObservableObject {
         settings.$remoteEnabled
             .sink { [weak self] enabled in
                 guard let self else { return }
-                if enabled { self.publishSoon(immediate: true) } else { self.connection = .off }
+                if enabled {
+                    self.publishSoon(immediate: true)
+                    self.startHeartbeat()
+                } else {
+                    self.connection = .off
+                    self.stopHeartbeat()
+                }
             }
             .store(in: &cancellables)
 
@@ -75,6 +97,22 @@ final class RemotePublisher: ObservableObject {
     }
 
     // MARK: - Programmazione
+
+    private func startHeartbeat() {
+        guard heartbeat == nil else { return }
+        heartbeat = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.heartbeatInterval)
+                if Task.isCancelled { return }
+                await self?.publish()
+            }
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeat?.cancel()
+        heartbeat = nil
+    }
 
     private func publishSoon(immediate: Bool = false) {
         guard settings.remoteEnabled else { return }

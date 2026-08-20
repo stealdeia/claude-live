@@ -108,7 +108,7 @@ final class RemoteCommandReceiver: ObservableObject {
         guard envelope.isFresh() else {
             // Issued while the phone was offline and delivered late. Obeying it
             // now would answer a question that has already been settled.
-            Log.info("Comando scaduto, ignorato", category: .status)
+            Log.important("Comando scaduto, ignorato", category: .status)
             forget(id: id, base: base, secret: secret)
             return
         }
@@ -118,11 +118,13 @@ final class RemoteCommandReceiver: ObservableObject {
             // Matched against what is actually pending: the phone may be showing
             // a request the hook has already timed out of.
             guard let session = status.waitingSessions.first(where: { $0.requestID == requestID }) else {
-                Log.info("Il permesso «\(requestID)» non è più in attesa", category: .status)
+                // The case behind "I pressed Allow and nothing happened": worth
+                // a trace even with debug logging off.
+                Log.important("Il permesso «\(requestID)» non è più in attesa", category: .status)
                 forget(id: id, base: base, secret: secret)
                 return
             }
-            Log.info(
+            Log.important(
                 "Dal telefono: \(allow ? "consentito" : "negato")\(remember ? " per sempre" : "") in \(session.projectName)",
                 category: .status
             )

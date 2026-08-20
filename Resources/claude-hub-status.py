@@ -121,6 +121,10 @@ def request_kind(payload, state):
     event = payload.get("hook_event_name") or ""
     if event == "PermissionRequest":
         return "permission"
+    # A held PreToolUse is a permission question too, whatever the event is
+    # called — and the panel's badge should say so rather than "input".
+    if event == "PreToolUse" and state == "waiting_input":
+        return "permission"
     if event == "Notification":
         return payload.get("notification_type") or "notification"
     if state == "waiting_input":
@@ -215,9 +219,39 @@ def app_is_running():
 def wait_seconds():
     config = read_json(CONFIG, {})
     try:
-        return max(0, min(120, float(config.get("decision_wait_seconds", DEFAULT_WAIT_SECONDS))))
+        return max(0, min(600, float(config.get("decision_wait_seconds", DEFAULT_WAIT_SECONDS))))
     except Exception:
         return DEFAULT_WAIT_SECONDS
+
+
+# Tools that can change something. Read-only ones are never worth interrupting
+# for: they cannot do damage, and asking about them would turn one task into
+# twenty questions.
+DEFAULT_GATED_TOOLS = ["Bash", "Write", "Edit", "NotebookEdit"]
+
+
+def gating(tool):
+    """Whether this tool call should be held while the phone is asked.
+
+    Only while the app says the user is away. `PreToolUse` fires for every tool
+    call, so gating unconditionally would stop a session dead at each step — and
+    when the user is at the Mac there is nothing to gain, because Claude Code's
+    own prompt is right there in front of them.
+
+    This exists because `PermissionRequest` never fires: measured on 2026-08-19,
+    a real permission prompt raises `Notification` with no `tool_use_id`, which
+    is nothing a remote answer can be addressed to. `PreToolUse` does fire, does
+    carry the id, and its decision is honoured.
+    """
+    if not tool:
+        return False
+    config = read_json(CONFIG, {})
+    if not config.get("away"):
+        return False
+    tools = config.get("gated_tools")
+    if not isinstance(tools, list) or not tools:
+        tools = DEFAULT_GATED_TOOLS
+    return tool in tools
 
 
 def request_fingerprint(path, tool, payload):
@@ -258,22 +292,44 @@ def remember(fingerprint, path, tool, summary):
     write_atomic(ALLOWLIST, entries)
 
 
-def emit_decision(behavior):
-    """Prints the decision in the shape Claude Code expects for PermissionRequest."""
-    json.dump({
-        "hookSpecificOutput": {
-            "hookEventName": "PermissionRequest",
-            "decision": {"behavior": behavior},
+def emit_decision(behavior, event):
+    """Prints the decision in the shape Claude Code expects for this event.
+
+    The two events want different shapes, and getting it wrong is silent: the
+    hook looks like it answered and the prompt appears anyway.
+    """
+    if event == "PreToolUse":
+        payload = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": behavior,
+                "permissionDecisionReason": "Risposto dall'iPhone tramite Claude Live",
+            }
         }
-    }, sys.stdout)
+    else:
+        payload = {
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {"behavior": behavior},
+            }
+        }
+    json.dump(payload, sys.stdout)
     sys.stdout.flush()
 
 
-def await_decision(request_id, timeout):
-    """Polls for the app's answer. Returns (behavior, remember) or None."""
+def await_decision(request_id, timeout, tool=None):
+    """Polls for the app's answer. Returns (behavior, remember) or None.
+
+    Gives up early if the user comes back to the Mac. The app clears `away` the
+    moment it sees input again, and continuing to hold the call would leave
+    Claude frozen with the person who could answer it sitting right there — the
+    exact situation the whole away/home distinction exists to avoid.
+    """
     path = os.path.join(DECISIONS_DIR, f"{request_id}.json")
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if tool is not None and not gating(tool):
+            return None
         if os.path.exists(path):
             answer = read_json(path, {})
             try:
@@ -313,8 +369,13 @@ def main():
         return
 
     event = payload.get("hook_event_name") or ""
-    is_permission = event == "PermissionRequest"
     tool = payload.get("tool_name") or ""
+
+    # Two ways to end up asking the user. `PermissionRequest` is the one this was
+    # built for and the one that never fires; `PreToolUse` while away is the one
+    # that works. Everything downstream treats them the same.
+    is_permission = event == "PermissionRequest" or (event == "PreToolUse" and gating(tool))
+
     summary = tool_summary(payload) if is_permission else None
     request_id = payload.get("tool_use_id") or ""
     fingerprint = request_fingerprint(path, tool, payload) if is_permission else None
@@ -322,9 +383,14 @@ def main():
     # An identical request the user already chose to always allow: answer at once
     # and leave the session marked as working rather than waiting.
     if is_permission and fingerprint and allowlisted(fingerprint):
-        emit_decision("allow")
+        emit_decision("allow", event)
         state = "working"
         is_permission = False
+
+    # A held tool call is the session waiting on a person, whatever the event
+    # that carried it was called.
+    if is_permission:
+        state = "waiting_input"
 
     timeout = wait_seconds() if is_permission else 0
     decidable = bool(is_permission and request_id and timeout > 0 and app_is_running())
@@ -353,7 +419,7 @@ def main():
     if not decidable:
         return
 
-    answer = await_decision(request_id, timeout)
+    answer = await_decision(request_id, timeout, tool if event == "PreToolUse" else None)
     if answer is None:
         # No answer in time: print nothing, so Claude Code prompts in the terminal
         # exactly as it would without this hook.
@@ -366,7 +432,7 @@ def main():
     if behavior == "allow" and should_remember and fingerprint:
         remember(fingerprint, path, tool, summary or tool)
 
-    emit_decision(behavior)
+    emit_decision(behavior, event)
 
     # The answer was given, so the session is no longer waiting on the user.
     record["state"] = "working" if behavior == "allow" else "idle"

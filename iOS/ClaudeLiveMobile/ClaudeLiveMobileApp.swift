@@ -7,12 +7,19 @@ import UIKit
 final class AppDelegate: NSObject, UIApplicationDelegate {
     /// Set by the app before registration is requested.
     static weak var probe: RelayProbe?
+    static weak var store: RemoteStore?
 
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        Task { @MainActor in AppDelegate.probe?.didRegister(tokenData: deviceToken) }
+        // Handed to both: the store is what the Mac's alerts reach, the probe is
+        // the phase 0 stopwatch. Whichever asked for registration, the token is
+        // the same and both need it.
+        Task { @MainActor in
+            AppDelegate.probe?.didRegister(tokenData: deviceToken)
+            await AppDelegate.store?.registerDevice(token: deviceToken)
+        }
     }
 
     func application(

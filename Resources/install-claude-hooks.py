@@ -52,7 +52,15 @@ HOOK_EVENTS = [
     # (event, state, async)
     ("SessionStart", "idle", False),
     ("UserPromptSubmit", "working", False),
-    ("PreToolUse", "working", True),
+    # Not async, unlike every other "still working" event, and the difference is
+    # the whole remote-approval feature. PermissionRequest never fires — a real
+    # permission prompt raises Notification, with no tool_use_id to answer to —
+    # so PreToolUse is the only event that can hold a tool call and decide it.
+    # An async hook cannot: its answer is not waited for.
+    #
+    # The cost is one Python start per tool call. The hook returns immediately
+    # unless the app says the user is away, so in normal use that is all it is.
+    ("PreToolUse", "working", False),
     ("PermissionRequest", "waiting_input", False),
     ("Notification", "waiting_input", False),
     ("Stop", "idle", False),
@@ -150,7 +158,7 @@ def hook_timeout(event):
     The value is only a ceiling: the hook returns as soon as it has an answer,
     or as soon as `decision_wait_seconds` elapses.
     """
-    return 180 if event == "PermissionRequest" else 5
+    return 600 if event in ("PermissionRequest", "PreToolUse") else 5
 
 
 def add_our_hooks(settings):
