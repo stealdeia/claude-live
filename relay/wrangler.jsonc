@@ -14,7 +14,7 @@
   // are never written here; they go in with `wrangler secret put`, which
   // stores them on Cloudflare's side and keeps them out of the repo.
   "vars": {
-    "APNS_KEY_ID": "2JZXN9U87K",
+    "APNS_KEY_ID": "HCJSWTZ9L4",
     "APNS_TEAM_ID": "G7PDRQRC29",
     "APNS_TOPIC": "it.aldeialab.ClaudeLiveMobile",
 

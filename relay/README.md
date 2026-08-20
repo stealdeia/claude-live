@@ -48,7 +48,7 @@ Stampa un `id` fra virgolette. Copialo dentro `wrangler.jsonc`, al posto di
 ### 3. Consegnare la chiave APNs a Cloudflare
 
 ```sh
-npx wrangler secret put APNS_KEY < "$HOME/Documents/Chiavi Apple/AuthKey_2JZXN9U87K.p8"
+npx wrangler secret put APNS_KEY < "$HOME/Documents/Chiavi Apple/AuthKey_HCJSWTZ9L4.p8"
 ```
 
 Il `<` fa passare il file direttamente a Cloudflare: il contenuto non compare a
