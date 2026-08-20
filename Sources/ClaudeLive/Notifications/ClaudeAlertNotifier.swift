@@ -60,7 +60,7 @@ final class ClaudeAlertNotifier {
         content.userInfo = ["projectPath": alert.projectPath, "projectName": alert.projectName]
 
         let request = UNNotificationRequest(
-            identifier: "\(alert.kind.rawValue)-\(alert.projectName)-\(Int(now.timeIntervalSince1970))",
+            identifier: Self.identifier(kind: alert.kind, projectPath: alert.projectPath),
             content: content,
             trigger: nil
         )
@@ -70,6 +70,28 @@ final class ClaudeAlertNotifier {
             }
         }
         Log.info("Notifica: \(alert.kind.label) in \(alert.projectName)", category: .status)
+    }
+
+    /// Names the banner for one kind in one project.
+    ///
+    /// Stable on purpose. It used to carry the timestamp, which made every banner
+    /// a new one: they stacked in Notification Center instead of replacing each
+    /// other, and none could be taken down later because nothing knew its name.
+    private static func identifier(kind: ClaudeAlertKind, projectPath: String) -> String {
+        "alert|\(kind.rawValue)|\(projectPath)"
+    }
+
+    /// Takes down a project's banners, for when its alert is cleared.
+    ///
+    /// Without this a permission request answered in the panel left its banner
+    /// sitting in Notification Center, still asking, for the rest of the day —
+    /// reported on 2026-08-20. The banner is a statement about now; when now
+    /// changes it has to go.
+    func withdraw(forPath path: String) {
+        let identifiers = ClaudeAlertKind.allCases.map {
+            Self.identifier(kind: $0, projectPath: path)
+        }
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 
     private func body(for alert: ClaudeAlert, badge: String?) -> String? {

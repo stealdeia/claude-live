@@ -274,6 +274,8 @@ final class ClaudeStatusStore: ObservableObject {
     func clearAlert(forPath path: String) {
         guard alerts[path] != nil else { return }
         alerts.removeValue(forKey: path)
+        // The banner goes with it: it was announcing this alert, and it is gone.
+        notifier.withdraw(forPath: path)
         Log.debug("Avviso azzerato per \(( path as NSString).lastPathComponent)", category: .status)
     }
 
