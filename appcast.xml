@@ -5,6 +5,23 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.6.5</title>
+      <sparkle:version>0.6.5</sparkle:version>
+      <sparkle:shortVersionString>0.6.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 20 Aug 2026 10:55:33 +0000</pubDate>
+      <description>&lt;p&gt;Tre difetti che si vedevano tutti i giorni: una notifica illeggibile, una che non se ne andava più, e il notch che diventava un rettangolo nero.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Le notifiche di permesso arrivavano a volte come un muro di parentesi graffe.** Il riassunto della richiesta cercava il comando fra sei nomi noti, guardando solo il primo livello dell&amp;#x27;input; non trovandone nessuno, scriveva nella notifica la struttura interna così com&amp;#x27;era. Per uno strumento che tiene il suo testo annidato — una domanda a scelta multipla, per dire — il risultato era JSON troncato a metà parola, in un avviso a cui devi rispondere. Ora la ricerca scende anche nelle strutture annidate, e quando davvero non trova nulla di leggibile scrive il nome dello strumento: dice molto meno, ma si legge. **Richiede di reinstallare gli hook dalle impostazioni.**&lt;/li&gt;
+&lt;li&gt;**La notifica restava a chiedere una cosa già decisa.** Davi il consenso dal pannello e il banner rimaneva in alto a destra per il resto della giornata, con la sua domanda intatta; e quelle nuove si accumulavano invece di sostituire le vecchie. L&amp;#x27;identificativo conteneva l&amp;#x27;orario, quindi per macOS ogni notifica era una cosa nuova, senza rapporto con la precedente — e nessuna veniva mai ritirata. Ora il banner sparisce quando l&amp;#x27;avviso si spegne, qualunque sia la strada per cui è stato risolto: il pannello, il telefono, o il semplice passare all&amp;#x27;editor.&lt;/li&gt;
+&lt;li&gt;**Il notch diventava un rettangolo nero che niente poteva chiudere.** Attraversandolo di corsa per salire su un secondo schermo restava a video un riquadro nero vuoto, che non se ne andava da solo: bisognava tornarci col mouse per farlo tornare in sé. L&amp;#x27;animazione di apertura, richiesta e subito annullata, arrivava a destinazione senza che nessuno la fermasse — perché la richiesta di richiudere trovava la finestra ancora alla misura di partenza e concludeva che non c&amp;#x27;era niente da fare. La finestra restava grande con il pannello che si credeva chiuso, e un pannello chiuso disegnato in una finestra grande è appunto un rettangolo nero.&lt;/li&gt;
+&lt;li&gt;**Il pannello si richiude anche quando il mouse esce senza dirlo.** Un guardiano controlla dove è davvero il puntatore, per le uscite che il sistema non riferisce. Non giudica mentre il pannello si sta aprendo, e pretende due letture concordi prima di chiudere: un pannello che stai leggendo non deve sparire per un campione sfortunato.&lt;/li&gt;
+&lt;li&gt;Se il segnale luminoso non si spegne quando apri il progetto giusto, controlla il **permesso di Accessibilità** nelle impostazioni. Senza quello Claude Live non può sapere quale finestra hai davanti, e riesce a spegnerlo solo quando c&amp;#x27;è un unico avviso in sospeso. Il permesso va riconcesso dopo un aggiornamento se macOS ne conserva una registrazione vecchia.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.6.5/Claude.Live.0.6.5.dmg" length="2836299" type="application/octet-stream" sparkle:edSignature="1oOQ3hnIgQc6ZLZUxRLA7wsl7+Y1ONzGs1tVbWv/xCLrph6QuIWlA066V94RYckzYB2SN73wIip/bphEVVajAg==" />
+    </item>
+    <item>
       <title>Versione 0.6.4</title>
       <sparkle:version>0.6.4</sparkle:version>
       <sparkle:shortVersionString>0.6.4</sparkle:shortVersionString>
