@@ -61,6 +61,64 @@ if (infoLoc) {
   console.log(`  scheda: nessuna localizzazione ${LOCALE}, salto`)
 }
 
+// --- Categoria -------------------------------------------------------------
+if (meta.primaryCategory) {
+  console.log(`  categoria: ${meta.primaryCategory}`)
+  if (APPLY) {
+    await api(`/v1/appInfos/${info.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        data: {
+          type: 'appInfos',
+          id: info.id,
+          relationships: {
+            primaryCategory: { data: { type: 'appCategories', id: meta.primaryCategory } },
+          },
+        },
+      }),
+    })
+  }
+}
+
+// --- Classificazione per età ------------------------------------------------
+/// Compila solo i campi ancora vuoti, mai quelli già risposti: una risposta data
+/// da una persona non va sovrascritta da uno script.
+///
+/// I tipi si scoprono dagli errori invece di essere scritti a mano. Alcuni campi
+/// vogliono una stringa e altri un booleano, la divisione non segue nessuna
+/// logica visibile, e Apple la cambia: l'errore però dice quale campo e quale
+/// tipo si aspetta, quindi correggersi da soli è più solido che indovinare — e
+/// non va riscoperto al prossimo cambio.
+if (meta.ageRating?.tuttoNegativo) {
+  const declaration = await api(`/v1/appInfos/${info.id}/ageRatingDeclaration`)
+  const skip = new Set(['kidsAgeBand', 'developerAgeRatingInfoUrl', 'ageRatingOverrideV2', 'koreaAgeRatingOverride'])
+  const attributes = {}
+  for (const [key, value] of Object.entries(declaration.data.attributes)) {
+    if (value === null && !skip.has(key)) attributes[key] = 'NONE'
+  }
+  const count = Object.keys(attributes).length
+  console.log(`  classificazione per età: ${count === 0 ? 'già compilata' : `${count} campi da dichiarare`}`)
+  if (APPLY && count > 0) {
+    for (let round = 1; round <= 40; round++) {
+      try {
+        await api(`/v1/ageRatingDeclarations/${info.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ data: { type: 'ageRatingDeclarations', id: info.id, attributes } }),
+        })
+        break
+      } catch (error) {
+        const message = String(error.message)
+        const field = message.match(/attribute '([^']+)'/)?.[1]
+        const wants = message.match(/Expected a (\w+)/)?.[1]
+        if (!field || !wants) throw error
+        if (wants === 'BOOLEAN') attributes[field] = false
+        else if (wants === 'STRING') attributes[field] = 'NONE'
+        else delete attributes[field]
+      }
+    }
+  }
+}
+
 // --- Descrizione, parole chiave, URL: vivono sulla versione ------------------
 const versions = await api(
   `/v1/apps/${app.id}/appStoreVersions?fields[appStoreVersions]=versionString,appStoreState&limit=10`

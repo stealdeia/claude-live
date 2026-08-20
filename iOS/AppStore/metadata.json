@@ -10,6 +10,13 @@
 
   "description": "Vibing Code Live è il compagno per iPhone di Claude Live, l'app per Mac che mostra cosa sta facendo Claude Code mentre lavori.\n\nQuando ti alzi dalla scrivania, il Mac continua. Vibing Code Live ti dice cosa sta succedendo — quali progetti stanno lavorando, quali si sono fermati ad aspettare una risposta, quanto hai consumato dei tuoi limiti — e ti permette di rispondere a una richiesta di permesso senza tornare indietro.\n\nCOSA VEDI\n• Lo stato di ogni progetto e di ogni chat aperta, aggiornato di continuo\n• Le sessioni che aspettano una risposta, in evidenza sulla prima schermata\n• I limiti d'uso a 5 ore e a 7 giorni, con gli stessi due anelli che hai sul Mac\n• Da quanto tempo il Mac non si fa sentire, per non confondere un Mac zitto con un Mac spento\n\nCOSA PUOI FARE\n• Ricevere una notifica quando Claude si ferma ad aspettarti\n• Consenti, Nega o Consenti sempre, direttamente dal telefono\n• Riprendere il lavoro senza tornare al computer\n\nCOME SI COLLEGA\nServe Claude Live sul Mac, gratuita. L'accoppiamento è un codice QR: apri le impostazioni sul Mac, mostri il codice, lo inquadri col telefono. Non c'è niente da digitare — né indirizzi né password.\n\nPRIVACY\nFinché non accendi la pubblicazione sul Mac, nessun dato lo lascia. Quando la accendi, quello che il Mac pubblica è cifrato da un capo all'altro: la chiave per aprirlo viaggia solo dentro il codice QR e mai attraverso i nostri server, che quindi trasportano senza poter leggere. Non raccogliamo niente e non c'è nessun account da creare.\n\nVibing Code Live è un progetto di Purple Heads.",
 
+  "primaryCategory": "DEVELOPER_TOOLS",
+
+  "ageRating": {
+    "_nota": "Tutte le risposte negative, perché l'app non ha nessuno di quei contenuti: mostra lo stato del Mac e niente altro. La fascia d'età dei bambini resta vuota perché non è un'app per bambini, e dichiararla la sottoporrebbe a regole che non le appartengono.",
+    "tuttoNegativo": true
+  },
+
   "supportUrl": "https://vibingcodelive.purpleheads.it",
   "marketingUrl": "https://purpleheads.it",
 
