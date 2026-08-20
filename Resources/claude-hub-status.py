@@ -264,7 +264,108 @@ def wait_seconds():
 DEFAULT_GATED_TOOLS = ["Bash", "Write", "Edit", "NotebookEdit"]
 
 
-def gating(tool):
+# The only modes in which Claude Code stops to ask. Anything else — the
+# automatic ones, plan mode, whatever gets added next — decides by itself, so
+# there is no question to intercept.
+#
+# An unrecognised mode is treated as one that does not ask, and the absence of
+# the field as one that does. The asymmetry is deliberate: holding a call nobody
+# would have been asked about freezes the session for minutes, while letting one
+# through only means the question appears in the terminal instead of on the phone.
+# A build new enough to name a mode we have never heard of is far more likely to
+# have added a permissive one; a build too old to send the field at all needs the
+# old behaviour or the feature disappears.
+ASKING_MODES = ("default", "acceptEdits")
+
+
+def permission_rules(path, kind):
+    """The `allow`, `ask` or `deny` rules that apply here.
+
+    Read fresh every time rather than cached: a rule the user adds mid-session
+    takes effect for Claude Code at once, and a stale copy here would keep
+    holding a call that has stopped asking anything.
+    """
+    rules = []
+    for candidate in (
+        os.path.join(os.path.expanduser("~"), ".claude", "settings.json"),
+        os.path.join(path, ".claude", "settings.json"),
+        os.path.join(path, ".claude", "settings.local.json"),
+    ):
+        block = read_json(candidate, {}).get("permissions")
+        if not isinstance(block, dict):
+            continue
+        found = block.get(kind)
+        if isinstance(found, list):
+            rules.extend(r for r in found if isinstance(r, str))
+    return rules
+
+
+def rule_subject(tool, payload):
+    """The part of the call a rule is written about."""
+    data = payload.get("tool_input")
+    if not isinstance(data, dict):
+        return None
+    value = data.get("command") if tool == "Bash" else (
+        data.get("file_path") or data.get("path") or data.get("notebook_path")
+    )
+    return value if isinstance(value, str) else None
+
+
+def rule_matches(rule, tool, payload):
+    """Whether one rule covers this call.
+
+    Partial on purpose: only the shapes whose meaning is unambiguous — a bare
+    tool name, an exact argument, and a trailing `*` used as a prefix. Path
+    globs are not attempted at all, because `//` and `**` carry a meaning worth
+    getting exactly right and guessing at it would be worse than not trying.
+    Anything unrecognised counts as no match.
+    """
+    if rule == tool:
+        return True
+    if not (rule.startswith(tool + "(") and rule.endswith(")")):
+        return False
+    inner = rule[len(tool) + 1:-1]
+
+    subject = rule_subject(tool, payload)
+    if subject is None:
+        return False
+
+    for suffix in (":*", " *", "*"):
+        if inner.endswith(suffix):
+            prefix = inner[: -len(suffix)]
+            # Only for commands: a prefix over a path would have to understand
+            # the glob syntax, and half-understanding it is the dangerous kind.
+            return tool == "Bash" and bool(prefix) and subject.startswith(prefix)
+    return subject == inner
+
+
+def would_be_asked(tool, payload, path):
+    """Whether Claude Code would actually stop and ask about this call.
+
+    The precedence is Claude Code's own: `deny` refuses without asking, `ask`
+    always asks, `allow` runs without a word.
+    """
+    mode = payload.get("permission_mode")
+    if mode is not None and mode not in ASKING_MODES:
+        return False
+    if mode == "acceptEdits" and tool in ("Write", "Edit", "NotebookEdit"):
+        return False
+
+    if any(rule_matches(r, tool, payload) for r in permission_rules(path, "deny")):
+        return False
+    if any(rule_matches(r, tool, payload) for r in permission_rules(path, "ask")):
+        return True
+    if any(rule_matches(r, tool, payload) for r in permission_rules(path, "allow")):
+        return False
+    return True
+
+
+def still_away():
+    """Whether the app still says nobody is at the Mac."""
+    return bool(read_json(CONFIG, {}).get("away"))
+
+
+def gating(tool, payload, path):
     """Whether this tool call should be held while the phone is asked.
 
     Only while the app says the user is away. `PreToolUse` fires for every tool
@@ -276,16 +377,30 @@ def gating(tool):
     a real permission prompt raises `Notification` with no `tool_use_id`, which
     is nothing a remote answer can be addressed to. `PreToolUse` does fire, does
     carry the id, and its decision is honoured.
+
+    And only for calls that would genuinely be asked about. Holding every call
+    was the first version and it was wrong in a way that undid the whole point:
+    on 2026-08-20 Stefano watched a session from the sofa sitting still, asking
+    him to approve commands Claude Code would have run without a word — the mode
+    was automatic and three hundred of his own rules already allowed them. The
+    payload carried `permission_mode` all along, and this function had never
+    looked at it.
     """
     if not tool:
         return False
-    config = read_json(CONFIG, {})
-    if not config.get("away"):
+    if not still_away():
         return False
-    tools = config.get("gated_tools")
+    tools = config_gated_tools()
+    if tool not in tools:
+        return False
+    return would_be_asked(tool, payload, path)
+
+
+def config_gated_tools():
+    tools = read_json(CONFIG, {}).get("gated_tools")
     if not isinstance(tools, list) or not tools:
-        tools = DEFAULT_GATED_TOOLS
-    return tool in tools
+        return DEFAULT_GATED_TOOLS
+    return tools
 
 
 def request_fingerprint(path, tool, payload):
@@ -362,7 +477,7 @@ def await_decision(request_id, timeout, tool=None):
     path = os.path.join(DECISIONS_DIR, f"{request_id}.json")
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if tool is not None and not gating(tool):
+        if tool is not None and not still_away():
             return None
         if os.path.exists(path):
             answer = read_json(path, {})
@@ -408,7 +523,9 @@ def main():
     # Two ways to end up asking the user. `PermissionRequest` is the one this was
     # built for and the one that never fires; `PreToolUse` while away is the one
     # that works. Everything downstream treats them the same.
-    is_permission = event == "PermissionRequest" or (event == "PreToolUse" and gating(tool))
+    is_permission = event == "PermissionRequest" or (
+        event == "PreToolUse" and gating(tool, payload, path)
+    )
 
     summary = tool_summary(payload) if is_permission else None
     request_id = payload.get("tool_use_id") or ""
