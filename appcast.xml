@@ -5,6 +5,22 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.7.0</title>
+      <sparkle:version>0.7.0</sparkle:version>
+      <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 20 Aug 2026 13:53:52 +0000</pubDate>
+      <description>&lt;p&gt;**C&amp;#x27;è l&amp;#x27;app per iPhone.** Claude Live ora ha un compagno sul telefono: vedi da lontano cosa sta facendo Claude Code, e rispondi ai permessi senza tornare alla scrivania.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**L&amp;#x27;app per iPhone, in prova.** Mostra i progetti, le sessioni e i limiti d&amp;#x27;uso che questo Mac pubblica, e permette di rispondere a una richiesta di permesso da lontano. Per collegarla: Impostazioni → **iPhone** → accendi **Pubblica sul relay**, poi **Mostra il QR per l&amp;#x27;iPhone** e inquadralo col telefono. Non c&amp;#x27;è niente da digitare: l&amp;#x27;indirizzo del relay è già dentro le app, e l&amp;#x27;accoppiamento passa tutto dal codice QR. Finché l&amp;#x27;interruttore è spento, nessun dato lascia il Mac; quando è acceso, quello che viene pubblicato è cifrato con una chiave che viaggia solo nel QR e mai attraverso il relay.&lt;/li&gt;
+&lt;li&gt;**I permessi non ti inseguono più per cose che non lo richiedono.** Mentre eri lontano dal Mac, ogni comando veniva trattenuto in attesa di un tuo via — anche quelli che Claude Code avrebbe eseguito senza chiedere niente, perché una tua regola li consentiva o perché la modalità dei permessi era automatica. Il risultato era una sessione ferma mentre la guardavi da un&amp;#x27;altra stanza, cioè l&amp;#x27;opposto di ciò che serve. Ora si trattiene solo quello che ti verrebbe davvero chiesto. **Richiede di reinstallare gli hook dalle impostazioni.**&lt;/li&gt;
+&lt;li&gt;**La scheda iPhone non chiede più una parola d&amp;#x27;ordine.** Ogni Mac si genera il proprio identificativo e lo mostra solo nel QR: è insieme il suo spazio sul relay e il permesso di usarlo. Una password uguale per tutti non poteva essere né l&amp;#x27;una né l&amp;#x27;altra cosa.&lt;/li&gt;
+&lt;li&gt;**Il relay regge.** Teneva lo stato in un magazzino con mille scritture al giorno concesse, e il solo segnale di presenza ne chiedeva quasi tremila: si fermava al primo giorno di uso reale. Ora ogni coppia Mac–telefono ha il suo spazio, con un margine cento volte più ampio, e un relay può servire più persone senza che nessuna veda le altre.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.7.0/Claude.Live.0.7.0.dmg" length="2838493" type="application/octet-stream" sparkle:edSignature="N9fuTq9z6lognPA0sLfd4FV92Y8BjkYpAZ/ElxhIVtU5r9tfCs7OKEO3saZnQWRKfEpjeJXO+8+wYaf1iT4kBw==" />
+    </item>
+    <item>
       <title>Versione 0.6.6</title>
       <sparkle:version>0.6.6</sparkle:version>
       <sparkle:shortVersionString>0.6.6</sparkle:shortVersionString>
