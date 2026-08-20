@@ -155,7 +155,20 @@ final class RemoteStore: ObservableObject {
                 return
             }
 
-            snapshot = try RemoteCrypto.open(RemoteSnapshot.self, from: payload, with: key)
+            let fresh = try RemoteCrypto.open(RemoteSnapshot.self, from: payload, with: key)
+
+            // Forget an answer the moment the Mac stops describing the request
+            // it belongs to: keeping it would silence the session's next
+            // question, which is a worse failure than showing one twice.
+            var stillOpen: [String: String] = [:]
+            for session in fresh.sessions {
+                if let requestID = session.requestID { stillOpen[session.id] = requestID }
+            }
+            answeredRequests = answeredRequests.filter { stillOpen[$0.key] == $0.value }
+
+            recomputeInFlight()
+
+            snapshot = fresh
             problem = nil
 
         } catch let failure as RemoteCrypto.Failure {
@@ -175,6 +188,30 @@ final class RemoteStore: ObservableObject {
     /// while the network thinks about it.
     @Published private(set) var inFlight: Set<String> = []
 
+    /// Answers still travelling to the relay.
+    private var sending: Set<String> = []
+
+    /// Answers the relay has taken but the Mac has not collected yet, by session.
+    ///
+    /// Outliving the round trip on purpose: the Mac collects every two seconds
+    /// and only then publishes again, so in between its snapshot still calls the
+    /// request open. Without this, that snapshot puts the buttons back on screen
+    /// for a question already decided — seen happening on 2026-08-20.
+    ///
+    /// Deliberately *not* done by marking the request unanswerable: in the model
+    /// a request the app cannot answer is one the terminal must answer, so that
+    /// route told the user to walk to the Mac for something already decided.
+    ///
+    /// Dropped as soon as the Mac's snapshot moves on, so the next question in
+    /// the same session is never hidden by the answer to the previous one.
+    private var answeredRequests: [String: String] = [:]
+
+    /// Anything answered — still in the air, or merely not yet reflected by the
+    /// Mac — shows as travelling rather than as a question.
+    private func recomputeInFlight() {
+        inFlight = sending.union(answeredRequests.keys)
+    }
+
     func decide(_ session: ClaudeSessionStatus, allow: Bool, remember: Bool) async {
         guard let requestID = session.requestID else { return }
         guard let url = URL(string: relayURL + "/command"),
@@ -188,8 +225,14 @@ final class RemoteStore: ObservableObject {
         )
         guard let sealed = try? RemoteCrypto.seal(envelope, with: key) else { return }
 
-        inFlight.insert(session.id)
-        defer { inFlight.remove(session.id) }
+        sending.insert(session.id)
+        recomputeInFlight()
+        // Cleared even on the failure paths below: an answer that never landed
+        // has to be offered again, or the request is stranded.
+        defer {
+            sending.remove(session.id)
+            recomputeInFlight()
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -214,10 +257,16 @@ final class RemoteStore: ObservableObject {
             return
         }
 
-        // Fetch straight away rather than waiting for the next tick: the Mac
-        // collects within a couple of seconds, and the row should stop showing a
-        // decision that has been made.
-        try? await Task.sleep(for: .seconds(3))
+        // Recorded only now: an answer the relay refused is not an answer, and
+        // suppressing the card for it would strand the request with no way left
+        // to decide it.
+        answeredRequests[session.id] = requestID
+        recomputeInFlight()
+
+        // No pause before refreshing any more. Waiting three seconds was a guess
+        // at how long the Mac takes to collect and republish, and the guess was
+        // wrong often enough to be the bug. The answer is remembered here now, so
+        // the snapshot can arrive whenever it likes and still not reopen it.
         await refresh()
     }
 

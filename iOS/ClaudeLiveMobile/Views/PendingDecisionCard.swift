@@ -48,7 +48,7 @@ struct PendingDecisionCard: View {
             if isInFlight {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small).tint(.white)
-                    Text("invio…").font(.caption).foregroundStyle(.white.opacity(0.6))
+                    Text("risposta in viaggio…").font(.caption).foregroundStyle(.white.opacity(0.6))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
