@@ -29,8 +29,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: it.aldeialab.ClaudeLiveMobile
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        # Allineata a quella già caricata: App Store Connect non accetta una
+        # versione più bassa della precedente, e l'Info.plist scritto a mano
+        # diceva 1.0 mentre qui stava 0.1.0.
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "2"
         # The team the Apple Developer Program membership belongs to.
         DEVELOPMENT_TEAM: G7PDRQRC29
         CODE_SIGN_STYLE: Automatic
@@ -52,6 +55,12 @@ targets:
       path: ClaudeLiveMobile/Info.plist
       properties:
         CFBundleDisplayName: Claude Live
+        # Collegate alle impostazioni, non scritte qui: XcodeGen mette un
+        # `CFBundleVersion: 1` fisso come predefinito, che non ha alcun rapporto
+        # con il numero di build — alzarlo nelle impostazioni non arrivava
+        # nell'archivio, e App Store Connect rifiuta due volte lo stesso numero.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         NSCameraUsageDescription: La fotocamera serve solo a inquadrare il codice di accoppiamento mostrato dal Mac.
         UISupportedInterfaceOrientations:
