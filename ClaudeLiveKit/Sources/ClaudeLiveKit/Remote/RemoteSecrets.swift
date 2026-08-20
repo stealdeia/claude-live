@@ -15,8 +15,9 @@ public enum RemoteSecrets {
     private static let service = "it.aldeialab.ClaudeLive.remote"
 
     public enum Item: String {
-        /// Shared with the relay: proves a request comes from our devices.
-        case pairSecret
+        /// This pair's own identifier: its corner of the relay, and the credential
+        /// for reaching it.
+        case pairID
         /// Never leaves the Mac except by QR: what actually protects the payload.
         case encryptionKey
     }
@@ -87,9 +88,34 @@ public enum RemoteSecrets {
         return fresh
     }
 
+    /// This pair's identifier, generating and storing one the first time it is asked for.
+    ///
+    /// It replaces the shared password the relay used to check, and it is both the
+    /// address of this pair's data and the permission to touch it. A password
+    /// common to every installation could be neither: it authorises everybody for
+    /// everything, and it has to *arrive* somewhere — typed by hand, which nobody
+    /// will do, or shipped inside the app, where anyone can read it out.
+    ///
+    /// 128 bits, so it cannot be guessed. What it does not do is protect the
+    /// contents, and nothing at the relay could: those are sealed with a key that
+    /// never leaves these two devices.
+    public static func pairID() -> String? {
+        if let stored = read(.pairID), stored.count == 32 { return stored }
+
+        var bytes = [UInt8](repeating: 0, count: 16)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess
+        else { return nil }
+        let fresh = bytes.map { String(format: "%02x", $0) }.joined()
+        guard write(fresh, to: .pairID) else { return nil }
+        return fresh
+    }
+
     /// Forgets everything, so a new phone starts from a clean pairing.
+    ///
+    /// The identifier goes too: a phone that kept the old one would still be
+    /// holding a valid address, and unpairing has to mean something.
     public static func reset() {
-        delete(.pairSecret)
+        delete(.pairID)
         delete(.encryptionKey)
     }
 }

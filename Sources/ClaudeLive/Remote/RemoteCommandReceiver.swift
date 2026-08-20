@@ -65,12 +65,12 @@ final class RemoteCommandReceiver: ObservableObject {
     private func collect() async {
         guard let base = RemotePublisher.normalised(settings.remoteRelayURL),
               let url = URL(string: base + "/commands"),
-              let secret = RemoteSecrets.read(.pairSecret),
+              let pairID = RemoteSecrets.pairID(),
               let key = RemoteSecrets.encryptionKey()
         else { return }
 
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
         request.timeoutInterval = 10
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
@@ -86,11 +86,11 @@ final class RemoteCommandReceiver: ObservableObject {
                   !handled.contains(id)
             else { continue }
 
-            apply(payload: payload, id: id, key: key, base: base, secret: secret)
+            apply(payload: payload, id: id, key: key, base: base, pairID: pairID)
         }
     }
 
-    private func apply(payload: String, id: String, key: SymmetricKey, base: String, secret: String) {
+    private func apply(payload: String, id: String, key: SymmetricKey, base: String, pairID: String) {
         let envelope: RemoteCommandEnvelope
         do {
             envelope = try RemoteCrypto.open(RemoteCommandEnvelope.self, from: payload, with: key)
@@ -99,7 +99,7 @@ final class RemoteCommandReceiver: ObservableObject {
             // and marked handled, because retrying will not make it readable.
             Log.error("Comando dal telefono illeggibile, ignorato")
             handled.insert(id)
-            forget(id: id, base: base, secret: secret)
+            forget(id: id, base: base, pairID: pairID)
             return
         }
 
@@ -109,7 +109,7 @@ final class RemoteCommandReceiver: ObservableObject {
             // Issued while the phone was offline and delivered late. Obeying it
             // now would answer a question that has already been settled.
             Log.important("Comando scaduto, ignorato", category: .status)
-            forget(id: id, base: base, secret: secret)
+            forget(id: id, base: base, pairID: pairID)
             return
         }
 
@@ -121,7 +121,7 @@ final class RemoteCommandReceiver: ObservableObject {
                 // The case behind "I pressed Allow and nothing happened": worth
                 // a trace even with debug logging off.
                 Log.important("Il permesso «\(requestID)» non è più in attesa", category: .status)
-                forget(id: id, base: base, secret: secret)
+                forget(id: id, base: base, pairID: pairID)
                 return
             }
             Log.important(
@@ -135,16 +135,16 @@ final class RemoteCommandReceiver: ObservableObject {
             Log.info("Comando «prompt» ricevuto ma non ancora supportato", category: .status)
         }
 
-        forget(id: id, base: base, secret: secret)
+        forget(id: id, base: base, pairID: pairID)
     }
 
     /// Tells the relay to drop it. Best effort: `handled` is what actually
     /// prevents a repeat, this only keeps the list from filling up.
-    private func forget(id: String, base: String, secret: String) {
+    private func forget(id: String, base: String, pairID: String) {
         guard let url = URL(string: base + "/commands?id=" + id) else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
         Task { _ = try? await URLSession.shared.data(for: request) }
     }
 }

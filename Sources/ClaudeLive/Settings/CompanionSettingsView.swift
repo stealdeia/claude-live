@@ -14,7 +14,6 @@ struct CompanionSettingsView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var remote: RemotePublisher
 
-    @State private var secret: String = RemoteSecrets.read(.pairSecret) ?? ""
     @State private var showingQR = false
     @State private var confirmingReset = false
 
@@ -37,19 +36,14 @@ struct CompanionSettingsView: View {
                 .onSubmit { tidyURL() }
                 .onChange(of: settings.remoteEnabled) { _, _ in tidyURL() }
 
-                HStack(spacing: 8) {
-                    SecureField(
-                        "Parola d'ordine",
-                        text: $secret,
-                        prompt: Text("condivisa col relay")
-                    )
-                    Button("Salva") {
-                        tidyURL()
-                        RemoteSecrets.write(secret, to: .pairSecret)
-                        remote.publishNow()
-                    }
-                    .disabled(secret.isEmpty)
+                // No password field any more. The relay no longer knows one: each
+                // Mac carries its own identifier, made here and shown only in the
+                // QR. One field left to fill, and it is an address.
+                Button("Salva l'indirizzo") {
+                    tidyURL()
+                    remote.publishNow()
                 }
+                .disabled(settings.remoteRelayURL.isEmpty)
 
                 LabeledContent("Stato") {
                     HStack(spacing: 7) {
@@ -95,7 +89,6 @@ struct CompanionSettingsView: View {
         ) {
             Button("Disaccoppia", role: .destructive) {
                 RemoteSecrets.reset()
-                secret = ""
                 settings.remoteEnabled = false
             }
             Button("Annulla", role: .cancel) {}

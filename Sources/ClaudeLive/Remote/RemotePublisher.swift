@@ -132,7 +132,7 @@ final class RemotePublisher: ObservableObject {
         guard settings.remoteEnabled else { return }
 
         guard let url = relayURL(path: "/publish"),
-              let secret = RemoteSecrets.read(.pairSecret),
+              let pairID = RemoteSecrets.pairID(),
               let key = RemoteSecrets.encryptionKey()
         else {
             connection = .notConfigured
@@ -155,7 +155,7 @@ final class RemotePublisher: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 15
@@ -240,14 +240,18 @@ final class RemotePublisher: ObservableObject {
     /// The key travels by QR and never through the relay — which is what makes
     /// the relay unable to read anything it carries.
     func pairingPayload() -> String? {
-        guard let secret = RemoteSecrets.read(.pairSecret),
+        guard let pairID = RemoteSecrets.pairID(),
               let key = RemoteSecrets.encryptionKey()
         else { return nil }
 
         let payload: [String: String] = [
-            "v": "1",
+            // Version 2 carries an identifier where version 1 carried a password
+            // typed in by hand. An app meant to be installed by people who did
+            // not build it cannot ask for that password, and a password shipped
+            // with the app protects nobody.
+            "v": "2",
             "url": settings.remoteRelayURL.trimmingCharacters(in: .whitespacesAndNewlines),
-            "secret": secret,
+            "id": pairID,
             "key": RemoteCrypto.export(key),
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return nil }

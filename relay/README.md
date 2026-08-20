@@ -36,14 +36,16 @@ Si apre il browser dove sei già connesso: clicca **Allow**. Nessuna password
 viene digitata qui, e il permesso lo revochi quando vuoi dal pannello di
 Cloudflare.
 
-### 2. Creare il magazzino per l'indirizzo del telefono
+### 2. Niente magazzino da creare
 
-```sh
-npx wrangler kv namespace create DEVICES
-```
+Lo stato di ogni coppia sta in un **Durable Object**, uno per identificativo, e
+il binding è già dichiarato in `wrangler.jsonc`. Non c'è nulla da creare a mano.
 
-Stampa un `id` fra virgolette. Copialo dentro `wrangler.jsonc`, al posto di
-`DA_COMPILARE`.
+Prima stava in KV, e il piano gratuito concede mille scritture al giorno: il solo
+battito di presenza — una pubblicazione ogni sessanta secondi, per non far
+apparire sul telefono l'avviso «il Mac è scollegato» — ne chiedeva 2.880. Il
+relay si spegneva al primo giorno di uso reale, con un solo utente.
+
 
 ### 3. Consegnare la chiave APNs a Cloudflare
 
@@ -55,17 +57,17 @@ Il `<` fa passare il file direttamente a Cloudflare: il contenuto non compare a
 schermo e non finisce nella cronologia del terminale. Da qui in avanti la chiave
 vive su Cloudflare e il file locale serve solo come copia di riserva.
 
-### 4. Inventare una parola d'ordine fra Mac e telefono
+### 4. Nessuna parola d'ordine da inventare
 
-```sh
-openssl rand -hex 32
-npx wrangler secret put PAIR_SECRET
-```
+Ogni Mac si genera il suo identificativo al primo avvio, lo tiene nel portachiavi
+e lo mostra solo dentro il QR. È insieme l'indirizzo dei suoi dati sul relay e il
+permesso di toccarli, e il relay non conserva alcun segreto condiviso.
 
-Il primo comando stampa una stringa lunga a caso; incollala quando il secondo la
-chiede. Serve a evitare che un estraneo che indovini l'indirizzo del relay possa
-mandare notifiche al tuo telefono. Tienila da parte: servirà anche al Mac e
-all'app.
+Una password comune non poteva essere nessuna delle due cose: autorizza tutti a
+tutto, e deve pure arrivare da qualche parte — digitata a mano, cosa che nessuno
+farà, o spedita dentro l'app, dove chiunque la estrae. Con l'identificativo, un
+relay serve quante coppie vuoi e nessuna vede le altre.
+
 
 ### 5. Mandarlo online
 
@@ -97,7 +99,7 @@ Con l'app installata sul telefono e registrata:
 
 ```sh
 curl -X POST https://<indirizzo>/ping \
-  -H "authorization: Bearer <PAIR_SECRET>"
+  -H "authorization: Bearer <identificativo della coppia>"
 ```
 
 Sul telefono compare la notifica. Il numero che conta è quello che l'app

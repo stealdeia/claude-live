@@ -26,7 +26,7 @@ final class RemoteStore: ObservableObject {
     private var refreshTask: Task<Void, Never>?
 
     init() {
-        isPaired = RemoteSecrets.read(.pairSecret) != nil
+        isPaired = RemoteSecrets.read(.pairID) != nil
             && RemoteSecrets.read(.encryptionKey) != nil
             && !(UserDefaults.standard.string(forKey: "relayURL") ?? "").isEmpty
     }
@@ -39,7 +39,7 @@ final class RemoteStore: ObservableObject {
         guard let data = payload.data(using: .utf8),
               let fields = try? JSONSerialization.jsonObject(with: data) as? [String: String],
               let url = fields["url"], !url.isEmpty,
-              let secret = fields["secret"], !secret.isEmpty,
+              let pairID = fields["id"], pairID.count == 32,
               let key = fields["key"],
               // Validated before being stored: a malformed key saved now would
               // fail later as an unopenable payload, which reads as a network
@@ -51,7 +51,7 @@ final class RemoteStore: ObservableObject {
         }
 
         relayURL = url
-        RemoteSecrets.write(secret, to: .pairSecret)
+        RemoteSecrets.write(pairID, to: .pairID)
         RemoteSecrets.write(key, to: .encryptionKey)
         isPaired = true
         problem = nil
@@ -86,12 +86,12 @@ final class RemoteStore: ObservableObject {
         let hex = token.map { String(format: "%02x", $0) }.joined()
         guard isPaired,
               let url = URL(string: relayURL + "/register"),
-              let secret = RemoteSecrets.read(.pairSecret)
+              let pairID = RemoteSecrets.read(.pairID)
         else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         // Which APNs world this token belongs to. A build on the cable registers
         // with the sandbox, one from TestFlight with production, and a token from
@@ -126,7 +126,7 @@ final class RemoteStore: ObservableObject {
     func refresh() async {
         guard isPaired else { return }
         guard let url = URL(string: relayURL + "/state"),
-              let secret = RemoteSecrets.read(.pairSecret),
+              let pairID = RemoteSecrets.read(.pairID),
               let keyText = RemoteSecrets.read(.encryptionKey),
               let key = try? RemoteCrypto.importKey(keyText)
         else {
@@ -135,7 +135,7 @@ final class RemoteStore: ObservableObject {
         }
 
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
         request.timeoutInterval = 15
         // Always from the network: a status that is quietly served from a cache
         // is the one failure this app must never have.
@@ -226,7 +226,7 @@ final class RemoteStore: ObservableObject {
     func decide(_ session: ClaudeSessionStatus, allow: Bool, remember: Bool) async {
         guard let requestID = session.requestID else { return }
         guard let url = URL(string: relayURL + "/command"),
-              let secret = RemoteSecrets.read(.pairSecret),
+              let pairID = RemoteSecrets.read(.pairID),
               let keyText = RemoteSecrets.read(.encryptionKey),
               let key = try? RemoteCrypto.importKey(keyText)
         else { return }
@@ -247,7 +247,7 @@ final class RemoteStore: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         // The envelope's own id travels in the clear so the Mac can address and
         // delete it. An opaque identifier says nothing about what was decided.
