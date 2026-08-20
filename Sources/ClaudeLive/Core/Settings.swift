@@ -145,7 +145,7 @@ final class Settings: ObservableObject {
 
     /// The relay's address. Not a secret — the password and the encryption key
     /// live in the Keychain, see `RemoteSecrets`.
-    @Published var remoteRelayURL: String = "" { didSet { schedulePersist() } }
+    @Published var remoteRelayURL: String = RelayDefaults.address { didSet { schedulePersist() } }
 
     @Published var debugLoggingEnabled: Bool = false {
         didSet {
@@ -414,7 +414,10 @@ final class Settings: ObservableObject {
         if let v = decoded.hasCompletedOnboarding { hasCompletedOnboarding = v }
         if let v = decoded.decisionWaitSeconds { decisionWaitSeconds = v }
         if let v = decoded.remoteEnabled { remoteEnabled = v }
-        if let v = decoded.remoteRelayURL { remoteRelayURL = v }
+        // Un valore vuoto salvato non deve cancellare il predefinito: prima
+        // l'indirizzo andava scritto a mano, quindi in giro esistono impostazioni
+        // in cui è la stringa vuota.
+        if let v = decoded.remoteRelayURL, !v.isEmpty { remoteRelayURL = v }
 
         Log.info("Settings caricati da \(Paths.settingsFile.path)")
     }

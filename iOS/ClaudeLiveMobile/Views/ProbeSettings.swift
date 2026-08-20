@@ -1,49 +1,23 @@
 import SwiftUI
 import ClaudeLiveKit
 
-/// The relay connection, and the phase 0 stopwatch.
+/// Il cronometro delle notifiche: quanto ci mette un avviso ad arrivare.
 ///
-/// Kept after the measurement was taken because it is still the only way to
-/// answer "is the phone reachable at all?" without involving the Mac — the
-/// first question worth asking when nothing arrives.
+/// Sola lettura. Aveva anche i campi per l'indirizzo del relay e una parola
+/// d'ordine, da quando andavano scritti a mano per misurare: da quando arrivano
+/// col QR erano un doppione che invitava a rompere una cosa che funziona, e
+/// l'utente non deve poter scollegare la propria app modificando un campo di cui
+/// non capisce lo scopo.
+///
+/// Non compare finché non c'è niente da mostrare: una sezione vuota è rumore.
 struct ProbeSettings: View {
     @ObservedObject var probe: RelayProbe
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Collegamento")
-                .font(.subheadline.weight(.semibold))
-
-            VStack(spacing: 10) {
-                TextField("https://…workers.dev", text: $probe.relayURL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                    .padding(10)
-                    .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
-
-                SecureField("Parola d'ordine", text: $probe.secret)
-                    .padding(10)
-                    .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
-            }
-
-            Button {
-                Task { await probe.requestPermission() }
-            } label: {
-                Text("Registra questo iPhone").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(probe.relayURL.isEmpty || probe.secret.isEmpty)
-
-            Text(probe.status)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
-
             if !probe.measurements.isEmpty {
-                Divider().overlay(.white.opacity(0.15))
                 Text("Prove di velocità")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.subheadline.weight(.semibold))
 
                 ForEach(probe.measurements.prefix(5)) { measurement in
                     HStack(spacing: 9) {

@@ -31,7 +31,7 @@ struct CompanionSettingsView: View {
                 TextField(
                     "Indirizzo",
                     text: $settings.remoteRelayURL,
-                    prompt: Text("claude-live-relay.esempio.workers.dev")
+                    prompt: Text(RelayDefaults.address)
                 )
                 .onSubmit { tidyURL() }
                 .onChange(of: settings.remoteEnabled) { _, _ in tidyURL() }
