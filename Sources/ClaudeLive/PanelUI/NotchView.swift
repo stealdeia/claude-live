@@ -42,6 +42,13 @@ struct NotchView: View {
     /// mid-animation.
     let onDetailHeightChange: (CGFloat) -> Void
 
+    /// The pointer entered or left the surface.
+    ///
+    /// Reported separately instead of just writing `isExpanded`, because the
+    /// controller has to know that a panel is open *because* the pointer is on
+    /// it: that is the only kind it may close behind SwiftUI's back.
+    let onHoverChange: (Bool) -> Void
+
     private var barHeight: CGFloat { geometry.barHeight }
     private var scale: Double { settings.notchScale }
     private var showsControls: Bool { settings.notchShowsControls }
@@ -81,7 +88,7 @@ struct NotchView: View {
             )
             .onHover { hovering in
                 guard settings.notchExpandOnHover else { return }
-                setExpanded(hovering)
+                onHoverChange(hovering)
             }
     }
 

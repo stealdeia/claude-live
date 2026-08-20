@@ -68,6 +68,16 @@ final class NotchSurface: NSObject, ObservableObject {
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
 
+    private var pointerWatchdog: Timer?
+    private var pointerOutsideStreak = 0
+
+    /// Whether the panel now open was opened by the pointer resting on it.
+    ///
+    /// A panel opened from the menu has no business closing because the pointer
+    /// happens to be somewhere else, so the watchdog below applies to this case
+    /// only.
+    private var expandedByHover = false
+
     var screenID: String { geometry.screenID }
     var isVisible: Bool { window.isVisible }
     var windowFrame: CGRect { window.frame }
@@ -127,6 +137,8 @@ final class NotchSurface: NSObject, ObservableObject {
                     self?.refreshRootView()
                     self?.applyFrame(expanded: expanded, animated: true)
                     self?.updateClickOutsideMonitors(expanded: expanded)
+                    self?.updatePointerWatchdog(expanded: expanded)
+                    if !expanded { self?.expandedByHover = false }
                     // Fades over the same time the panel takes to open or close,
                     // so it arrives *with* the panel rather than after it.
                     self?.shadowWindow.setShadow(
@@ -175,6 +187,7 @@ final class NotchSurface: NSObject, ObservableObject {
         }
         if let globalClickMonitor { NSEvent.removeMonitor(globalClickMonitor) }
         if let localClickMonitor { NSEvent.removeMonitor(localClickMonitor) }
+        pointerWatchdog?.invalidate()
     }
 
     // MARK: - Lifecycle
@@ -264,6 +277,64 @@ final class NotchSurface: NSObject, ObservableObject {
         setExpanded(false)
     }
 
+    /// Closes a panel the pointer has left, for the exits SwiftUI never reports.
+    ///
+    /// `.onHover` is the only thing that closes a hover-opened panel, and it
+    /// misses its exit often enough to matter: leaving the notch quickly, or
+    /// crossing straight onto another screen, leaves the panel open. Since its
+    /// background is solid black, what stays on screen is a large black rectangle
+    /// that goes away only by hovering it again — reported on 2026-08-20, on a
+    /// second display above the built-in one.
+    ///
+    /// A poll rather than more tracking, because the failure *is* that pointer
+    /// events stop reaching us. No tracking area can report an event it never
+    /// receives; where the pointer actually is cannot be missed.
+    private func updatePointerWatchdog(expanded: Bool) {
+        pointerWatchdog?.invalidate()
+        pointerWatchdog = nil
+        pointerOutsideStreak = 0
+        guard expanded, expandedByHover else {
+            if expanded {
+                Log.debug(
+                    "Guardiano puntatore non armato: pannello aperto non dal mouse",
+                    category: .panel
+                )
+            }
+            return
+        }
+        pointerWatchdog = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.collapseIfPointerLeft() }
+        }
+    }
+
+    private func collapseIfPointerLeft() {
+        guard isExpanded, expandedByHover else { return }
+
+        // Never judge while the frame is still moving. Opening takes 0.42s, and a
+        // pointer sitting inside the panel it is about to become is outside the
+        // one still growing — checking then would close it the instant it opened.
+        guard displayLink == nil else {
+            pointerOutsideStreak = 0
+            return
+        }
+
+        guard !window.frame.contains(NSEvent.mouseLocation) else {
+            pointerOutsideStreak = 0
+            return
+        }
+
+        Log.debug(
+            "Guardiano: puntatore fuori (lettura \(pointerOutsideStreak + 1) di 2)",
+            category: .panel
+        )
+
+        // Two readings rather than one: a single stray sample should not take away
+        // a panel somebody is reading.
+        pointerOutsideStreak += 1
+        guard pointerOutsideStreak >= 2 else { return }
+        setExpanded(false)
+    }
+
     /// The screen moved or changed resolution but is still ours: re-place the
     /// window without animating a change the user did not ask for.
     func update(geometry: NotchGeometry) {
@@ -281,6 +352,13 @@ final class NotchSurface: NSObject, ObservableObject {
     func setExpanded(_ expanded: Bool) {
         guard expanded != isExpanded else { return }
         isExpanded = expanded
+    }
+
+    /// The pointer entered or left the surface.
+    func setHoverExpanded(_ hovering: Bool) {
+        if hovering { expandedByHover = true }
+        Log.debug("Passaggio del mouse sul notch: \(hovering ? "entrato" : "uscito")", category: .panel)
+        setExpanded(hovering)
     }
 
     /// Renders the surface to a PNG next to the logs.
@@ -325,7 +403,8 @@ final class NotchSurface: NSObject, ObservableObject {
             geometry: geometry,
             actions: actions,
             isExpanded: .constant(false),
-            onDetailHeightChange: { _ in }
+            onDetailHeightChange: { _ in },
+            onHoverChange: { _ in }
         )
     }
 
@@ -343,6 +422,9 @@ final class NotchSurface: NSObject, ObservableObject {
             ),
             onDetailHeightChange: { [weak self] height in
                 Task { @MainActor in self?.updateDetailHeight(height) }
+            },
+            onHoverChange: { [weak self] hovering in
+                Task { @MainActor in self?.setHoverExpanded(hovering) }
             }
         )
     }
@@ -389,7 +471,27 @@ final class NotchSurface: NSObject, ObservableObject {
             return
         }
 
-        guard window.frame.size != targetSize else { return }
+        // Already the right size — but an animation may still be in flight towards
+        // a different one, and letting it finish would leave the window at a size
+        // the state no longer agrees with.
+        //
+        // That is how the notch turned into a black rectangle nothing could close,
+        // reproduced on 2026-08-20 by crossing the notch quickly: the opening
+        // animation starts, its first frames barely move (the overshoot curve is
+        // almost flat at the beginning), the pointer leaves, and the request to go
+        // back to the collapsed size finds the window already there and returns.
+        // The opening animation then runs to its end unopposed, so the window is
+        // expanded while `isExpanded` is false. Nothing reconciles them: no state
+        // changed, so no event fires — and the panel draws its detail at opacity
+        // zero, laid out for a collapsed window, which is a large black nothing.
+        guard window.frame.size != targetSize else {
+            stopAnimation()
+            if window.frame != target {
+                window.setFrame(target, display: true)
+                syncShadow(notchFrame: target)
+            }
+            return
+        }
         startAnimation(to: targetSize, opening: expanded)
     }
 
