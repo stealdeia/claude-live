@@ -37,6 +37,17 @@ targets:
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      # APNs has two separate worlds and a token from one is meaningless in the
+      # other. A build installed over the cable registers with the sandbox; one
+      # that arrives through TestFlight or the App Store registers with
+      # production. Hard-coding either one breaks the other, so it follows the
+      # configuration — and the phone tells the relay which world it lives in.
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+        Release:
+          APS_ENVIRONMENT: production
     info:
       path: ClaudeLiveMobile/Info.plist
       properties:
@@ -48,7 +59,7 @@ targets:
     entitlements:
       path: ClaudeLiveMobile/ClaudeLiveMobile.entitlements
       properties:
-        # "development" pairs with APNs sandbox, which is where a build
-        # installed from Xcode is registered. TestFlight needs "production",
-        # and the relay's APNS_ENV has to move with it.
-        aps-environment: development
+        # Set from the configuration above rather than written here: Xcode expands
+        # build settings inside entitlements, and this is the one value that must
+        # differ between the build on the cable and the build people install.
+        aps-environment: $(APS_ENVIRONMENT)
