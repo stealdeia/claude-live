@@ -4,10 +4,13 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-19",
 
-  // Holds the phone's APNs token. Created with:
-  //   npx wrangler kv namespace create DEVICES
-  "kv_namespaces": [
-    { "binding": "DEVICES", "id": "0a783891aea94ef3a0246b1d2df1e202" }
+  // One state per pair of devices. Replaces KV, whose free tier allows a
+  // thousand writes a day: the heartbeat alone needed 2,880 of them.
+  "durable_objects": {
+    "bindings": [{ "name": "PAIR", "class_name": "PairState" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PairState"] }
   ],
 
   // Public settings. The two secrets — APNS_KEY (the .p8) and PAIR_SECRET —

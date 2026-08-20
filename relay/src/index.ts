@@ -1,51 +1,68 @@
 /**
- * Claude Live relay — Fase 0 skeleton.
+ * Relay di Claude Live: il programmino sempre acceso fra il Mac e l'iPhone.
  *
- * The single question this has to answer: can a permission request raised on the
- * Mac reach the phone, be answered, and get back, inside the window the hook is
- * willing to wait? Everything else about the companion depends on that number,
- * so it is measured before anything is built on top of it.
+ * Esiste perché iOS spegne le app che non guardi, e l'unica cosa che può
+ * svegliarne una è una notifica push — che deve partire da un computer sempre
+ * acceso su Internet, non dal Mac che dorme.
  *
- * Deliberately stateless apart from the device token. A latency measurement must
- * not be distorted by the storage it runs through, and KV's eventual consistency
- * would do exactly that — so the round trip carries its own timestamps and the
- * phone computes the number. KV holds the token, written once at pairing and read
- * minutes later, where eventual consistency costs nothing.
+ * ## Perché Durable Object e non KV
  *
- * That choice also keeps this on the Workers free plan: no Durable Objects yet.
- * They become a question in phase 2, when the panel wants a live connection.
+ * Prima lo snapshot stava in KV, e il piano gratuito concede **mille scritture
+ * al giorno**. Ogni pubblicazione ne faceva due, e il battito di presenza
+ * pubblica ogni sessanta secondi per non far apparire sul telefono l'avviso «il
+ * Mac è scollegato»: 1.440 pubblicazioni al giorno, 2.880 scritture — quasi il
+ * triplo del limite, con il Mac completamente fermo. Il sistema era destinato a
+ * spegnersi al primo giorno di uso reale, con un solo utente. Accaduto il
+ * 2026-08-20, con `KV put() limit exceeded for the day`.
+ *
+ * Il piano a pagamento avrebbe solo spostato il muro: un milione di scritture al
+ * mese sono trentamila al giorno, che finiscono a una trentina di utenti.
+ *
+ * Uno snapshot vale sessanta secondi, quindi non è un dato da conservare: è un
+ * dato da *tenere*. Un Durable Object per coppia lo tiene in memoria, dove la
+ * durata è quella giusta e le scritture non esistono. Su disco finisce solo il
+ * token del telefono, scritto una volta all'accoppiamento.
+ *
+ * E si sposa con l'identificativo per coppia: un oggetto per identificativo,
+ * separazione per costruzione, e scala senza che nessuno debba pubblicare un
+ * relay per sé.
  */
 
 export interface Env {
-  /** Device tokens and the latest snapshot, keyed by pair id. */
-  DEVICES: KVNamespace
-  /** Contents of the AuthKey_*.p8 downloaded from Apple. A secret. */
+  /** Uno stato per coppia di dispositivi. */
+  PAIR: DurableObjectNamespace
+  /** Chiave APNs (.p8), messa con `wrangler secret put`. */
   APNS_KEY: string
-  /** The 10-character key id shown next to the key in App Store Connect. */
+  /** Identificativo della chiave APNs. */
   APNS_KEY_ID: string
-  /** Apple developer team id. */
+  /** Il team Apple. */
   APNS_TEAM_ID: string
-  /** The app's bundle id — APNs calls it the topic. */
+  /** L'id del pacchetto dell'app — APNs lo chiama topic. */
   APNS_TOPIC: string
-  /** "sandbox" for builds installed from Xcode, "production" for TestFlight. */
+  /** Ambiente di ripiego, per un token registrato prima che il telefono lo dichiarasse. */
   APNS_ENV: string
-  /** Shared secret: proves a request came from our Mac or our phone. */
-  PAIR_SECRET: string
 }
 
-/** One pair of devices. A single one for now; phase 2 gives it a real identity. */
-const PAIR_ID = 'default'
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+}
 
 // ---------------------------------------------------------------- APNs
 
 /**
- * APNs authentication token.
+ * Token di autenticazione APNs.
  *
- * Apple accepts it for an hour and refuses more than one refresh every 20
- * minutes, so it is cached in module scope. A Worker isolate is recycled freely,
- * which only means the next request mints a new one — never a problem, because
- * the limit is on refresh *rate* and an isolate does not live long enough to
- * approach it.
+ * Apple lo accetta per un'ora e rifiuta più di un rinnovo ogni venti minuti,
+ * quindi resta in cache. La cache è per isolate: un Durable Object ne ha uno
+ * suo, e vivendo più a lungo di un isolate qualunque la sfrutta meglio.
+ *
+ * Viene buttata quando Apple risponde 403. Cambiando la chiave, le istanze già
+ * calde continuerebbero a presentare la firma vecchia per quarantacinque minuti,
+ * con lo stesso errore identico di una chiave sbagliata e nessun indizio che si
+ * tratti di una copia stantia — mezz'ora di diagnosi il 2026-08-20.
  */
 let cachedToken: { jwt: string; mintedAt: number } | null = null
 
@@ -58,7 +75,7 @@ function base64url(bytes: ArrayBuffer | Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Strips the PEM armour and returns the DER bytes. */
+/** Toglie l'armatura PEM e restituisce i byte DER. */
 function pemToDer(pem: string): Uint8Array {
   const body = pem
     .replace(/-----BEGIN [^-]+-----/, '')
@@ -94,8 +111,8 @@ async function apnsToken(env: Env): Promise<string> {
   )
   const signingInput = `${header}.${payload}`
 
-  // WebCrypto returns the raw r‖s pair, which is exactly what JWS wants — no
-  // DER unwrapping, unlike most server-side crypto libraries.
+  // WebCrypto restituisce la coppia r‖s grezza, che è esattamente ciò che vuole
+  // JWS — nessuno svolgimento DER, al contrario di quasi tutte le librerie.
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     key,
@@ -108,24 +125,25 @@ async function apnsToken(env: Env): Promise<string> {
 }
 
 /**
- * Sends one alert push.
+ * Manda una notifica.
  *
- * The environment matters more than it looks: a build installed straight from
- * Xcode is registered with the *sandbox*, and sending it to the production host
- * fails with `BadDeviceToken` — the single most common way this silently does
- * nothing. TestFlight and the App Store use production.
+ * L'ambiente conta più di quanto sembri: una build installata col cavo è
+ * registrata nel *sandbox*, e mandarla all'host di produzione fallisce con
+ * `BadDeviceToken` — il modo più comune in cui tutto questo non fa niente in
+ * silenzio. TestFlight e l'App Store usano produzione. Viaggia col dispositivo,
+ * non con questo Worker: due build della stessa app possono essere accoppiate in
+ * momenti diversi, e un solo valore qui sarebbe sbagliato per una delle due.
+ *
+ * Ritenta una volta sola, e solo su 403: quello è l'errore della firma, e la
+ * seconda firma è nuova per costruzione.
  */
 async function sendPush(
   env: Env,
   deviceToken: string,
   body: Record<string, unknown>,
-  environment?: string
+  environment?: string,
+  retrying = false
 ): Promise<{ ok: boolean; status: number; reason?: string }> {
-  // The environment travels with the *device*, not with this Worker. Two builds
-  // of the same app can be paired at different times — one over the cable, one
-  // from TestFlight — and a single setting here would be wrong for one of them.
-  // `APNS_ENV` stays as the answer for a token registered before the phone
-  // started saying which world it lives in.
   const world = environment ?? env.APNS_ENV
   const host = world === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com'
 
@@ -135,67 +153,90 @@ async function sendPush(
       authorization: `bearer ${await apnsToken(env)}`,
       'apns-topic': env.APNS_TOPIC,
       'apns-push-type': 'alert',
-      // 10 is "deliver now". Anything lower lets iOS batch it, which would
-      // measure Apple's discretion rather than our round trip.
+      // 10 è «consegna adesso». Meno lascia a iOS la facoltà di accorpare, che
+      // misurerebbe la discrezione di Apple invece del nostro giro.
       'apns-priority': '10',
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
   })
 
+  if (response.status === 403 && !retrying) {
+    // La firma non è stata accettata. Se è solo stantia, buttarla e ripetere
+    // risolve; se la chiave è davvero sbagliata, il secondo tentativo fallisce
+    // identico e non abbiamo perso nulla.
+    cachedToken = null
+    return sendPush(env, deviceToken, body, environment, true)
+  }
+
   if (response.ok) return { ok: true, status: response.status }
 
-  // APNs explains refusals in the body, and the reason is the only thing that
-  // makes a failure diagnosable — surface it rather than just the status.
+  // APNs spiega i rifiuti nel corpo, e la spiegazione è l'unica cosa che rende
+  // diagnosticabile un no.
   let reason: string | undefined
   try {
     reason = ((await response.json()) as { reason?: string }).reason
   } catch {
-    reason = await response.text().catch(() => undefined)
+    reason = undefined
   }
   return { ok: false, status: response.status, reason }
 }
 
-// ---------------------------------------------------------------- HTTP
+// ---------------------------------------------------------------- Lo stato di una coppia
 
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
+/** Durate: quanto vale uno snapshot, e quanto resta in giro una risposta. */
+const SNAPSHOT_LIFE_MS = 600_000
+const COMMAND_LIFE_MS = 300_000
 
-function authorised(request: Request, env: Env): boolean {
-  const header = request.headers.get('authorization') ?? ''
-  const provided = header.replace(/^Bearer\s+/i, '')
-  if (provided.length === 0 || provided.length !== env.PAIR_SECRET.length) return false
+/**
+ * Tutto quello che riguarda una coppia Mac–iPhone, e nient'altro.
+ *
+ * Tutto sta nello storage dell'oggetto, non nella sua memoria. Tenere lo
+ * snapshot in memoria era il primo tentativo, ed era sbagliato: un Durable
+ * Object viene sfrattato dopo pochi secondi di inattività e la memoria se ne va
+ * con lui — due richieste a distanza di un secondo l'una dall'altra e la seconda
+ * non trovava più niente.
+ *
+ * Una riga per pubblicazione, dove KV ne scriveva due, e con un limite
+ * giornaliero cento volte più alto. Le scadenze qui non esistono, quindi
+ * snapshot e risposte vengono potati alla lettura.
+ */
+export class PairState {
+  constructor(private ctx: DurableObjectState, private env: Env) {}
 
-  // Constant time: a length-independent comparison would leak the secret one
-  // character at a time to anyone willing to measure.
-  let diff = 0
-  for (let i = 0; i < provided.length; i++) {
-    diff |= provided.charCodeAt(i) ^ env.PAIR_SECRET.charCodeAt(i)
+  private async device(): Promise<{ token: string | null; environment?: string }> {
+    const token = (await this.ctx.storage.get<string>('deviceToken')) ?? null
+    const environment = await this.ctx.storage.get<string>('deviceEnv')
+    return { token, environment }
   }
-  return diff === 0
-}
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  /// Butta ciò che è scaduto, invece di lasciarlo sembrare attuale.
+  ///
+  /// Non c'è una scadenza automatica come in KV, quindi si fa alla lettura: uno
+  /// snapshot vecchio di dieci minuti descrive un Mac che potrebbe essere
+  /// tutt'altro, e una risposta raccolta molto dopo verrebbe obbedita fuori
+  /// tempo.
+  private async prune() {
+    const now = Date.now()
+    const at = (await this.ctx.storage.get<number>('snapshotAt')) ?? 0
+    if (at && now - at > SNAPSHOT_LIFE_MS) {
+      await this.ctx.storage.delete(['snapshot', 'snapshotAt'])
+    }
+    const commands = await this.ctx.storage.list<{ payload: string; at: number }>({
+      prefix: 'cmd:',
+    })
+    const stale = [...commands].filter(([, e]) => now - e.at > COMMAND_LIFE_MS).map(([k]) => k)
+    if (stale.length > 0) await this.ctx.storage.delete(stale)
+  }
+
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
+    await this.prune()
 
-    // Answers before the authorisation check, so it can be used to tell "the
-    // relay is down" from "the password is wrong" — and therefore says only
-    // that it is alive. It used to report the APNs environment and the bundle
-    // id, which is free information for anyone who guesses the address.
-    if (url.pathname === '/health') {
-      return json({ ok: true })
-    }
-
-    if (!authorised(request, env)) {
-      return json({ error: 'non autorizzato' }, 401)
-    }
-
-    // The phone hands over the token APNs gave it. Called once at pairing.
+    // Il telefono consegna il token che gli ha dato APNs, e dice in quale mondo
+    // APNs vive. Chiamata una volta all'accoppiamento, e a ogni avvio: iOS può
+    // cambiare token dopo una reinstallazione, e uno stantio qui è una notifica
+    // che non arriva.
     if (url.pathname === '/register' && request.method === 'POST') {
       const { deviceToken, environment } = (await request.json()) as {
         deviceToken?: string
@@ -204,85 +245,73 @@ export default {
       if (!deviceToken || !/^[0-9a-fA-F]{64}$/.test(deviceToken)) {
         return json({ error: 'deviceToken mancante o malformato' }, 400)
       }
-      await env.DEVICES.put(PAIR_ID, deviceToken)
-      // Only the two words APNs knows. Anything else is dropped rather than
-      // stored: a wrong environment fails with `BadDeviceToken`, which says
-      // nothing about why.
+      await this.ctx.storage.put('deviceToken', deviceToken)
+      // Solo le due parole che APNs conosce: un ambiente sbagliato fallisce con
+      // `BadDeviceToken`, che non spiega niente.
       if (environment === 'sandbox' || environment === 'production') {
-        await env.DEVICES.put(`${PAIR_ID}:env`, environment)
+        await this.ctx.storage.put('deviceEnv', environment)
       }
-      return json({ ok: true, environment: environment ?? env.APNS_ENV })
+      return json({ ok: true, environment: environment ?? this.env.APNS_ENV })
     }
 
-    // The Mac starts a measurement. `sentAt` travels inside the push so the
-    // phone can subtract without either side trusting the other's clock more
-    // than it has to.
+    // Il Mac misura quanto ci mette un avviso ad arrivare. `sentAt` viaggia
+    // dentro la notifica, così il conto lo fa il telefono e nessuno dei due deve
+    // fidarsi dell'orologio dell'altro.
     if (url.pathname === '/ping' && request.method === 'POST') {
-      const deviceToken = await env.DEVICES.get(PAIR_ID)
-      if (!deviceToken) return json({ error: 'nessun telefono registrato' }, 409)
-      const deviceEnv = (await env.DEVICES.get(`${PAIR_ID}:env`)) ?? undefined
+      const { token, environment } = await this.device()
+      if (!token) return json({ error: 'nessun telefono registrato' }, 409)
 
       const sentAt = Date.now()
-      const result = await sendPush(env, deviceToken, {
-        aps: {
-          alert: { title: 'Claude Live', body: 'Prova di velocità' },
-          sound: 'default',
-        },
+      const result = await sendPush(this.env, token, {
+        aps: { alert: { title: 'Claude Live', body: 'Prova di velocità' }, sound: 'default' },
         sentAt,
-      }, deviceEnv)
+      }, environment)
 
-      if (!result.ok) {
-        return json({ error: 'APNs ha rifiutato', ...result }, 502)
-      }
+      if (!result.ok) return json({ error: 'APNs ha rifiutato', ...result }, 502)
       return json({ ok: true, sentAt, acceptedInMs: Date.now() - sentAt })
     }
 
-    // The Mac publishes what it knows. The body is a sealed box: this Worker
-    // stores and forwards it without being able to read it, which is the whole
-    // reason it can be somebody else's computer.
+    // Il Mac pubblica quello che sa. Il corpo è una scatola sigillata: questo
+    // Worker la tiene e la inoltra senza poterla leggere, che è la ragione per
+    // cui può essere il computer di qualcun altro.
     if (url.pathname === '/publish' && request.method === 'POST') {
       const body = (await request.json()) as { payload?: string; notify?: string }
       if (typeof body.payload !== 'string' || body.payload.length === 0) {
         return json({ error: 'payload mancante' }, 400)
       }
-      // A snapshot is worthless once superseded, so it is stored with a short
-      // life: if the Mac stops publishing, the record expires instead of sitting
-      // there looking current.
-      await env.DEVICES.put(`${PAIR_ID}:snapshot`, body.payload, { expirationTtl: 600 })
-      await env.DEVICES.put(`${PAIR_ID}:snapshotAt`, String(Date.now()), { expirationTtl: 600 })
+      // Su disco, non in memoria. La memoria di un Durable Object non sopravvive
+      // allo sfratto per inattività — pochi secondi bastano — e uno snapshot
+      // perso è il telefono che dice «il Mac è scollegato» mentre il Mac sta
+      // benissimo. Una riga per pubblicazione, dove KV ne scriveva due.
+      await this.ctx.storage.put({ snapshot: body.payload, snapshotAt: Date.now() })
 
       let pushed: unknown = null
       if (body.notify) {
-        const deviceToken = await env.DEVICES.get(PAIR_ID)
-        const deviceEnv = (await env.DEVICES.get(`${PAIR_ID}:env`)) ?? undefined
-        if (deviceToken) {
-          // Deliberately generic wording. The alert text is visible to Apple and
-          // to this Worker, so naming the project here would undo the encryption
-          // for exactly the field a passer-by would find most interesting. The
-          // app says what happened once it has decrypted the snapshot.
-          pushed = await sendPush(env, deviceToken, {
-            aps: {
-              alert: { title: 'Claude Live', body: body.notify },
-              sound: 'default',
-            },
-          }, deviceEnv)
+        const { token, environment } = await this.device()
+        if (token) {
+          // Testo volutamente generico. L'avviso è visibile ad Apple e a questo
+          // Worker, quindi nominare il progetto qui disferebbe la cifratura per
+          // il campo che a un estraneo interesserebbe di più. Il dettaglio lo
+          // mette l'app, dopo aver aperto lo snapshot.
+          pushed = await sendPush(this.env, token, {
+            aps: { alert: { title: 'Claude Live', body: body.notify }, sound: 'default' },
+          }, environment)
         }
       }
-
       return json({ ok: true, pushed })
     }
 
-    // The phone asks for the latest picture.
+    // Il telefono chiede l'ultima fotografia.
     if (url.pathname === '/state' && request.method === 'GET') {
-      const payload = await env.DEVICES.get(`${PAIR_ID}:snapshot`)
+      const payload = await this.ctx.storage.get<string>('snapshot')
       if (!payload) return json({ error: 'nessuno snapshot' }, 404)
-      const storedAt = await env.DEVICES.get(`${PAIR_ID}:snapshotAt`)
-      return json({ payload, storedAt: storedAt ? Number(storedAt) : null })
+      const storedAt = (await this.ctx.storage.get<number>('snapshotAt')) ?? null
+      return json({ payload, storedAt })
     }
 
-    // The phone answers a permission request. Sealed like everything else: the
-    // id travels in the clear only so the Mac can address and delete it, and an
-    // opaque identifier discloses nothing about what was decided.
+    // Il telefono risponde a una richiesta di permesso. Sigillata come tutto il
+    // resto: l'id viaggia in chiaro solo perché il Mac possa indirizzarla e
+    // cancellarla, e non rivela nulla di ciò che è stato deciso.
     if (url.pathname === '/command' && request.method === 'POST') {
       const body = (await request.json()) as { id?: string; payload?: string }
       if (typeof body.id !== 'string' || !/^[0-9A-Fa-f-]{8,64}$/.test(body.id)) {
@@ -291,34 +320,32 @@ export default {
       if (typeof body.payload !== 'string' || body.payload.length === 0) {
         return json({ error: 'payload mancante' }, 400)
       }
-      // Five minutes: far longer than any hook will wait, short enough that a
-      // command nobody collected disappears instead of being obeyed much later.
-      await env.DEVICES.put(`${PAIR_ID}:cmd:${body.id}`, body.payload, { expirationTtl: 300 })
+      await this.ctx.storage.put(`cmd:${body.id}`, { payload: body.payload, at: Date.now() })
       return json({ ok: true })
     }
 
-    // The Mac collects what is waiting for it.
+    // Il Mac raccoglie quello che lo aspetta.
     if (url.pathname === '/commands' && request.method === 'GET') {
-      const listed = await env.DEVICES.list({ prefix: `${PAIR_ID}:cmd:` })
-      const commands = await Promise.all(
-        listed.keys.map(async (entry) => ({
-          id: entry.name.slice(`${PAIR_ID}:cmd:`.length),
-          payload: await env.DEVICES.get(entry.name),
-        }))
-      )
-      return json({ commands: commands.filter((c) => c.payload !== null) })
+      const stored = await this.ctx.storage.list<{ payload: string; at: number }>({
+        prefix: 'cmd:',
+      })
+      const commands = [...stored].map(([key, entry]) => ({
+        id: key.slice('cmd:'.length),
+        payload: entry.payload,
+      }))
+      return json({ commands })
     }
 
-    // …and says it has dealt with one, so it is not carried out twice.
+    // …e dice di averne gestita una, così non viene eseguita due volte.
     if (url.pathname === '/commands' && request.method === 'DELETE') {
       const id = url.searchParams.get('id')
       if (!id) return json({ error: 'id mancante' }, 400)
-      await env.DEVICES.delete(`${PAIR_ID}:cmd:${id}`)
+      await this.ctx.storage.delete(`cmd:${id}`)
       return json({ ok: true })
     }
 
-    // The phone reports what it saw. Nothing is stored: the number is the point,
-    // and it is already in the response the Mac is waiting on.
+    // Il telefono riferisce cosa ha visto. Niente viene conservato: il numero è
+    // il punto, ed è già nella risposta che il Mac sta aspettando.
     if (url.pathname === '/ack' && request.method === 'POST') {
       const { sentAt, receivedAt } = (await request.json()) as {
         sentAt?: number
@@ -331,5 +358,57 @@ export default {
     }
 
     return json({ error: 'non trovato' }, 404)
+  }
+}
+
+// ---------------------------------------------------------------- Instradamento
+
+/**
+ * Quale coppia sta chiamando: l'identificativo è insieme l'indirizzo dei suoi
+ * dati qui e il permesso di toccarli.
+ *
+ * Sostituisce un'unica password condivisa, che non poteva essere né l'uno né
+ * l'altro. Un segreto in mano a ogni installazione autorizza tutti a tutto, e
+ * deve pure *arrivare* da qualche parte — digitato a mano, cosa che nessuno farà,
+ * o spedito dentro l'app, dove chiunque lo estrae. Un identificativo che ogni
+ * Mac si fa da sé non ha bisogno di essere distribuito: viaggia nel QR, una
+ * volta, e tiene separati i dati di ognuno.
+ *
+ * 128 bit di casualità, quindi non si indovina. È controllata la *forma*, non
+ * confrontato un segreto: qui non c'è niente da far filtrare a tempo.
+ *
+ * Quello che non fa è proteggere i contenuti, e niente qui potrebbe: i payload
+ * sono sigillati con una chiave che a questo Worker non arriva mai. Un
+ * identificativo rubato permetterebbe di mandare una notifica a quel telefono e
+ * di sovrascrivere uno snapshot — non di leggerne uno.
+ */
+function pairIdFrom(request: Request): string | null {
+  const provided = (request.headers.get('authorization') ?? '')
+    .replace(/^Bearer\s+/i, '')
+    .trim()
+  return /^[0-9a-f]{32}$/i.test(provided) ? provided.toLowerCase() : null
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+
+    // Risponde prima del controllo di autorizzazione, così serve a distinguere
+    // «il relay è giù» da «l'identificativo è sbagliato» — e per questo dice solo
+    // che è vivo. Riportava l'ambiente APNs e l'id del pacchetto, informazione
+    // gratuita per chiunque indovini l'indirizzo.
+    if (url.pathname === '/health') {
+      return json({ ok: true })
+    }
+
+    const pairId = pairIdFrom(request)
+    if (!pairId) {
+      return json({ error: 'non autorizzato' }, 401)
+    }
+
+    // Un oggetto per identificativo. `idFromName` è deterministico, quindi Mac e
+    // telefono che presentano lo stesso identificativo finiscono nello stesso
+    // stato senza doversi accordare su altro.
+    return env.PAIR.get(env.PAIR.idFromName(pairId)).fetch(request)
   },
 }
