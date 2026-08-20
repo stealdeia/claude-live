@@ -194,8 +194,13 @@ struct SettingsSheet: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
 
-                        GlassCard {
-                            ProbeSettings(probe: probe)
+                        // Solo quando ha qualcosa da dire: da quando i campi
+                        // dell'indirizzo sono spariti, senza misure restava un
+                        // riquadro vuoto.
+                        if !probe.measurements.isEmpty {
+                            GlassCard {
+                                ProbeSettings(probe: probe)
+                            }
                         }
                     }
                     .padding(.horizontal, 16)

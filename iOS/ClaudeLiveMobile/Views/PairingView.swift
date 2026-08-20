@@ -11,7 +11,14 @@ struct PairingView: View {
     @ObservedObject var store: RemoteStore
     @Environment(\.dismiss) private var dismiss
 
-    @State private var scanning = false
+    /// Aperta già inquadrando.
+    ///
+    /// Prima mostrava una schermata con un bottone per iniziare a inquadrare:
+    /// due tocchi per una cosa che si è già scelta di fare, dato che qui si
+    /// arriva premendo «Inquadra il codice». La schermata sotto resta, e si vede
+    /// chiudendo la fotocamera o se la scansione non riesce — dove serve, perché
+    /// contiene la strada alternativa.
+    @State private var scanning = true
     @State private var manualPayload = ""
     @State private var failed = false
 
