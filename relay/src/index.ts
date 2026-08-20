@@ -118,10 +118,16 @@ async function apnsToken(env: Env): Promise<string> {
 async function sendPush(
   env: Env,
   deviceToken: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  environment?: string
 ): Promise<{ ok: boolean; status: number; reason?: string }> {
-  const host =
-    env.APNS_ENV === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com'
+  // The environment travels with the *device*, not with this Worker. Two builds
+  // of the same app can be paired at different times — one over the cable, one
+  // from TestFlight — and a single setting here would be wrong for one of them.
+  // `APNS_ENV` stays as the answer for a token registered before the phone
+  // started saying which world it lives in.
+  const world = environment ?? env.APNS_ENV
+  const host = world === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com'
 
   const response = await fetch(`https://${host}/3/device/${deviceToken}`, {
     method: 'POST',
@@ -191,12 +197,21 @@ export default {
 
     // The phone hands over the token APNs gave it. Called once at pairing.
     if (url.pathname === '/register' && request.method === 'POST') {
-      const { deviceToken } = (await request.json()) as { deviceToken?: string }
+      const { deviceToken, environment } = (await request.json()) as {
+        deviceToken?: string
+        environment?: string
+      }
       if (!deviceToken || !/^[0-9a-fA-F]{64}$/.test(deviceToken)) {
         return json({ error: 'deviceToken mancante o malformato' }, 400)
       }
       await env.DEVICES.put(PAIR_ID, deviceToken)
-      return json({ ok: true })
+      // Only the two words APNs knows. Anything else is dropped rather than
+      // stored: a wrong environment fails with `BadDeviceToken`, which says
+      // nothing about why.
+      if (environment === 'sandbox' || environment === 'production') {
+        await env.DEVICES.put(`${PAIR_ID}:env`, environment)
+      }
+      return json({ ok: true, environment: environment ?? env.APNS_ENV })
     }
 
     // The Mac starts a measurement. `sentAt` travels inside the push so the
@@ -205,6 +220,7 @@ export default {
     if (url.pathname === '/ping' && request.method === 'POST') {
       const deviceToken = await env.DEVICES.get(PAIR_ID)
       if (!deviceToken) return json({ error: 'nessun telefono registrato' }, 409)
+      const deviceEnv = (await env.DEVICES.get(`${PAIR_ID}:env`)) ?? undefined
 
       const sentAt = Date.now()
       const result = await sendPush(env, deviceToken, {
@@ -213,7 +229,7 @@ export default {
           sound: 'default',
         },
         sentAt,
-      })
+      }, deviceEnv)
 
       if (!result.ok) {
         return json({ error: 'APNs ha rifiutato', ...result }, 502)
@@ -238,6 +254,7 @@ export default {
       let pushed: unknown = null
       if (body.notify) {
         const deviceToken = await env.DEVICES.get(PAIR_ID)
+        const deviceEnv = (await env.DEVICES.get(`${PAIR_ID}:env`)) ?? undefined
         if (deviceToken) {
           // Deliberately generic wording. The alert text is visible to Apple and
           // to this Worker, so naming the project here would undo the encryption
@@ -248,7 +265,7 @@ export default {
               alert: { title: 'Claude Live', body: body.notify },
               sound: 'default',
             },
-          })
+          }, deviceEnv)
         }
       }
 

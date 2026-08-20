@@ -93,7 +93,18 @@ final class RemoteStore: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("Bearer \(secret)", forHTTPHeaderField: "authorization")
         request.setValue("application/json", forHTTPHeaderField: "content-type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["deviceToken": hex])
+        // Which APNs world this token belongs to. A build on the cable registers
+        // with the sandbox, one from TestFlight with production, and a token from
+        // one is refused by the other — so the phone says which, instead of
+        // leaving the relay to guess for every build at once.
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["deviceToken": hex, "environment": environment]
+        )
         request.timeoutInterval = 15
 
         // Re-sent on every launch, not only at pairing: iOS may hand out a new
