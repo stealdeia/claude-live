@@ -16,74 +16,11 @@
  *   node tools/testflight.mjs expire-old     fa scadere tutte tranne la più recente
  *   node tools/testflight.mjs compliance     dichiara la crittografia se manca
  *
- * Serve la chiave in ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8 e le due
- * variabili ASC_KEY_ID e ASC_ISSUER_ID.
+ * Credenziali e firma stanno in `asc-client.mjs`.
  */
-import { createSign } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { api, app as findApp } from './asc-client.mjs'
 
-/// Le stesse impostazioni che usa `release.sh`, lette dallo stesso file: né
-/// l'identificativo della chiave né quello dell'emittente sono segreti — il
-/// segreto è il `.p8`, che sta fuori dal repo.
-function fromReleaseConf(name) {
-  try {
-    const conf = readFileSync(new URL('../release.conf', import.meta.url), 'utf8')
-    return conf.match(new RegExp(`^${name}="([^"]*)"`, 'm'))?.[1]
-  } catch {
-    return undefined
-  }
-}
-
-const KEY_ID = process.env.ASC_KEY_ID ?? fromReleaseConf('ASC_KEY_ID')
-const ISSUER = process.env.ASC_ISSUER_ID ?? fromReleaseConf('ASC_ISSUER_ID')
-const BUNDLE = process.env.ASC_BUNDLE_ID ?? fromReleaseConf('ASC_BUNDLE_ID') ?? 'it.aldeialab.ClaudeLiveMobile'
-
-if (!KEY_ID || !ISSUER) {
-  console.error('Mancano ASC_KEY_ID e ASC_ISSUER_ID: né nell\'ambiente né in release.conf.')
-  process.exit(2)
-}
-
-function token() {
-  const pem = readFileSync(`${homedir()}/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8`, 'utf8')
-  const b64 = (v) => Buffer.from(JSON.stringify(v)).toString('base64url')
-  const now = Math.floor(Date.now() / 1000)
-  const input = `${b64({ alg: 'ES256', kid: KEY_ID, typ: 'JWT' })}.${b64({
-    iss: ISSUER,
-    iat: now,
-    // Venti minuti è il massimo che Apple accetta; dieci lasciano margine
-    // all'orologio senza che il token viva più del necessario.
-    exp: now + 600,
-    aud: 'appstoreconnect-v1',
-  })}`
-  const signer = createSign('sha256')
-  signer.update(input)
-  const sig = signer.sign({ key: pem, dsaEncoding: 'ieee-p1363' })
-  return `${input}.${sig.toString('base64url')}`
-}
-
-async function api(path, options = {}) {
-  const response = await fetch(`https://api.appstoreconnect.apple.com${path}`, {
-    ...options,
-    headers: {
-      authorization: `Bearer ${token()}`,
-      'content-type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-  })
-  const text = await response.text()
-  if (!response.ok) {
-    throw new Error(`${response.status} su ${path}: ${text.slice(0, 400)}`)
-  }
-  return text ? JSON.parse(text) : null
-}
-
-const apps = await api(`/v1/apps?filter[bundleId]=${encodeURIComponent(BUNDLE)}`)
-const app = apps.data[0]
-if (!app) {
-  console.error(`Nessuna app con bundle id ${BUNDLE}. Va creata su App Store Connect.`)
-  process.exit(1)
-}
+const app = await findApp()
 console.log(`App: ${app.attributes.name} (${app.id})`)
 
 const builds = await api(
