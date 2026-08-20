@@ -50,6 +50,68 @@ enum HookInstaller {
         return false
     }
 
+    /// Lo script che questa build porta con sé.
+    static func bundledHookURL() -> URL? {
+        if let bundled = Bundle.main.url(forResource: "claude-hub-status", withExtension: "py") {
+            return bundled
+        }
+        var directory = Bundle.main.bundleURL
+        for _ in 0..<5 {
+            let candidate = directory.appendingPathComponent("Resources/claude-hub-status.py")
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+            directory.deleteLastPathComponent()
+        }
+        return nil
+    }
+
+    private static var installedHookURL: URL {
+        Paths.home.appendingPathComponent(".claude-hub/bin/claude-hub-status.py")
+    }
+
+    /// Se la copia in uso non è quella di questa build.
+    ///
+    /// Confrontata per contenuto e non per data: un aggiornamento ripristina i
+    /// file con le date che gli pare, e un numero di versione dentro lo script
+    /// sarebbe una cosa in più da ricordarsi di alzare — cioè una cosa in più da
+    /// dimenticare.
+    static func installedHookIsStale() -> Bool {
+        guard let bundled = bundledHookURL(),
+              let shipped = try? Data(contentsOf: bundled),
+              let installed = try? Data(contentsOf: installedHookURL)
+        else {
+            // Niente installato, o niente nel bundle: non c'è nulla di stantio.
+            // Se gli hook *debbano* esserci è la domanda di `areHooksInstalled`,
+            // e installare qualcosa che nessuno ha chiesto non è affare di questa
+            // funzione.
+            return false
+        }
+        return installed != shipped
+    }
+
+    /// Porta la copia installata alla versione di questa build.
+    ///
+    /// Gli hook sono una copia in `~/.claude-hub/bin`, quindi aggiornare l'app
+    /// lascia in vita lo script vecchio: ogni correzione che vive lì dentro resta
+    /// inerte finché qualcuno non premesse un bottone di cui non ha ragione di
+    /// sapere. La 0.6.5 e la 0.7.0 sono uscite entrambe con una riga nelle note
+    /// che lo chiedeva — il genere di istruzione che nessuno legge, e che nessuno
+    /// dovrebbe dover leggere.
+    ///
+    /// Non installa mai ciò che non c'era già. Se gli hook non sono mai stati
+    /// messi, un aggiornamento non è il momento di deciderlo per l'utente.
+    @discardableResult
+    static func refreshIfStale() -> Bool {
+        guard areHooksInstalled(), installedHookIsStale() else { return false }
+        switch run() {
+        case .success:
+            Log.info("Hook aggiornati alla versione di questa build.", category: .status)
+            return true
+        case .failure(let message):
+            Log.error("Aggiornamento degli hook fallito: \(message)", category: .status)
+            return false
+        }
+    }
+
     enum InstallResult {
         case success(log: String)
         case failure(message: String)

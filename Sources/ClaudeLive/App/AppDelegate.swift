@@ -46,6 +46,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil
         )
 
+        // Gli hook sono una copia su disco, quindi aggiornare l'app non li
+        // aggiorna. Fuori dal thread principale perché lancia python3, e l'avvio
+        // non deve aspettarlo.
+        DispatchQueue.global(qos: .utility).async { HookInstaller.refreshIfStale() }
+
         // Before any window can appear: without a main menu, Cmd+V does nothing
         // in every text field the app has.
         EditMenu.install()
