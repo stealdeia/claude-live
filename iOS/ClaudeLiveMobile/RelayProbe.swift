@@ -147,27 +147,49 @@ final class RelayProbe: NSObject, ObservableObject {
 extension RelayProbe: UNUserNotificationCenterDelegate {
     /// Arrival while the app is open. This is the clean transport measurement:
     /// no human sits between the push and the timestamp.
+    ///
+    /// Takes the completion handler rather than being `async`, for the reason
+    /// spelled out on `didReceive` below.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        if let sentAt = notification.request.content.userInfo["sentAt"] as? Double {
-            await record(sentAt: sentAt, arrival: .foreground)
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let sentAt = notification.request.content.userInfo["sentAt"] as? Double
+        Task { @MainActor in
+            if let sentAt { record(sentAt: sentAt, arrival: .foreground) }
+            // Returning the sound and banner explicitly is what stops iOS from
+            // silently dropping a notification that arrives while the app is
+            // open — the same trap the Mac app documents for `willPresent`.
+            completionHandler([.banner, .sound, .list])
         }
-        // Returning the sound and banner explicitly is what stops iOS from
-        // silently dropping a notification that arrives while the app is open —
-        // the same trap the Mac app documents for `willPresent`.
-        return [.banner, .sound, .list]
     }
 
     /// The notification was tapped. Honest about what it measures: the transport
     /// plus however long the phone sat unnoticed in a pocket.
+    ///
+    /// The `async` spelling of this method crashed the app. Swift calls UIKit's
+    /// completion handler on whatever thread the function happens to finish on,
+    /// and after the hop to the main actor for `record` that is a background
+    /// one; UIKit then does its snapshot and state-restoration work off the main
+    /// thread and aborts. Three crashes on 2026-08-20, all here.
+    ///
+    /// It hid for as long as it did because it needs `sentAt` to show itself:
+    /// without that field there is no await, the method returns on the thread it
+    /// was called on, and everything works. Only the speed-test push carries it,
+    /// so the permission notifications this app exists for never tripped it.
+    ///
+    /// Taking the completion handler explicitly is what makes the thread ours to
+    /// choose: it is called inside the main-actor task, always.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
-        if let sentAt = response.notification.request.content.userInfo["sentAt"] as? Double {
-            await record(sentAt: sentAt, arrival: .tapped)
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let sentAt = response.notification.request.content.userInfo["sentAt"] as? Double
+        Task { @MainActor in
+            if let sentAt { record(sentAt: sentAt, arrival: .tapped) }
+            completionHandler()
         }
     }
 }
