@@ -5,6 +5,20 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.7.1</title>
+      <sparkle:version>0.7.1</sparkle:version>
+      <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 20 Aug 2026 14:46:39 +0000</pubDate>
+      <description>&lt;p&gt;Gli hook si aggiornano da sé. Aggiornare l&amp;#x27;app non li aggiornava, e questo lasciava inerte metà di ogni versione.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Aggiornando l&amp;#x27;app, gli hook restavano quelli di prima.** Sono una copia dello script in &lt;code&gt;~/.claude-hub/bin&lt;/code&gt;, quindi un aggiornamento non li toccava: ogni correzione che vive lì dentro rimaneva spenta finché non si premeva «Reinstalla hook…», un bottone di cui non c&amp;#x27;è ragione di conoscere l&amp;#x27;esistenza. La 0.7.0 chiedeva di premerlo per la correzione più importante che portava — quella che smette di interrompere il lavoro per comandi che nessuno avrebbe chiesto. Ora l&amp;#x27;app se ne accorge da sola all&amp;#x27;avvio e li rimette a posto. **Se aggiorni da una versione precedente, la correzione sui permessi si attiva da sé al primo avvio: non devi fare niente.**&lt;/li&gt;
+&lt;li&gt;**Non installa niente a chi non li ha mai voluti.** Se gli hook non ci sono, un aggiornamento non è il momento di decidere di metterli: continua a essere una scelta tua, dal bottone nelle impostazioni.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.7.1/Claude.Live.0.7.1.dmg" length="2841028" type="application/octet-stream" sparkle:edSignature="eODpSJHtWlUigev+i5k+Rogx/Eczo+Z+X+SC58glKs9zQMRYmCoBOAMzD0xMY/DknsbtH/iS7DJBAnIrqlurDw==" />
+    </item>
+    <item>
       <title>Versione 0.7.0</title>
       <sparkle:version>0.7.0</sparkle:version>
       <sparkle:shortVersionString>0.7.0</sparkle:shortVersionString>
