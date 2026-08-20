@@ -111,6 +111,11 @@ for _ in $(seq 1 40); do
   sleep 15
 done
 
+# Prima di tutto il resto: una build senza dichiarazione non è installabile da
+# nessuno, e nessuno viene avvisato.
+echo "==> Dichiarazione sull'esportazione"
+node tools/testflight.mjs compliance
+
 echo "==> Faccio scadere le precedenti"
 node tools/testflight.mjs expire-old
 

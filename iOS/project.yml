@@ -61,6 +61,16 @@ targets:
         # nell'archivio, e App Store Connect rifiuta due volte lo stesso numero.
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # La dichiarazione sull'esportazione, scritta qui invece di essere data a
+        # mano a ogni caricamento. Senza, App Store Connect blocca la build su
+        # «Missing Compliance» e nessuno può installarla finché qualcuno non apre
+        # il pannello e risponde.
+        #
+        # Registra la risposta già data: l'app cifra con `ChaChaPoly` di
+        # CryptoKit, cioè la crittografia del sistema operativo, e non
+        # implementa né incorpora algoritmi propri — che nel questionario di
+        # Apple è «nessuno degli algoritmi citati».
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         NSCameraUsageDescription: La fotocamera serve solo a inquadrare il codice di accoppiamento mostrato dal Mac.
         UISupportedInterfaceOrientations:

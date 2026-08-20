@@ -14,6 +14,7 @@
  * Uso:
  *   node tools/testflight.mjs list
  *   node tools/testflight.mjs expire-old     fa scadere tutte tranne la più recente
+ *   node tools/testflight.mjs compliance     dichiara la crittografia se manca
  *
  * Serve la chiave in ~/.appstoreconnect/private_keys/AuthKey_<KEY_ID>.p8 e le due
  * variabili ASC_KEY_ID e ASC_ISSUER_ID.
@@ -102,6 +103,26 @@ const rows = builds.data.map((b) => ({
 for (const row of rows) {
   const flags = [row.state, row.expired ? 'SCADUTA' : 'attiva'].join(', ')
   console.log(`  build ${row.version.padEnd(4)} ${flags.padEnd(24)} ${row.uploaded}`)
+}
+
+if (process.argv[2] === 'compliance') {
+  // Rete di sicurezza per una build arrivata senza `ITSAppUsesNonExemptEncryption`
+  // nell'Info.plist. Ripete la dichiarazione scritta là, non ne prende una nuova:
+  // senza, la build resta bloccata su «Missing Compliance» e i tester non vedono
+  // niente, senza che nessuno riceva un avviso.
+  const pending = builds.data.filter((b) => b.attributes.usesNonExemptEncryption === null)
+  if (pending.length === 0) {
+    console.log('\nNessuna build in attesa di dichiarazione.')
+  }
+  for (const b of pending) {
+    await api(`/v1/builds/${b.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        data: { type: 'builds', id: b.id, attributes: { usesNonExemptEncryption: false } },
+      }),
+    })
+    console.log(`  build ${b.attributes.version}: dichiarazione registrata`)
+  }
 }
 
 if (process.argv[2] === 'expire-old') {
