@@ -274,8 +274,6 @@ final class ClaudeStatusStore: ObservableObject {
     func clearAlert(forPath path: String) {
         guard alerts[path] != nil else { return }
         alerts.removeValue(forKey: path)
-        // The banner goes with it: it was announcing this alert, and it is gone.
-        notifier.withdraw(forPath: path)
         Log.debug("Avviso azzerato per \(( path as NSString).lastPathComponent)", category: .status)
     }
 
@@ -370,7 +368,22 @@ final class ClaudeStatusStore: ObservableObject {
             .flatMap { $0 }
             .filter { $0.state == .waitingInput }
             .sorted { $0.updatedAt > $1.updatedAt }
-        if waiting != waitingSessions { waitingSessions = waiting }
+        if waiting != waitingSessions {
+            // A banner belongs to an open question. A project with no session left
+            // waiting has had its question answered — from the panel, from the
+            // phone, or in the terminal — so its banner goes too.
+            //
+            // Deliberately *not* done in `clearAlert`. Clearing an alert only means
+            // the strip stops calling it new; the request behind it can still be
+            // pending, and withdrawing there took the notification away while the
+            // question was still open. Observed on 2026-08-20: a banner appeared,
+            // vanished six seconds later, and left nothing on the Mac to answer.
+            let stillWaiting = Set(waiting.map(\.projectPath))
+            for path in Set(waitingSessions.map(\.projectPath)) where !stillWaiting.contains(path) {
+                notifier.withdraw(.waiting, forPath: path)
+            }
+            waitingSessions = waiting
+        }
 
         let aggregated = Self.aggregate(grouped)
         guard aggregated != statusesByPath else { return }

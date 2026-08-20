@@ -87,11 +87,10 @@ final class ClaudeAlertNotifier {
     /// sitting in Notification Center, still asking, for the rest of the day —
     /// reported on 2026-08-20. The banner is a statement about now; when now
     /// changes it has to go.
-    func withdraw(forPath path: String) {
-        let identifiers = ClaudeAlertKind.allCases.map {
-            Self.identifier(kind: $0, projectPath: path)
-        }
-        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+    func withdraw(_ kind: ClaudeAlertKind, forPath path: String) {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(
+            withIdentifiers: [Self.identifier(kind: kind, projectPath: path)]
+        )
     }
 
     private func body(for alert: ClaudeAlert, badge: String?) -> String? {
