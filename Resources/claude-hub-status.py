@@ -136,26 +136,60 @@ def short(text, limit=140):
     return " ".join(str(text).split())[:limit]
 
 
+# Keys whose value says what a request is about, most telling first. The order
+# carries the judgement: for Bash the command beats any description of it, for an
+# edit the path beats the text being written.
+TELLING_KEYS = (
+    "command", "file_path", "path", "pattern", "url", "prompt",
+    "question", "description", "query", "content",
+)
+
+
+def telling_string(data, depth=0):
+    """The most descriptive string inside a tool input, however nested.
+
+    Nested on purpose: a tool input is not always flat. `AskUserQuestion` keeps
+    its text at `questions[0]["question"]`, where a flat lookup finds nothing.
+    """
+    if depth > 4:
+        return None
+    if isinstance(data, dict):
+        for key in TELLING_KEYS:
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        for value in data.values():
+            found = telling_string(value, depth + 1)
+            if found:
+                return found
+    elif isinstance(data, list):
+        for value in data:
+            found = telling_string(value, depth + 1)
+            if found:
+                return found
+    return None
+
+
 def tool_summary(payload):
     """One readable line describing what Claude wants to do.
 
-    Shown on a panel button, so the interesting part of the tool input matters
-    more than completeness: the command for Bash, the path for file edits.
+    Shown on a panel button and inside a macOS notification, so the interesting
+    part of the tool input matters more than completeness: the command for Bash,
+    the path for file edits.
+
+    Never falls back to dumping the input as JSON. It used to, and on 2026-08-20
+    a permission notification arrived as a wall of braces and quotes — the tool
+    was `AskUserQuestion`, whose text is nested and so matched none of the keys
+    being looked at. A tool's bare name says less, but a notification nobody can
+    read says nothing at all.
     """
     tool = payload.get("tool_name") or ""
     data = payload.get("tool_input")
     if not isinstance(data, dict):
         return short(tool)
 
-    for key in ("command", "file_path", "path", "pattern", "url", "prompt"):
-        value = data.get(key)
-        if isinstance(value, str) and value.strip():
-            return short(value)
-
-    try:
-        return short(json.dumps(data, ensure_ascii=False))
-    except Exception:
-        return short(tool)
+    found = telling_string(data)
+    return short(found) if found else short(tool)
 
 
 def detail(payload):

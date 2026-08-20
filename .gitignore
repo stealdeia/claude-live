@@ -30,3 +30,6 @@ BACKUP-*
 
 # Worktree delle sessioni Claude Code: repository a sé, non contenuto di questo.
 .claude/
+
+# Prodotto importando gli script come modulo, per le prove.
+__pycache__/
