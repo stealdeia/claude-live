@@ -5,6 +5,20 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.6.6</title>
+      <sparkle:version>0.6.6</sparkle:version>
+      <sparkle:shortVersionString>0.6.6</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 20 Aug 2026 11:17:06 +0000</pubDate>
+      <description>&lt;p&gt;Corregge un difetto introdotto nella 0.6.5: la notifica di una richiesta di permesso poteva sparire mentre la domanda era ancora aperta.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**La notifica se ne andava troppo presto.** Nella 0.6.5 il banner veniva ritirato quando l&amp;#x27;avviso sulla striscia si azzerava — e quelle due cose non sono la stessa: la striscia smette di segnalare un avviso come *nuovo* anche quando la richiesta è ancora lì ad aspettare una risposta. Con il permesso di Accessibilità concesso l&amp;#x27;azzeramento avviene in pochi secondi, appena Claude Live riconosce che hai davanti l&amp;#x27;editor di quel progetto, e il risultato era una notifica comparsa e svanita senza lasciare niente da cliccare. Ora il banner viene ritirato quando la domanda si chiude davvero, qualunque sia la strada: il pannello, il telefono, o il terminale.&lt;/li&gt;
+&lt;li&gt;**I banner informativi restano.** «Claude ha finito» e «si è interrotto» non chiedono nulla, quindi non vengono più portati via: se non li hai letti, sono ancora lì.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.6.6/Claude.Live.0.6.6.dmg" length="2836590" type="application/octet-stream" sparkle:edSignature="bGLqB360xjfeVwGA/3DIdT3NTEFbnbg/qIXaJOua7ilUcarQCBNC03atlPQnxVA6+OFaqRtRvBM3BqGDzRRNDA==" />
+    </item>
+    <item>
       <title>Versione 0.6.5</title>
       <sparkle:version>0.6.5</sparkle:version>
       <sparkle:shortVersionString>0.6.5</sparkle:shortVersionString>
