@@ -357,7 +357,23 @@ final class ClaudeStatusStore: ObservableObject {
             Log.debug("Rimossi \(purged) file di stato obsoleti (>24h)", category: .status)
         }
 
-        let normalized = sessions.map { $0.movedToProjectRoot(among: knownProjectPaths) }
+        // Il titolo che Claude Code dà alla chat, cercato nella sua trascrizione.
+        //
+        // Con la cartella di lavoro e non con la radice del progetto: Claude Code
+        // nomina la cartella delle trascrizioni sul percorso da cui è stato
+        // avviato, e la riattribuzione qui sopra sposta la sessione *verso la
+        // radice*, cioè lontano da quello. Se anche così non si trova, il lettore
+        // cerca la sessione per identificativo.
+        let normalized = sessions
+            .map { $0.movedToProjectRoot(among: knownProjectPaths) }
+            .map { session in
+                session.withChatTitle(
+                    ChatTitles.title(
+                        projectPath: session.cwd ?? session.projectPath,
+                        sessionID: session.sessionID
+                    )
+                )
+            }
         let grouped = Self.group(normalized, now: now, staleAfter: staleAfter)
         if grouped != sessionsByPath { sessionsByPath = grouped }
 

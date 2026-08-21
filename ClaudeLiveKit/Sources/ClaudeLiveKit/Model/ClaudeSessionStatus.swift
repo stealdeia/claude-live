@@ -78,6 +78,14 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
     /// "said nothing".
     public let lastMessage: String?
 
+    /// Il titolo che Claude Code dà a questa chat, quello che si legge sopra la
+    /// conversazione.
+    ///
+    /// Non arriva dall'hook: Claude Code lo scrive nella trascrizione della
+    /// sessione e l'app lo va a leggere. `nil` finché non è stato trovato — una
+    /// chat appena aperta non ne ha ancora uno.
+    public let chatTitle: String?
+
     public var id: String { "\(projectPath)#\(sessionID)" }
 
     /// Enough of the session id to tell two chats apart in a row.
@@ -87,6 +95,10 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
     /// when that differs from the project root — the only thing the hook gives us
     /// that a human recognises — and the short session id otherwise.
     public var chatLabel: String {
+        // Il titolo di Claude Code quando c'è: è quello che l'utente legge sopra
+        // la conversazione, quindi è l'unico nome con cui riconosce una chat.
+        if let chatTitle, !chatTitle.isEmpty { return chatTitle }
+
         if let cwd, !cwd.isEmpty, cwd != projectPath {
             if cwd.hasPrefix(projectPath + "/") {
                 let relative = String(cwd.dropFirst(projectPath.count + 1))
@@ -174,6 +186,10 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         lastMessage = (rawMessage?.isEmpty == false) ? rawMessage : nil
 
+        let rawTitle = (json["chat_title"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        chatTitle = (rawTitle?.isEmpty == false) ? rawTitle : nil
+
         if let epoch = json["updated_at_epoch"] as? Double {
             updatedAt = Date(timeIntervalSince1970: epoch)
         } else {
@@ -197,7 +213,8 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         toolName: String?,
         toolSummary: String?,
         lastMessage: String?,
-        decidable: Bool
+        decidable: Bool,
+        chatTitle: String? = nil
     ) {
         self.projectPath = projectPath
         self.projectName = projectName
@@ -215,6 +232,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         self.toolSummary = toolSummary
         self.lastMessage = lastMessage
         self.decidable = decidable
+        self.chatTitle = chatTitle
     }
 
     /// Re-attributes this session to the deepest known project that contains it.
@@ -247,12 +265,41 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
             toolName: toolName,
             toolSummary: toolSummary,
             lastMessage: lastMessage,
-            decidable: decidable
+            decidable: decidable,
+            chatTitle: chatTitle
         )
     }
 }
 
 extension ClaudeSessionStatus {
+    /// La stessa sessione con il titolo che Claude Code le ha dato.
+    ///
+    /// Applicato dopo il caricamento e non decodificato: il titolo vive nella
+    /// trascrizione della sessione, non nel file di stato che scrive l'hook, e
+    /// leggerlo è lavoro dell'app.
+    public func withChatTitle(_ title: String?) -> ClaudeSessionStatus {
+        guard let title, !title.isEmpty, title != chatTitle else { return self }
+        return ClaudeSessionStatus(
+            projectPath: projectPath,
+            projectName: projectName,
+            sessionID: sessionID,
+            state: state,
+            cwd: cwd,
+            isStale: isStale,
+            detail: detail,
+            requestKind: requestKind,
+            event: event,
+            permissionMode: permissionMode,
+            updatedAt: updatedAt,
+            requestID: requestID,
+            toolName: toolName,
+            toolSummary: toolSummary,
+            lastMessage: lastMessage,
+            decidable: decidable,
+            chatTitle: title
+        )
+    }
+
     /// Same session with its state replaced, for the store's "claimed to be busy
     /// but stopped reporting" downgrade. `isStale` records that it happened, so a
     /// row can say so instead of silently showing something else.
@@ -273,7 +320,8 @@ extension ClaudeSessionStatus {
             toolName: toolName,
             toolSummary: toolSummary,
             lastMessage: lastMessage,
-            decidable: decidable
+            decidable: decidable,
+            chatTitle: chatTitle
         )
     }
 }
