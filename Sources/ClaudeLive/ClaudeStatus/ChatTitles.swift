@@ -32,6 +32,12 @@ enum ChatTitles {
     private static let lock = NSLock()
     private static var titles: [String: Cached] = [:]
     private static var transcripts: [String: URL] = [:]
+    /// Le sessioni per cui una trascrizione non esiste, con quando si è guardato.
+    ///
+    /// In cache anche i fallimenti, perché cercarla costa il giro di tutte le
+    /// cartelle di progetto — cinquanta, qui — e una sessione senza trascrizione
+    /// verrebbe cercata a ogni scansione, per sempre.
+    private static var missing: [String: Date] = [:]
 
     /// Il titolo di una chat, o `nil` se non ne ha ancora uno.
     static func title(projectPath: String, sessionID: String) -> String? {
@@ -49,6 +55,17 @@ enum ChatTitles {
         return found
     }
 
+    /// Se Claude Code ha scritto una trascrizione per questa sessione.
+    ///
+    /// Una sessione senza trascrizione non è una conversazione: ha annunciato di
+    /// esistere e non ha mai prodotto una riga. Succede aprendo una chat e
+    /// chiudendola senza usarla — e se l'evento di chiusura non scatta, quel file
+    /// di stato resta a fingersi una chat viva per ventiquattr'ore. Osservato il
+    /// 2026-08-21 su un progetto che mostrava due chat avendone una.
+    static func hasTranscript(projectPath: String, sessionID: String) -> Bool {
+        transcript(projectPath: projectPath, sessionID: sessionID) != nil
+    }
+
     // MARK: - Dove sta la trascrizione
 
     /// Claude Code sostituisce con `-` tutto ciò che non è una lettera o una
@@ -63,6 +80,10 @@ enum ChatTitles {
         if let known = transcripts[sessionID] {
             lock.unlock()
             return FileManager.default.fileExists(atPath: known.path) ? known : nil
+        }
+        if let checked = missing[sessionID], Date().timeIntervalSince(checked) < freshness {
+            lock.unlock()
+            return nil
         }
         lock.unlock()
 
@@ -91,9 +112,13 @@ enum ChatTitles {
             }
         }
 
-        guard let found else { return nil }
         lock.lock()
-        transcripts[sessionID] = found
+        if let found {
+            transcripts[sessionID] = found
+            missing[sessionID] = nil
+        } else {
+            missing[sessionID] = Date()
+        }
         lock.unlock()
         return found
     }

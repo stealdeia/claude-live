@@ -350,6 +350,30 @@ final class ClaudeStatusStore: ObservableObject {
                 continue
             }
 
+            // Una sessione che non ha mai scritto una trascrizione non è una
+            // conversazione: ha annunciato di esistere e nient'altro. Senza
+            // evento di chiusura resterebbe a fingersi una chat viva fino alla
+            // pulizia delle ventiquattr'ore.
+            //
+            // Cancellare è innocuo perché il file si ricrea da sé: qualunque
+            // evento di quella sessione lo riscrive. Quindi sbagliarsi costa una
+            // riga che riappare, non una chat perduta.
+            //
+            // I dieci minuti servono a una chat appena aperta, che la
+            // trascrizione non l'ha ancora scritta.
+            if now.timeIntervalSince(session.updatedAt) > 10 * 60,
+               !ChatTitles.hasTranscript(
+                   projectPath: session.cwd ?? session.projectPath,
+                   sessionID: session.sessionID
+               ) {
+                try? fileManager.removeItem(at: file)
+                Log.debug(
+                    "Sessione senza trascrizione rimossa: \(session.sessionID.prefix(8)) in \(session.projectName)",
+                    category: .status
+                )
+                continue
+            }
+
             sessions.append(session)
         }
 
