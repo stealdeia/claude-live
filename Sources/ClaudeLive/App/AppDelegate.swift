@@ -304,19 +304,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Live in the Finder is the one gesture that works no matter what is on screen,
     /// and without it "hide the icon" could be a one-way door.
     ///
-    /// Rimandato di un istante perché **cliccare una notifica attiva l'app**, e
-    /// macOS riferisce anche quell'attivazione come una riapertura. Il gestore
-    /// della notifica arriva subito dopo e annulla: aprire le Impostazioni sopra
-    /// la finestra che l'utente ha effettivamente chiesto è peggio che non aprire
-    /// niente. Segnalato il 2026-08-21.
+    /// **Cliccare una notifica attiva l'app**, e macOS riferisce anche quella
+    /// attivazione come una riapertura: la stessa chiamata del doppio clic dal
+    /// Finder. Aprire le Impostazioni sopra la finestra che l'utente ha
+    /// effettivamente chiesto è peggio che non aprire niente. Segnalato il
+    /// 2026-08-21.
     ///
-    /// Rimandato e non deciso in base a un orario, perché l'ordine delle due
-    /// chiamate non è garantito: annullare funziona in entrambi i sensi, un
-    /// confronto fra timestamp funzionerebbe in uno solo.
+    /// Servono **due** difese, perché l'ordine delle due chiamate non è
+    /// garantito e il primo tentativo ne aveva solo una — rimandare e lasciare
+    /// annullare — che copre un ordine e non l'altro: se il gestore della
+    /// notifica arriva prima, non c'è ancora niente da annullare e la riapertura
+    /// scatta imperturbata. È esattamente quello che è successo.
+    ///
+    /// Quindi: si rimanda di un istante *e* si guarda se una notifica è stata
+    /// cliccata poco fa. La prima difesa copre «riapertura, poi notifica», la
+    /// seconda «notifica, poi riapertura».
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if let last = lastNotificationClick, Date().timeIntervalSince(last) < 2 {
+            Log.debug("Riapertura ignorata: era il clic su una notifica", category: .status)
+            return true
+        }
+        Log.debug("Riapertura richiesta da macOS", category: .status)
         pendingReopen?.cancel()
         let work = DispatchWorkItem { [weak self] in
             self?.pendingReopen = nil
+            Log.debug("Riapertura: apro le Impostazioni", category: .status)
             self?.settingsWindow.show()
         }
         pendingReopen = work
@@ -326,6 +338,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     /// L'apertura delle Impostazioni in attesa di essere confermata o annullata.
     private var pendingReopen: DispatchWorkItem?
+
+    /// Quando è stata cliccata l'ultima notifica, per riconoscere l'attivazione
+    /// che ne deriva anche quando macOS la riferisce dopo.
+    private var lastNotificationClick: Date?
 
     /// Brings the *active* surface to the user's attention.
     ///
@@ -464,9 +480,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let info = response.notification.request.content.userInfo
         let path = info["projectPath"] as? String
         Task { @MainActor in
-            // Questa attivazione ha già un motivo: la notifica. Qualunque
-            // riapertura che macOS abbia riferito per lo stesso gesto va
-            // annullata, e c'è tempo perché quella è rimandata di 0,4 secondi.
+            // Questa attivazione ha già un motivo: la notifica. Si annulla la
+            // riapertura già in attesa, e si lascia traccia dell'orario per
+            // riconoscerla se macOS la riferisce dopo.
+            Log.debug("Notifica cliccata (progetto: \(path ?? "nessuno"))", category: .status)
+            self.lastNotificationClick = Date()
             self.pendingReopen?.cancel()
             self.pendingReopen = nil
             if let path, !path.isEmpty {
