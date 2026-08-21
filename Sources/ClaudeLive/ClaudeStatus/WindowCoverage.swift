@@ -59,7 +59,9 @@ enum WindowCoverage {
                 guard let project = VSCodeCLI.resolveProject(fromTitle: window.title, catalog: catalog).path
                 else { continue }
 
-                let seen = fraction(of: window.frame, pid: app.processIdentifier, in: onScreen)
+                let seen = window.frame.map {
+                    fraction(of: $0, pid: app.processIdentifier, in: onScreen)
+                } ?? 0
                 visible[project] = (visible[project] ?? false) || seen >= visibleThreshold
                 measured[project] = max(measured[project] ?? 0, seen)
             }
@@ -111,7 +113,9 @@ enum WindowCoverage {
 
     private struct EditorWindow {
         let title: String
-        let frame: CGRect
+        /// Nil quando la finestra non ha una posizione sullo schermo: ridotta a
+        /// icona. Non è un dato mancante, è la risposta.
+        let frame: CGRect?
     }
 
     private static func axWindows(pid: pid_t) -> [EditorWindow] {
@@ -126,10 +130,24 @@ enum WindowCoverage {
         else { return [] }
 
         return windows.compactMap { window in
-            guard let title = attribute(window, kAXTitleAttribute) as? String, !title.isEmpty,
-                  let positionValue = attribute(window, kAXPositionAttribute),
-                  let sizeValue = attribute(window, kAXSizeAttribute)
+            guard let title = attribute(window, kAXTitleAttribute) as? String, !title.isEmpty
             else { return nil }
+
+            // Ridotta a icona: è il caso più coperto che esista, e va riferito come
+            // tale invece di scartato. Scartarla la faceva risultare *inesistente*,
+            // quindi non coperta — e il trattenimento si interrompeva subito dopo
+            // essere iniziato. Diagnosticato il 2026-08-21, dopo sette tentativi.
+            if attribute(window, kAXMinimizedAttribute) as? Bool == true {
+                return EditorWindow(title: title, frame: nil)
+            }
+
+            guard let positionValue = attribute(window, kAXPositionAttribute),
+                  let sizeValue = attribute(window, kAXSizeAttribute)
+            else {
+                // Senza posizione né dimensione non si può vedere: non è un dato
+                // che manca, è una finestra che non è da nessuna parte.
+                return EditorWindow(title: title, frame: nil)
+            }
 
             var origin = CGPoint.zero
             var size = CGSize.zero
@@ -137,7 +155,7 @@ enum WindowCoverage {
             guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &origin),
                   AXValueGetValue(sizeValue as! AXValue, .cgSize, &size),
                   size.width > 1, size.height > 1
-            else { return nil }
+            else { return EditorWindow(title: title, frame: nil) }
 
             return EditorWindow(title: title, frame: CGRect(origin: origin, size: size))
         }

@@ -272,6 +272,38 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
 }
 
 extension ClaudeSessionStatus {
+    /// La stessa sessione, con la richiesta che un hook sta aspettando.
+    ///
+    /// Sovrapposta al record letto dal file di stato invece di fidarsi di quello:
+    /// il file di stato è uno per sessione e lo riscrive qualunque evento, quindi
+    /// la richiesta rispondibile ci sopravvive per caso. La fonte affidabile è il
+    /// file che l'hook in attesa tiene aperto per sé.
+    public func answering(
+        requestID: String,
+        toolName: String?,
+        toolSummary: String?
+    ) -> ClaudeSessionStatus {
+        ClaudeSessionStatus(
+            projectPath: projectPath,
+            projectName: projectName,
+            sessionID: sessionID,
+            state: .waitingInput,
+            cwd: cwd,
+            isStale: isStale,
+            detail: detail,
+            requestKind: "permission",
+            event: event,
+            permissionMode: permissionMode,
+            updatedAt: updatedAt,
+            requestID: requestID,
+            toolName: toolName ?? self.toolName,
+            toolSummary: toolSummary ?? self.toolSummary,
+            lastMessage: lastMessage,
+            decidable: true,
+            chatTitle: chatTitle
+        )
+    }
+
     /// La stessa sessione con il titolo che Claude Code le ha dato.
     ///
     /// Applicato dopo il caricamento e non decodificato: il titolo vive nella

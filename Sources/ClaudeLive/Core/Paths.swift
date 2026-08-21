@@ -40,6 +40,16 @@ enum Paths {
     }
 
     /// Where the app drops its answers to permission requests; the hook polls here.
+    /// Una richiesta rispondibile per file, scritta dall'hook che la sta
+    /// aspettando e rimossa quando smette.
+    ///
+    /// Separata dai file di stato perché quelli sono uno per sessione e li
+    /// riscrive qualunque evento: la richiesta che qualcuno sta aspettando non può
+    /// condividere un file con nient'altro.
+    static var pendingDirectory: URL {
+        hubDirectory.appendingPathComponent("pending", isDirectory: true)
+    }
+
     static var decisionsDirectory: URL {
         hubDirectory.appendingPathComponent("decisions", isDirectory: true)
     }
@@ -69,7 +79,7 @@ enum Paths {
     /// Created eagerly: FSEvents needs the directory to exist before the watcher
     /// starts, otherwise it watches a path that never resolves.
     static func ensureStatusDirectory() {
-        for dir in [statusDirectory, decisionsDirectory] {
+        for dir in [statusDirectory, decisionsDirectory, pendingDirectory] {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
     }

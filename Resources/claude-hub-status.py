@@ -48,6 +48,15 @@ HUB = os.path.join(os.path.expanduser("~"), ".claude-hub")
 STATUS_DIR = os.path.join(HUB, "status")
 DECISIONS_DIR = os.path.join(HUB, "decisions")
 ALLOWLIST = os.path.join(HUB, "allowlist.json")
+# Una richiesta rispondibile per file, in una cartella sua.
+#
+# Il file di stato della sessione è uno solo e lo riscrive qualunque
+# evento: `Notification` e `PermissionRequest` arrivano nello stesso
+# istante descrivendo la stessa domanda in una forma a cui nessuno può
+# rispondere, e vince l'ultimo che scrive. Difenderlo è stato rattoppato
+# due volte il 2026-08-21 e ha continuato a perdere: la richiesta che
+# l'hook sta aspettando non deve condividere un file con nient'altro.
+PENDING_DIR = os.path.join(HUB, "pending")
 HEARTBEAT = os.path.join(HUB, "app-heartbeat")
 CONFIG = os.path.join(HUB, "config.json")
 
@@ -260,7 +269,7 @@ def wait_seconds(reason="away"):
     """
     config = read_json(CONFIG, {})
     key = "covered_wait_seconds" if reason == "covered" else "decision_wait_seconds"
-    default = 10 if reason == "covered" else DEFAULT_WAIT_SECONDS
+    default = 45 if reason == "covered" else DEFAULT_WAIT_SECONDS
     try:
         return max(0, min(600, float(config.get(key, default))))
     except Exception:
@@ -517,15 +526,19 @@ def await_decision(request_id, timeout, tool=None, path=None):
     Claude frozen with the person who could answer it sitting right there — the
     exact situation the whole away/home distinction exists to avoid.
     """
-    path = os.path.join(DECISIONS_DIR, f"{request_id}.json")
+    # Non chiamare questo `path`: il percorso del progetto arriva come parametro
+    # con quel nome, e sovrascriverlo faceva chiedere a still_holding() se fosse
+    # coperto un file di risposta invece di una finestra. Rispondeva no, e ogni
+    # attesa «finestra coperta» finiva al primo giro. Nomi distinti, allora.
+    decision_file = os.path.join(DECISIONS_DIR, f"{request_id}.json")
     deadline = time.time() + timeout
     while time.time() < deadline:
         if tool is not None and path is not None and not still_holding(path):
             return None
-        if os.path.exists(path):
-            answer = read_json(path, {})
+        if os.path.exists(decision_file):
+            answer = read_json(decision_file, {})
             try:
-                os.remove(path)
+                os.remove(decision_file)
             except OSError:
                 pass
             behavior = answer.get("behavior")
@@ -588,6 +601,37 @@ def main():
     timeout = wait_seconds(reason or "away") if is_permission else 0
     decidable = bool(is_permission and request_id and timeout > 0 and app_is_running())
 
+    # Un trattenimento che non offre pulsanti è il difetto più difficile di tutto
+    # questo impianto: quattro condizioni concorrono e nessuna lasciava traccia,
+    # quindi una risposta mancante non era distinguibile da un'altra. Ci sono
+    # voluti quattro tentativi il 2026-08-21.
+    #
+    # Registrato solo quando succede: se il meccanismo funziona questo file non
+    # esiste, e la sua presenza è già metà della diagnosi.
+    # Il caso che vale la pena registrare non è quello che funziona, è quello in
+    # cui c'era una domanda da girare al pannello e non l'abbiamo girata. Scritto
+    # solo allora: un diario che registra tutto è un diario che nessuno legge, e
+    # per una settimana ha nascosto qui in mezzo la riga che serviva.
+    if is_permission and not decidable:
+        try:
+            log = os.path.join(HUB, "gate.log")
+            if not os.path.exists(log) or os.path.getsize(log) < 512 * 1024:
+                with open(log, "a", encoding="utf-8") as handle:
+                    handle.write(json.dumps({
+                        "at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "project": os.path.basename(path),
+                        "event": event,
+                        "tool": tool,
+                        "mode": payload.get("permission_mode"),
+                        # Perché non era rispondibile: manca il motivo per
+                        # trattenere, l'identificativo della richiesta, o l'app.
+                        "reason": reason,
+                        "has_request_id": bool(request_id),
+                        "app_running": app_is_running(),
+                    }) + "\n")
+        except Exception:
+            pass
+
     record = {
         "schema": SCHEMA,
         "state": state,
@@ -604,21 +648,65 @@ def main():
         "tool_name": tool,
         "tool_summary": summary,
         "decidable": decidable,
+        # Fino a quando questa richiesta è rispondibile. Serve a difenderla da chi
+        # scrive dopo.
+        "hold_until": (time.time() + timeout) if decidable else 0,
         "updated_at_epoch": time.time(),
         "pid": os.getpid(),
     }
+
+    # Un record rispondibile non si lascia sovrascrivere da uno che non lo è.
+    #
+    # `PermissionRequest` scatta *insieme* a `PreToolUse` — misurato il 2026-08-21,
+    # due righe con lo stesso secondo — e non porta il `tool_use_id`, quindi
+    # descrive la stessa domanda in una forma a cui nessuno può rispondere. C'è un
+    # file di stato per sessione e vince l'ultimo che scrive: il pannello leggeva
+    # quello e non trovava nulla da offrire, mentre l'hook era lì che aspettava.
+    #
+    # Va detto che il commento di `gating` sostiene il contrario, sulla base di una
+    # misura del 19 agosto: `PermissionRequest` non scattava. Adesso scatta.
+    #
+    # Solo mentre l'attesa è in corso: quando scade, il record *deve* smettere di
+    # dirsi rispondibile, e allora la sovrascrittura è quella giusta.
+    if event in ("PermissionRequest", "Notification") and not decidable:
+        existing = read_json(target, {})
+        if existing.get("decidable") and float(existing.get("hold_until") or 0) > time.time():
+            return
+
     write_atomic(target, record)
 
     if not decidable:
         return
 
-    answer = await_decision(
-        request_id, timeout, tool if event == "PreToolUse" else None, path
-    )
+    # Il file che il pannello legge per offrire i pulsanti. Vive quanto l'attesa.
+    pending_file = os.path.join(PENDING_DIR, f"{request_id}.json")
+    write_atomic(pending_file, {
+        "request_id": request_id,
+        "project_path": path,
+        "project_name": os.path.basename(path.rstrip("/")) if path else "",
+        "session_id": session,
+        "tool_name": tool or "",
+        "tool_summary": summary,
+        "reason": reason,
+        "hold_until": time.time() + timeout,
+        "at": time.time(),
+    })
+    try:
+        answer = await_decision(
+            request_id, timeout, tool if event == "PreToolUse" else None, path
+        )
+    finally:
+        # In ogni caso: risposta data, attesa scaduta, o errore. Un file rimasto
+        # qui offrirebbe un pulsante per una domanda che non aspetta più nessuno.
+        try:
+            os.remove(pending_file)
+        except OSError:
+            pass
     if answer is None:
         # No answer in time: print nothing, so Claude Code prompts in the terminal
         # exactly as it would without this hook.
         record["decidable"] = False
+        record["hold_until"] = 0
         record["updated_at_epoch"] = time.time()
         write_atomic(target, record)
         return
@@ -632,6 +720,7 @@ def main():
     # The answer was given, so the session is no longer waiting on the user.
     record["state"] = "working" if behavior == "allow" else "idle"
     record["decidable"] = False
+    record["hold_until"] = 0
     record["request_id"] = ""
     record["updated_at_epoch"] = time.time()
     write_atomic(target, record)

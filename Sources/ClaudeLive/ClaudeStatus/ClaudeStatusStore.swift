@@ -34,6 +34,7 @@ final class ClaudeStatusStore: ObservableObject {
     private let purgeAfter: TimeInterval = 24 * 60 * 60
 
     private var watcher: DirectoryWatcher?
+    private var pendingWatcher: DirectoryWatcher?
     private var staleTicker: Timer?
     private var heartbeatTicker: Timer?
     private let settings: Settings
@@ -94,6 +95,14 @@ final class ClaudeStatusStore: ObservableObject {
             Task { @MainActor in self?.scan() }
         }
         watcher?.start()
+
+        // La cartella delle richieste in attesa cambia in momenti diversi da quella
+        // degli stati — l'hook la scrive mentre aspetta — e i pulsanti devono
+        // comparire allora, non alla scansione successiva.
+        pendingWatcher = DirectoryWatcher(url: Paths.pendingDirectory) { [weak self] in
+            Task { @MainActor in self?.scan() }
+        }
+        pendingWatcher?.start()
 
         // FSEvents covers file changes; this ticker exists for the passage of
         // time alone — a `working` record going stale is not a file event.
@@ -170,11 +179,21 @@ final class ClaudeStatusStore: ObservableObject {
 
     /// Quanto trattenere quando la finestra è coperta.
     ///
-    /// Pochi secondi, non i cinque minuti dell'essere via: là il terminale non lo
-    /// guarda nessuno, qui potrebbe bastare che tu porti avanti la finestra. Dieci
-    /// secondi sono abbastanza per accorgersi del pannello e pochi per non far
-    /// sembrare che qualcosa si sia piantato.
-    private static let coveredWaitSeconds: Double = 10
+    /// Erano dieci secondi, per prudenza — «l'utente è al Mac, il silenzio è un
+    /// intralcio». Prudenza mal calibrata: quando la finestra è coperta il
+    /// terminale non lo si sta guardando, quindi non c'è nessun silenzio da
+    /// notare, e dieci secondi non bastano ad accorgersi del pannello e aprirlo.
+    ///
+    /// Nota su come ci siamo arrivati: per un giorno intero i pulsanti non
+    /// comparivano affatto, e la colpa era di una variabile sovrascritta
+    /// nell'hook, non di questo numero. Alzarlo non ha risolto niente. Il numero
+    /// resta 45 perché è giusto, non perché abbia mai curato quel sintomo.
+    ///
+    /// Quarantacinque, e comunque meno dei cinque minuti dell'essere via: là non
+    /// c'è nessuno, qui potresti essere sul punto di guardare il terminale. E
+    /// finisce da sé nell'istante in cui porti avanti quella finestra, che è ciò
+    /// che rende questo numero poco importante.
+    private static let coveredWaitSeconds: Double = 45
 
     /// I progetti la cui finestra è coperta, per l'hook.
     private var coveredProjects: Set<String> = []
@@ -412,8 +431,21 @@ final class ClaudeStatusStore: ObservableObject {
         // avviato, e la riattribuzione qui sopra sposta la sessione *verso la
         // radice*, cioè lontano da quello. Se anche così non si trova, il lettore
         // cerca la sessione per identificativo.
+        // Le richieste che un hook sta davvero aspettando, per identificativo di
+        // sessione. Sovrascrivono ciò che dice il file di stato, che su questo
+        // punto non è affidabile.
+        let pending = Self.loadPending()
+
         let normalized = sessions
             .map { $0.movedToProjectRoot(among: knownProjectPaths) }
+            .map { session in
+                guard let request = pending[session.sessionID] else { return session }
+                return session.answering(
+                    requestID: request.requestID,
+                    toolName: request.toolName,
+                    toolSummary: request.toolSummary
+                )
+            }
             .map { session in
                 session.withChatTitle(
                     ChatTitles.title(
@@ -472,6 +504,44 @@ final class ClaudeStatusStore: ObservableObject {
 
     /// Groups sessions by project, downgrading any record that claims to be busy
     /// but stopped reporting, and sorts each group most urgent first.
+    struct PendingRequest {
+        let requestID: String
+        let sessionID: String
+        let toolName: String?
+        let toolSummary: String?
+    }
+
+    /// Le richieste in attesa, scartando quelle la cui attesa è già scaduta.
+    ///
+    /// L'hook cancella il proprio file quando smette di aspettare, ma un processo
+    /// ucciso non lo cancella: la scadenza è scritta dentro, quindi un file
+    /// orfano non offre pulsanti per una domanda che nessuno ascolta più.
+    private static func loadPending() -> [String: PendingRequest] {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: Paths.pendingDirectory, includingPropertiesForKeys: nil
+        )) ?? []
+        let now = Date().timeIntervalSince1970
+        var bySession: [String: PendingRequest] = [:]
+        for file in files where file.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: file),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let requestID = json["request_id"] as? String, !requestID.isEmpty,
+                  let sessionID = json["session_id"] as? String, !sessionID.isEmpty
+            else { continue }
+            if let holdUntil = json["hold_until"] as? Double, holdUntil < now {
+                try? FileManager.default.removeItem(at: file)
+                continue
+            }
+            bySession[sessionID] = PendingRequest(
+                requestID: requestID,
+                sessionID: sessionID,
+                toolName: json["tool_name"] as? String,
+                toolSummary: json["tool_summary"] as? String
+            )
+        }
+        return bySession
+    }
+
     private static func group(
         _ sessions: [ClaudeSessionStatus],
         now: Date,

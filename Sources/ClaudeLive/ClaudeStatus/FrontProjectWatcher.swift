@@ -88,6 +88,12 @@ final class FrontProjectWatcher {
             Task { @MainActor in
                 self?.noteActivation()
                 self?.check()
+                // Coprire una finestra vuol dire quasi sempre portarne avanti
+                // un'altra, e questa notifica è quel gesto. Aspettare il giro dei
+                // due secondi lasciava aperta una corsa che si perdeva sempre:
+                // scopri la finestra per scrivere, la ricopri, e Claude esegue
+                // prima che l'app si accorga. Segnalato il 2026-08-21.
+                self?.refreshCoverageIfWatching()
             }
         }
 
@@ -142,6 +148,12 @@ final class FrontProjectWatcher {
         timer.tolerance = 0.5
         RunLoop.main.add(timer, forMode: .common)
         coverageTimer = timer
+    }
+
+    /// Ricalcola solo se il calcolo è attivo, per non farlo a impostazione spenta.
+    private func refreshCoverageIfWatching() {
+        guard coverageTimer != nil else { return }
+        refreshCoverage()
     }
 
     private func refreshCoverage() {
