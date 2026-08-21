@@ -54,9 +54,9 @@ struct NotchScreensView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Schermi e dimensioni notch")
-                .font(.headline)
+                .font(.system(size: 14, weight: .semibold))
             Text("Clicca uno schermo per mettervi il notch o togliervelo.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,12 +93,12 @@ struct NotchScreensView: View {
                 "Automatico: il notch segue lo schermo che ne ha uno fisico. Cliccane uno per scegliere a mano.",
                 systemImage: "wand.and.stars"
             )
-            .font(.caption)
+            .font(.system(size: 11))
             .foregroundStyle(.secondary)
         case .all:
             HStack(spacing: 8) {
                 Label("Tutti gli schermi, anche quelli che collegherai.", systemImage: "rectangle.3.group")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Torna all'automatico") { setAutomatic() }
@@ -112,7 +112,7 @@ struct NotchScreensView: View {
                         : "\(settings.notchScreenIDs.count) schermi scelti a mano.",
                     systemImage: "hand.point.up.left"
                 )
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 Spacer()
                 Button("Tutti") {
@@ -136,7 +136,7 @@ struct NotchScreensView: View {
             .pickerStyle(.radioGroup)
 
             Text("La larghezza è quella del tratto centrale: la barra completa aggiunge i due contatori ai lati.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -151,7 +151,7 @@ struct NotchScreensView: View {
             let active = screens.screens.filter { activeScreenIDs.contains($0.id) }
             if active.isEmpty {
                 Text("Nessuno schermo attivo: scegline uno sopra.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {
                 VStack(spacing: 12) {
@@ -183,7 +183,7 @@ struct NotchScreensView: View {
     /// that is shared by every screen.
     private var countersSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Contatori").font(.subheadline.weight(.medium))
+            Text("Contatori").font(.system(size: 12).weight(.medium))
 
             HStack(spacing: 10) {
                 Text("Dimensione")
@@ -197,7 +197,7 @@ struct NotchScreensView: View {
             }
 
             Text("Vale su tutti gli schermi. Anelli più grandi allargano anche la barra, perché le strisce ai lati del ritaglio sono larghe quanto l'anello che contengono.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -216,10 +216,10 @@ struct NotchScreensView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Text(title).font(.subheadline.weight(.medium))
+                Text(title).font(.system(size: 12).weight(.medium))
                 if let cutout {
                     Text("minimo \(Int(cutout.width))×\(Int(cutout.height))")
-                        .font(.caption2)
+                        .font(.system(size: 11))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(Capsule().fill(Color.secondary.opacity(0.15)))
@@ -386,11 +386,11 @@ struct ScreenNotchPreview: View {
             ZStack {
                 if isActive {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 15))
+                        .font(.system(size: 16))
                         .foregroundStyle(Color.accentColor)
                 } else {
                     Image(systemName: "circle")
-                        .font(.system(size: 15))
+                        .font(.system(size: 16))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -404,10 +404,10 @@ struct ScreenNotchPreview: View {
 
             VStack(spacing: 1) {
                 Text(screen.name)
-                    .font(.caption.weight(isActive ? .semibold : .regular))
+                    .font(.system(size: 11).weight(isActive ? .semibold : .regular))
                     .lineLimit(1)
                 Text(screen.hasPhysicalNotch ? "notch fisico" : "\(Int(screen.pixelSize.width))×\(Int(screen.pixelSize.height))")
-                    .font(.caption2)
+                    .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
             }
             .frame(width: Self.previewWidth)

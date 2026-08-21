@@ -62,7 +62,7 @@ struct UsageBarView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     HStack(spacing: 3) {
                         Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.system(size: 9, weight: .semibold))
                         Text("reset in \(Format.countdown(to: resetAt, now: context.date))")
                     }
                     .font(PanelTheme.captionFont)
@@ -103,7 +103,7 @@ struct UsageSectionView: View {
             if let staleMessage {
                 HStack(alignment: .top, spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 9))
+                        .font(.system(size: 10))
                     Text(staleMessage)
                         .fixedSize(horizontal: false, vertical: true)
                 }

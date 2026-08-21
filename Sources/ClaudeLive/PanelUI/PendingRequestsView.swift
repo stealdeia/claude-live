@@ -88,6 +88,7 @@ private struct DecidableRequestRow: View {
     @ObservedObject var status: ClaudeStatusStore
 
     @State private var isHovering = false
+    @State private var confirmingAlways = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -97,16 +98,15 @@ private struct DecidableRequestRow: View {
                     .frame(width: 6, height: 6)
 
                 Text(request.projectName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
 
                 if let tool = request.toolName, !tool.isEmpty {
                     Text(tool)
-                        .font(.system(size: 8.5, weight: .medium))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.primary.opacity(0.10), in: Capsule())
-                        .foregroundStyle(PanelTheme.secondaryText)
+                        .font(.system(size: 9.5, weight: .medium))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
+                        .background(GlowRGB.waiting.color.opacity(0.22), in: Capsule())
                 }
 
                 Spacer(minLength: 2)
@@ -116,26 +116,35 @@ private struct DecidableRequestRow: View {
             // asking the user to approve something unseen.
             if let summary = request.toolSummary {
                 Text(summary)
-                    .font(.system(size: 9.5, design: .monospaced))
+                    .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(PanelTheme.secondaryText)
-                    .lineLimit(2)
+                    .lineLimit(4)
                     .truncationMode(.middle)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(.black.opacity(0.28))
+                    )
             }
 
-            HStack(spacing: 5) {
-                answerButton("Consenti", tint: PanelTheme.color(for: .normal)) {
-                    status.decide(request, allow: true)
+            VStack(spacing: 5) {
+                HStack(spacing: 6) {
+                    // Verde pieno contro contorno neutro, come sull'iPhone: la
+                    // stessa richiesta risponde uguale sui due schermi, e chi
+                    // arriva dal telefono non deve rileggere i pulsanti.
+                    wideButton("Consenti", filled: GlowRGB.done.color) {
+                        status.decide(request, allow: true)
+                    }
+                    wideButton("Nega", filled: nil) {
+                        status.decide(request, allow: false)
+                    }
                 }
-                answerButton("Nega", tint: PanelTheme.color(for: .danger)) {
-                    status.decide(request, allow: false)
-                }
-                Spacer(minLength: 2)
-                answerButton("Sempre", tint: PanelTheme.secondaryText) {
-                    status.decide(request, allow: true, remember: true)
-                }
-                .help("Consenti ora e non chiedere più per questo comando identico, in questo progetto")
+                alwaysRow
             }
+            .padding(.top, 1)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 5)
@@ -146,15 +155,88 @@ private struct DecidableRequestRow: View {
         .onHover { isHovering = $0 }
     }
 
-    private func answerButton(_ title: String, tint: Color, action: @escaping () -> Void) -> some View {
+    /// La capsula larga dell'iPhone, sotto le altre due e dietro una conferma.
+    ///
+    /// Larga perché va trovata senza cercarla, e dietro una conferma perché le
+    /// altre due rispondono a *questa* richiesta mentre questa risponde a tutte
+    /// quelle come questa, per sempre. Prima era un bottoncino chiamato «Sempre»,
+    /// grande come «Nega» e a un clic di distanza da esso.
+    ///
+    /// La conferma è in linea e non una finestra di sistema: il pannello si chiude
+    /// quando perde il fuoco, e una finestra di conferma se lo prenderebbe,
+    /// portandosi via la domanda a cui doveva servire.
+    @ViewBuilder
+    private var alwaysRow: some View {
+        if confirmingAlways {
+            HStack(spacing: 6) {
+                Text("Non chiedere più?")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(PanelTheme.secondaryText)
+                Spacer(minLength: 2)
+                smallButton("Annulla") { confirmingAlways = false }
+                smallButton("Sempre", tint: GlowRGB.waiting.color) {
+                    confirmingAlways = false
+                    status.decide(request, allow: true, remember: true)
+                }
+            }
+            .padding(.vertical, 1)
+        } else {
+            Button { confirmingAlways = true } label: {
+                Label("Consenti sempre questo comando", systemImage: "infinity")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Color.primary.opacity(0.85))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6.5)
+                    .background(Color.primary.opacity(0.09), in: Capsule())
+                    .overlay { Capsule().strokeBorder(Color.primary.opacity(0.22), lineWidth: 0.5) }
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .help("Consenti ora e non chiedere più per questo comando identico, in questo progetto")
+        }
+    }
+
+    /// Metà riga ciascuno: `filled` per il verde pieno, `nil` per il contorno.
+    private func wideButton(
+        _ title: String,
+        filled: Color?,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(filled == nil ? Color.primary.opacity(0.9) : .white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background {
+                    // Capsule e non un rettangolo stondato: la stessa forma del
+                    // pulsante «sempre» qui sotto, così i tre si leggono come tre
+                    // risposte alla stessa domanda invece che come due più una.
+                    if let filled {
+                        Capsule().fill(filled)
+                    } else {
+                        Capsule().fill(Color.primary.opacity(0.10))
+                            .overlay { Capsule().strokeBorder(Color.primary.opacity(0.28), lineWidth: 0.8) }
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func smallButton(
+        _ title: String,
+        tint: Color = Color.primary.opacity(0.55),
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10.5, weight: .semibold))
                 .foregroundStyle(tint)
-                .contentShape(Rectangle())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4.5)
+                .background(tint.opacity(0.16), in: Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -179,11 +261,11 @@ private struct OpenQuestionRow: View {
                     .frame(width: 6, height: 6)
 
                 Text(request.projectName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
 
                 Text(label)
-                    .font(.system(size: 9.5))
+                    .font(.system(size: 10.5))
                     .foregroundStyle(PanelTheme.secondaryText)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -192,7 +274,7 @@ private struct OpenQuestionRow: View {
                 Spacer(minLength: 2)
 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(PanelTheme.secondaryText)
                     .opacity(isHovering ? 1 : 0.4)
             }

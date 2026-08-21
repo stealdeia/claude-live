@@ -73,7 +73,7 @@ struct PanelRootView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkle")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.tint)
 
             Text("Claude Live")
@@ -81,7 +81,7 @@ struct PanelRootView: View {
 
             if let plan = monitor.snapshot?.subscriptionType {
                 Text(plan.uppercased())
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1.5)
                     .background(Color.primary.opacity(0.08), in: Capsule())
@@ -155,7 +155,7 @@ struct PanelRootView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 4) {
             Image(systemName: symbol)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
             Text(text)
                 .lineLimit(multiline ? 4 : 1)
                 .fixedSize(horizontal: false, vertical: multiline)
@@ -184,7 +184,7 @@ struct CollapsedPanelView: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "sparkle")
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.tint)
 
             miniBar(monitor.snapshot?.fiveHour, label: "5h")
@@ -195,17 +195,17 @@ struct CollapsedPanelView: View {
             if status.waitingCount > 0 {
                 HStack(spacing: 2) {
                     Image(systemName: "bell.badge")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 9, weight: .semibold))
                     Text("\(status.waitingCount)")
-                        .font(.system(size: 9, weight: .bold).monospacedDigit())
+                        .font(.system(size: 10, weight: .bold).monospacedDigit())
                 }
                 .foregroundStyle(PanelTheme.color(for: .warning))
             } else if !projects.projects.isEmpty {
                 HStack(spacing: 2) {
                     Image(systemName: "folder")
-                        .font(.system(size: 8))
+                        .font(.system(size: 9))
                     Text("\(projects.projects.count)")
-                        .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 10, weight: .semibold).monospacedDigit())
                 }
                 .foregroundStyle(PanelTheme.secondaryText)
             }
@@ -222,10 +222,10 @@ struct CollapsedPanelView: View {
                 .fill(PanelTheme.color(for: level(window)))
                 .frame(width: 6, height: 6)
             Text(label)
-                .font(.system(size: 8.5, weight: .medium))
+                .font(.system(size: 9.5, weight: .medium))
                 .foregroundStyle(PanelTheme.secondaryText)
             Text(window.map { Format.percent($0.utilization) } ?? "—")
-                .font(.system(size: 10, weight: .semibold).monospacedDigit())
+                .font(.system(size: 11, weight: .semibold).monospacedDigit())
         }
     }
 }
@@ -255,7 +255,7 @@ struct PanelIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: 10.5, weight: .semibold))
                 .frame(width: 17, height: 17)
                 .background(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)

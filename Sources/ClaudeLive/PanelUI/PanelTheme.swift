@@ -32,8 +32,8 @@ enum PanelTheme {
 
     // MARK: Fonts
 
-    static let titleFont = Font.system(size: 11, weight: .semibold)
-    static let labelFont = Font.system(size: 10.5, weight: .medium)
-    static let valueFont = Font.system(size: 12, weight: .semibold).monospacedDigit()
-    static let captionFont = Font.system(size: 9.5, weight: .regular).monospacedDigit()
+    static let titleFont = Font.system(size: 12, weight: .semibold)
+    static let labelFont = Font.system(size: 11.5, weight: .medium)
+    static let valueFont = Font.system(size: 13, weight: .semibold).monospacedDigit()
+    static let captionFont = Font.system(size: 10.5, weight: .regular).monospacedDigit()
 }

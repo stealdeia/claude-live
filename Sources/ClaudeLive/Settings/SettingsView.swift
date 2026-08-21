@@ -156,7 +156,7 @@ struct SettingsView: View {
             VStack(spacing: 8) {
                 NotchThemePreview(theme: chosenTheme)
                 Text(chosenTheme.name)
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -164,7 +164,7 @@ struct SettingsView: View {
             .animation(.easeOut(duration: 0.18), value: settings.panelThemeID)
 
             Text("Il bordo superiore resta nero in ogni tema: è quello che fa sparire il pannello nel ritaglio del MacBook. Il colore arriva scendendo, quindi da chiuso non si vede.")
-                .font(.footnote)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -201,12 +201,12 @@ struct SettingsView: View {
             }
 
             Text("La lista progetti si aggiorna quando apri o chiudi una finestra VS Code. Un refresh periodico è sconsigliato: ogni lettura esegue «code --status», che fa comparire per un istante una seconda icona di VS Code nel Dock.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text("Quando il token di Claude Code scade (di solito dopo 8 ore, quindi ogni notte) l'app aspetta che sia Claude Code a rinnovarlo e se ne accorge entro 30 secondi: basta usare Claude Code e i dati ripartono da soli. L'app non rinnova mai il token per conto suo — farlo scollega Claude Code dall'account.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -262,7 +262,7 @@ struct SettingsView: View {
 
             HStack {
                 Text("Il suono vale per tutte le notifiche dell'app. «Prova» manda una notifica vera: quel che senti è quel che sentirai.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
@@ -286,7 +286,7 @@ struct SettingsView: View {
             }
 
             Text("Si accende quando Claude chiede qualcosa, quando ha finito e quando si interrompe, e nella lista progetti si illumina la riga del progetto — e la chat esatta, se sono più di una — con lo stesso colore e la stessa pulsazione. Non compare per il superamento delle soglie: quello non è un evento di un progetto e non ci sarebbe niente da cliccare, restano la notifica e il colore degli anelli.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -296,7 +296,7 @@ struct SettingsView: View {
             if settings.clearAlertsOnFocus {
                 if FrontProjectWatcher.isTrustedForTitles {
                     Text("Riconosce il progetto dalla finestra dell'editor in primo piano, anche passando da una finestra all'altra.")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -304,7 +304,7 @@ struct SettingsView: View {
                     // less precisely, and it is the only permission it ever asks for.
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Per sapere **quale** finestra hai davanti serve il permesso di Accessibilità: macOS protegge i titoli delle finestre. Senza permesso il segnale si spegne comunque quando porti l'editor in primo piano, ma solo se c'è un unico avviso in sospeso.")
-                            .font(.caption)
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         HStack {
@@ -352,7 +352,7 @@ struct SettingsView: View {
                     ))
                     .labelsHidden()
                     Text(style.mode == .blend ? "centro" : "colore")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
@@ -363,7 +363,7 @@ struct SettingsView: View {
                     ))
                     .labelsHidden()
                     Text("estremi")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
@@ -408,14 +408,14 @@ struct SettingsView: View {
             }
 
             Text("Quando Claude chiede un permesso mentre sei lontano dal Mac, l'hook attende questo tempo una tua risposta dal pannello o dal telefono. In quei secondi il terminale resta silenzioso: se non rispondi, la richiesta compare lì come sempre. Con 0 il pannello mostra le richieste ma non permette di rispondere.")
-                .font(.footnote)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Toggle("Anche a finestra coperta", isOn: $settings.panelDecisions)
 
             Text("Quando la finestra di Claude è nascosta sotto altre, il prompt nel terminale c'è ma non lo vedi. Con questa opzione la richiesta compare per dieci secondi anche nel pannello, che è sempre in cima allo schermo. Non scatta se quella finestra è visibile — nemmeno su un altro monitor — e finisce subito se la porti in primo piano. Richiede il permesso di Accessibilità qui sopra.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -438,7 +438,7 @@ struct SettingsView: View {
             }
 
             Text("Gli hook scrivono in ~/.claude-hub/status/. Puoi installarli anche da terminale con Resources/install-claude-hooks.py (supporta --dry-run e --uninstall).")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -457,21 +457,21 @@ struct SettingsView: View {
                     Button("Configura…") { showNotchScreens = true }
                 }
                 Text(screensSummary)
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle("Mostra freccia e icona progetti", isOn: $settings.notchShowsControls)
                 if !settings.notchShowsControls {
                     Text("Senza di esse la barra è solo i due contatori: cliccane uno per aprire il pannello, e clicca fuori dal pannello per richiuderlo.")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Toggle("Espandi al passaggio del mouse", isOn: $settings.notchExpandOnHover)
                 Text("Nel notch l'interfaccia è sempre nera, per allinearsi al ritaglio fisico dello schermo. Sugli schermi che non hanno un notch viene disegnato, al centro del bordo superiore.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -494,7 +494,7 @@ struct SettingsView: View {
 
             if !settings.showMenuBarIcon {
                 Text("Senza icona queste impostazioni si riaprono dalla rotella nel pannello, oppure aprendo di nuovo Claude Live dal Finder. Tutto ciò che stava solo nel menu è qui: aggiornare, aggiornare i progetti, mostrare o nascondere il pannello, e uscire.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -560,7 +560,7 @@ struct SettingsView: View {
                 // The one fact that explains an unexpected dialog, and the only one
                 // nobody can guess: the authorisation is per **path**.
                 Text("L'autorizzazione del portachiavi vale per il **percorso** dell'app, e questa copia gira da «\(Bundle.main.bundlePath)». Alla prossima lettura macOS chiederà la password: scegli «Sempre» e non la richiederà più per questa copia. Se ne tieni una sola, in Applicazioni, la richiesta non torna più.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -569,7 +569,7 @@ struct SettingsView: View {
 
             if settings.debugLoggingEnabled {
                 Text(Paths.logFile.path)
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .lineLimit(2)

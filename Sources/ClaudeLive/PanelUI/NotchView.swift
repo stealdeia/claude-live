@@ -205,10 +205,10 @@ struct NotchView: View {
         } label: {
             HStack(spacing: 1.5) {
                 Image(systemName: "folder")
-                    .font(.system(size: 9.5, weight: .semibold))
+                    .font(.system(size: 10.5, weight: .semibold))
                 if !projects.projects.isEmpty {
                     Text("\(projects.projects.count)")
-                        .font(.system(size: 8.5, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
                 }
             }
             .foregroundStyle(Color.white.opacity(0.75))
@@ -341,7 +341,7 @@ struct NotchIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .frame(width: 18, height: 18)
                 .background(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)

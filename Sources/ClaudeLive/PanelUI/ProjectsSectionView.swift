@@ -55,7 +55,7 @@ struct ProjectsSectionView: View {
             // A count, not a bell: the signal is the strip around the notch now.
             if status.waitingCount > 0 {
                 Text("\(status.waitingCount) in attesa")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PanelTheme.color(for: .warning))
             } else if !projects.projects.isEmpty || !sessionsWithoutEditor.isEmpty {
                 Text("\(projects.projects.count + sessionsWithoutEditor.count)")
@@ -168,7 +168,7 @@ struct ProjectsSectionView: View {
             Divider().overlay(PanelTheme.separator)
             HStack(alignment: .top, spacing: 4) {
                 Image(systemName: "link.badge.plus")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                 Text("Hook di Claude Code non installati: lo stato per progetto non è disponibile.")
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -177,7 +177,7 @@ struct ProjectsSectionView: View {
 
             Button("Installa hook…", action: onInstallHooks)
                 .buttonStyle(.borderless)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
         }
     }
 }
@@ -235,14 +235,14 @@ struct ProjectRowView: View {
             StatusDot(status: status)
 
             Text(project.name)
-                .font(.system(size: 11, weight: isWaiting ? .semibold : .medium))
+                .font(.system(size: 12, weight: isWaiting ? .semibold : .medium))
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(.primary)
 
             if let badge = status?.badge {
                 Text(badge)
-                    .font(.system(size: 8.5, weight: .medium))
+                    .font(.system(size: 9.5, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .padding(.horizontal, 4)
@@ -272,11 +272,11 @@ struct ProjectRowView: View {
             // No resolved path means we can't ask VS Code to focus it.
             if project.path == nil {
                 Image(systemName: "questionmark.circle")
-                    .font(.system(size: 8))
+                    .font(.system(size: 9))
                     .foregroundStyle(PanelTheme.secondaryText)
             } else {
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(PanelTheme.secondaryText)
                     .opacity(isHovering ? 1 : 0)
             }
@@ -294,9 +294,9 @@ struct ProjectRowView: View {
     private func counter(symbol: String, value: Int, tint: Color? = nil) -> some View {
         HStack(spacing: 2) {
             Image(systemName: symbol)
-                .font(.system(size: 7.5, weight: .semibold))
+                .font(.system(size: 8.5, weight: .semibold))
             Text("\(value)")
-                .font(.system(size: 8.5, weight: .semibold).monospacedDigit())
+                .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
         }
         .padding(.horizontal, 3.5)
         .padding(.vertical, 1)
@@ -367,13 +367,13 @@ private struct ChatRowView: View {
             StatusDot(activity: session.state, size: 5)
 
             Text(session.chatLabel)
-                .font(.system(size: 9.5, weight: .medium))
+                .font(.system(size: 10.5, weight: .medium))
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(PanelTheme.secondaryText)
 
             Text(session.activityLabel)
-                .font(.system(size: 9.5))
+                .font(.system(size: 10.5))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .foregroundStyle(color)

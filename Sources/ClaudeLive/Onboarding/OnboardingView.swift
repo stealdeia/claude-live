@@ -56,7 +56,7 @@ struct OnboardingView: View {
                         .fill(index <= step ? Color.accentColor : Color.secondary.opacity(0.25))
                         .frame(width: 6, height: 6)
                     Text(title)
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(index == step ? .primary : .secondary)
                 }
                 if index < steps.count - 1 {
@@ -100,7 +100,7 @@ struct OnboardingView: View {
             Text("Claude Live")
                 .font(.largeTitle.bold())
             Text("Versione \(UpdateController.currentVersion)")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
             Text("Un pannello sempre visibile con:")
@@ -123,14 +123,14 @@ struct OnboardingView: View {
 
             checkRow("Claude Code", state.claudeCode)
             Text("Serve Claude Code installato e con il login effettuato. Se manca: installalo, apri il Terminale ed esegui `claude`, poi accedi.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
             Divider().padding(.vertical, 4)
 
             checkRow("Visual Studio Code", state.vsCode)
             Text("Opzionale. Senza VS Code funzionano le barre di utilizzo, ma la lista progetti resta vuota.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
             Button("Ricontrolla") { state.checkAll() }
@@ -178,7 +178,7 @@ struct OnboardingView: View {
             }
 
             Text("Senza hook tutto il resto funziona: i progetti restano elencati, ma senza il pallino di stato.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
     }
@@ -189,7 +189,7 @@ struct OnboardingView: View {
 
             checkRow("Notifiche", state.notifications)
             Text("Claude Live avvisa quando Claude aspetta una tua risposta in un progetto, e quando ti avvicini ai limiti di utilizzo.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Button("Richiedi autorizzazione") { state.requestNotifications() }
 
@@ -205,7 +205,7 @@ struct OnboardingView: View {
                 }
             } else {
                 Text("L'app non è in /Applications: spostala lì per poter attivare l'avvio automatico.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.orange)
             }
         }
@@ -238,7 +238,7 @@ struct OnboardingView: View {
 
     private func title(_ text: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(text).font(.title2.bold())
+            Text(text).font(.system(size: 18).bold())
             Text(subtitle).font(.callout).foregroundStyle(.secondary)
         }
     }
@@ -246,12 +246,12 @@ struct OnboardingView: View {
     private func bullet(_ icon: String, _ title: String, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.system(size: 15))
                 .foregroundStyle(.tint)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.callout.weight(.medium))
-                Text(text).font(.caption).foregroundStyle(.secondary)
+                Text(text).font(.system(size: 11)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -263,7 +263,7 @@ struct OnboardingView: View {
                 .foregroundStyle(color(for: check))
             Text(label).font(.callout.weight(.medium))
             Text(check.message)
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -284,7 +284,7 @@ struct OnboardingView: View {
             Image(systemName: icon).foregroundStyle(tint)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.callout.weight(.semibold))
-                Text(text).font(.caption)
+                Text(text).font(.system(size: 11))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

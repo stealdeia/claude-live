@@ -69,12 +69,12 @@ struct CompanionSettingsView: View {
                 }
 
                 Text("La chiave di cifratura viaggia solo nel QR, mai attraverso il relay: è questo che rende il relay incapace di leggere ciò che trasporta.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("Spento: lo stato delle sessioni e i limiti di utilizzo restano su questo Mac.")
-                    .font(.caption)
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -124,7 +124,7 @@ struct PairingQRSheet: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("Inquadra col telefono")
-                .font(.headline)
+                .font(.system(size: 14, weight: .semibold))
 
             if let image = Self.qrImage(from: payload) {
                 Image(nsImage: image)
@@ -139,7 +139,7 @@ struct PairingQRSheet: View {
             }
 
             Text("Contiene indirizzo, parola d'ordine e chiave di cifratura. Non fotografarlo e non condividerlo: chi ce l'ha può leggere tutto quello che il Mac pubblica.")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
