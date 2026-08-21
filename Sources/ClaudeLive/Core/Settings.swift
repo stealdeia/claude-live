@@ -28,6 +28,7 @@ private struct SettingsData: Codable {
     var notifyOnWaitingInput: Bool?
     var notificationSound: String?
     var panelThemeID: String?
+    var panelDecisions: Bool?
     var notifyOnDone: Bool?
     var notifyOnFailure: Bool?
     var glowEnabled: Bool?
@@ -124,6 +125,13 @@ final class Settings: ObservableObject {
     /// Sound for every notification this app posts. Empty means the system
     /// default; anything else is a file name in /System/Library/Sounds — see
     /// `NotificationSound`.
+    /// Se rispondere a un permesso dal pannello anche stando al Mac.
+    ///
+    /// Acceso di default perché scatta solo quando la finestra di Claude è
+    /// coperta, cioè quando il prompt nel terminale non lo vedresti comunque: nel
+    /// caso in cui costa qualcosa, non si attiva.
+    @Published var panelDecisions: Bool = true { didSet { schedulePersist() } }
+
     /// Il tema del pannello, per identificativo.
     ///
     /// Per identificativo e non per valore: i colori vivono nel Kit e cambiano
@@ -401,6 +409,7 @@ final class Settings: ObservableObject {
         if let v = decoded.notifyOnWaitingInput { notifyOnWaitingInput = v }
         if let v = decoded.notificationSound { notificationSound = v }
         if let v = decoded.panelThemeID { panelThemeID = v }
+        if let v = decoded.panelDecisions { panelDecisions = v }
         if let v = decoded.notifyOnDone { notifyOnDone = v }
         if let v = decoded.notifyOnFailure { notifyOnFailure = v }
         if let v = decoded.glowEnabled { glowEnabled = v }
@@ -461,6 +470,7 @@ final class Settings: ObservableObject {
             notifyOnWaitingInput: notifyOnWaitingInput,
             notificationSound: notificationSound,
             panelThemeID: panelThemeID,
+            panelDecisions: panelDecisions,
             notifyOnDone: notifyOnDone,
             notifyOnFailure: notifyOnFailure,
             glowEnabled: glowEnabled,

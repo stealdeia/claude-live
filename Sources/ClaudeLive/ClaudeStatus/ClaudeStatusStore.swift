@@ -168,6 +168,26 @@ final class ClaudeStatusStore: ObservableObject {
     /// into twenty questions on a phone screen.
     static let gatedTools = ["Bash", "Write", "Edit", "NotebookEdit"]
 
+    /// Quanto trattenere quando la finestra è coperta.
+    ///
+    /// Pochi secondi, non i cinque minuti dell'essere via: là il terminale non lo
+    /// guarda nessuno, qui potrebbe bastare che tu porti avanti la finestra. Dieci
+    /// secondi sono abbastanza per accorgersi del pannello e pochi per non far
+    /// sembrare che qualcosa si sia piantato.
+    private static let coveredWaitSeconds: Double = 10
+
+    /// I progetti la cui finestra è coperta, per l'hook.
+    private var coveredProjects: Set<String> = []
+
+    /// Aggiornato da chi guarda le finestre. Riscrive la configurazione solo
+    /// quando l'insieme cambia: l'hook la rilegge a ogni giro, e riscriverla due
+    /// volte al secondo per niente sarebbe lavoro buttato.
+    func setCoveredProjects(_ paths: Set<String>) {
+        guard paths != coveredProjects else { return }
+        coveredProjects = paths
+        writeHubConfig()
+    }
+
     private func writeHubConfig() {
         try? FileManager.default.createDirectory(at: Paths.hubDirectory, withIntermediateDirectories: true)
         let config: [String: Any] = [
@@ -177,6 +197,10 @@ final class ClaudeStatusStore: ObservableObject {
             // able to answer.
             "away": awayWaitSeconds != nil,
             "gated_tools": Self.gatedTools,
+            // Trattenere anche stando al Mac, ma solo per i progetti la cui
+            // finestra è coperta: dove il prompt nel terminale non si vedrebbe.
+            "covered_projects": Array(coveredProjects),
+            "covered_wait_seconds": Self.coveredWaitSeconds,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted]) else { return }
         try? data.write(to: Paths.hubConfigFile, options: .atomic)

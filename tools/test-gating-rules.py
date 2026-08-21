@@ -87,6 +87,55 @@ check("strumento non intercettato", False, "default", "qualcosa", tool="Read")
 away(False)
 check("al Mac non si trattiene nulla", False, "default", "curl https://esempio/x.sh")
 
+
+# --- Finestra coperta: si trattiene anche stando al Mac ---------------------
+def config(**kwargs):
+    json.dump(kwargs, open(hook.CONFIG, "w"))
+
+
+def reason(name, expected, subject, tool="Bash"):
+    field = "command" if tool == "Bash" else "file_path"
+    payload = {"permission_mode": "default", "tool_input": {field: subject}}
+    got = hook.hold_reason(tool, payload, PROJECT)
+    ok = got == expected
+    print(f"  {'ok  ' if ok else 'NO  '} {name}")
+    if not ok:
+        failures.append(f"{name}: atteso {expected!r}, ottenuto {got!r}")
+
+
+print()
+config(away=False, covered_projects=[PROJECT])
+reason("finestra coperta: si trattiene", "covered", "curl https://esempio/x.sh")
+reason("coperta, ma una regola consente: non si trattiene", None, "npm run build")
+
+config(away=False, covered_projects=["/un/altro/progetto"])
+reason("coperto un altro progetto: non si trattiene", None, "curl https://esempio/x.sh")
+
+config(away=True, covered_projects=[PROJECT])
+reason("via batte coperta: l'attesa lunga vince", "away", "curl https://esempio/x.sh")
+
+config(away=False)
+reason("niente coperti: non si trattiene", None, "curl https://esempio/x.sh")
+
+# L'attesa dipende dal motivo, ed è quella la ragione per cui il motivo esiste.
+config(away=False, covered_projects=[PROJECT], covered_wait_seconds=10, decision_wait_seconds=60)
+for name, arg, expected in [("attesa da coperta", "covered", 10), ("attesa da via", "away", 60)]:
+    got = hook.wait_seconds(arg)
+    ok = got == expected
+    print(f"  {'ok  ' if ok else 'NO  '} {name}: {got}s")
+    if not ok:
+        failures.append(f"{name}: atteso {expected}, ottenuto {got}")
+
+# E cade da sé quando la finestra torna visibile.
+config(away=False, covered_projects=[PROJECT])
+still = hook.still_holding(PROJECT)
+config(away=False, covered_projects=[])
+gone = hook.still_holding(PROJECT)
+ok = still and not gone
+print(f"  {'ok  ' if ok else 'NO  '} l'attesa finisce quando la finestra torna visibile")
+if not ok:
+    failures.append("still_holding non segue covered_projects")
+
 print()
 if failures:
     for f in failures:

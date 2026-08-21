@@ -250,12 +250,21 @@ def app_is_running():
     return True
 
 
-def wait_seconds():
+def wait_seconds(reason="away"):
+    """Quanto attendere una risposta, secondo il motivo per cui si trattiene.
+
+    Da lontano l'attesa può essere lunga: la sessione sarebbe rimasta ferma
+    comunque, e serve il tempo di accorgersi della notifica, sbloccare il
+    telefono e leggere. Con la finestra coperta l'utente è qui, e il terminale
+    tace finché si aspetta: pochi secondi, quanto basta a vedere il pannello.
+    """
     config = read_json(CONFIG, {})
+    key = "covered_wait_seconds" if reason == "covered" else "decision_wait_seconds"
+    default = 10 if reason == "covered" else DEFAULT_WAIT_SECONDS
     try:
-        return max(0, min(600, float(config.get("decision_wait_seconds", DEFAULT_WAIT_SECONDS))))
+        return max(0, min(600, float(config.get(key, default))))
     except Exception:
-        return DEFAULT_WAIT_SECONDS
+        return default
 
 
 # Tools that can change something. Read-only ones are never worth interrupting
@@ -365,8 +374,27 @@ def still_away():
     return bool(read_json(CONFIG, {}).get("away"))
 
 
+def still_holding(path):
+    """Se le condizioni che giustificavano l'attesa valgono ancora.
+
+    Riletto a ogni giro, perché entrambe cadono da sole: si torna alla tastiera,
+    oppure si porta avanti la finestra coperta. In tutti e due i casi l'attesa
+    deve finire subito — la prima è la ragione per cui era lunga, la seconda è la
+    ragione per cui esisteva.
+    """
+    config = read_json(CONFIG, {})
+    if config.get("away"):
+        return True
+    return path in (config.get("covered_projects") or [])
+
+
 def gating(tool, payload, path):
-    """Whether this tool call should be held while the phone is asked.
+    """Se questa chiamata va trattenuta. Involucro booleano di `hold_reason`."""
+    return hold_reason(tool, payload, path) is not None
+
+
+def hold_reason(tool, payload, path):
+    """Perché trattenere questa chiamata, o `None` per non trattenerla.
 
     Only while the app says the user is away. `PreToolUse` fires for every tool
     call, so gating unconditionally would stop a session dead at each step — and
@@ -387,13 +415,28 @@ def gating(tool, payload, path):
     looked at it.
     """
     if not tool:
-        return False
-    if not still_away():
-        return False
+        return None
     tools = config_gated_tools()
     if tool not in tools:
-        return False
-    return would_be_asked(tool, payload, path)
+        return None
+    if not would_be_asked(tool, payload, path):
+        return None
+
+    config = read_json(CONFIG, {})
+    if config.get("away"):
+        return "away"
+
+    # Al Mac, ma con la finestra di quel progetto coperta da altre: il prompt nel
+    # terminale c'è e non si vede. Il pannello invece è sempre in cima allo
+    # schermo, quindi è il posto più veloce per rispondere, non il più lento.
+    #
+    # Solo *coperta*, non «non in primo piano»: con due schermi una finestra non
+    # attiva è visibilissima, e trattenere lì significherebbe togliere il prompt
+    # da sotto gli occhi di chi lo sta guardando.
+    if path in (config.get("covered_projects") or []):
+        return "covered"
+
+    return None
 
 
 def config_gated_tools():
@@ -466,7 +509,7 @@ def emit_decision(behavior, event):
     sys.stdout.flush()
 
 
-def await_decision(request_id, timeout, tool=None):
+def await_decision(request_id, timeout, tool=None, path=None):
     """Polls for the app's answer. Returns (behavior, remember) or None.
 
     Gives up early if the user comes back to the Mac. The app clears `away` the
@@ -477,7 +520,7 @@ def await_decision(request_id, timeout, tool=None):
     path = os.path.join(DECISIONS_DIR, f"{request_id}.json")
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if tool is not None and not still_away():
+        if tool is not None and path is not None and not still_holding(path):
             return None
         if os.path.exists(path):
             answer = read_json(path, {})
@@ -523,9 +566,8 @@ def main():
     # Two ways to end up asking the user. `PermissionRequest` is the one this was
     # built for and the one that never fires; `PreToolUse` while away is the one
     # that works. Everything downstream treats them the same.
-    is_permission = event == "PermissionRequest" or (
-        event == "PreToolUse" and gating(tool, payload, path)
-    )
+    reason = hold_reason(tool, payload, path) if event == "PreToolUse" else None
+    is_permission = event == "PermissionRequest" or reason is not None
 
     summary = tool_summary(payload) if is_permission else None
     request_id = payload.get("tool_use_id") or ""
@@ -543,7 +585,7 @@ def main():
     if is_permission:
         state = "waiting_input"
 
-    timeout = wait_seconds() if is_permission else 0
+    timeout = wait_seconds(reason or "away") if is_permission else 0
     decidable = bool(is_permission and request_id and timeout > 0 and app_is_running())
 
     record = {
@@ -570,7 +612,9 @@ def main():
     if not decidable:
         return
 
-    answer = await_decision(request_id, timeout, tool if event == "PreToolUse" else None)
+    answer = await_decision(
+        request_id, timeout, tool if event == "PreToolUse" else None, path
+    )
     if answer is None:
         # No answer in time: print nothing, so Claude Code prompts in the terminal
         # exactly as it would without this hook.

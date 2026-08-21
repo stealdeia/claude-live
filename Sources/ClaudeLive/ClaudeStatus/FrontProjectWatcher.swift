@@ -56,6 +56,7 @@ final class FrontProjectWatcher {
     private var activationObserver: Any?
     /// Runs only while something is pending — see `alertsChanged`.
     private var poll: Timer?
+    private var coverageTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
     init(status: ClaudeStatusStore, settings: Settings) {
@@ -100,6 +101,14 @@ final class FrontProjectWatcher {
                 Task { @MainActor in self?.setPolling(!isEmpty) }
             }
             .store(in: &cancellables)
+
+        setCoverageWatch(settings.panelDecisions)
+        settings.$panelDecisions
+            .removeDuplicates()
+            .sink { [weak self] wanted in
+                Task { @MainActor in self?.setCoverageWatch(wanted) }
+            }
+            .store(in: &cancellables)
     }
 
     func stop() {
@@ -108,7 +117,36 @@ final class FrontProjectWatcher {
         }
         activationObserver = nil
         setPolling(false)
+        setCoverageWatch(false)
         cancellables.removeAll()
+    }
+
+    /// Tiene aggiornato quali finestre di progetto sono coperte.
+    ///
+    /// Sempre, non solo quando c'è un avviso: l'hook legge quella risposta
+    /// nell'istante in cui scatta, cioè prima che un avviso esista. Un dato in
+    /// ritardo qui non è grave — l'attesa si interrompe da sé al giro successivo,
+    /// appena la finestra torna visibile — ma un dato assente farebbe trattenere
+    /// una richiesta che non andava trattenuta.
+    private func setCoverageWatch(_ wanted: Bool) {
+        coverageTimer?.invalidate()
+        coverageTimer = nil
+        guard wanted else {
+            status.setCoveredProjects([])
+            return
+        }
+        refreshCoverage()
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refreshCoverage() }
+        }
+        timer.tolerance = 0.5
+        RunLoop.main.add(timer, forMode: .common)
+        coverageTimer = timer
+    }
+
+    private func refreshCoverage() {
+        refreshCatalogIfStale()
+        status.setCoveredProjects(WindowCoverage.coveredProjects(catalog: catalog))
     }
 
     private func setPolling(_ wanted: Bool) {

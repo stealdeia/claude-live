@@ -407,7 +407,14 @@ struct SettingsView: View {
                 }
             }
 
-            Text("Quando Claude chiede un permesso, l'hook attende questo tempo una tua risposta dal pannello. In quei secondi il terminale resta silenzioso: se non rispondi, la richiesta compare lì come sempre. Con 0 il pannello mostra le richieste ma non permette di rispondere.")
+            Text("Quando Claude chiede un permesso mentre sei lontano dal Mac, l'hook attende questo tempo una tua risposta dal pannello o dal telefono. In quei secondi il terminale resta silenzioso: se non rispondi, la richiesta compare lì come sempre. Con 0 il pannello mostra le richieste ma non permette di rispondere.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Anche a finestra coperta", isOn: $settings.panelDecisions)
+
+            Text("Quando la finestra di Claude è nascosta sotto altre, il prompt nel terminale c'è ma non lo vedi. Con questa opzione la richiesta compare per dieci secondi anche nel pannello, che è sempre in cima allo schermo. Non scatta se quella finestra è visibile — nemmeno su un altro monitor — e finisce subito se la porti in primo piano. Richiede il permesso di Accessibilità qui sopra.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
