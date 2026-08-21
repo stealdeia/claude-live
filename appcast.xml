@@ -5,6 +5,24 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.9.0</title>
+      <sparkle:version>0.9.0</sparkle:version>
+      <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 21 Aug 2026 11:02:00 +0000</pubDate>
+      <description>&lt;p&gt;Le chat hanno un nome vero, si cliccano, e il pannello può tornare nero.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Le chat si chiamavano «chat 0eaac6».** Con più conversazioni aperte nello stesso progetto, il pannello le distingueva con sei caratteri dell&amp;#x27;identificativo di sessione: nessuno riconosce una chat così. Ora mostrano **il titolo che leggi sopra la conversazione** — quello che Claude Code le assegna da sé. Vale anche sull&amp;#x27;app per iPhone.&lt;/li&gt;
+&lt;li&gt;**Le righe delle chat si cliccano.** Portano nella finestra dove quella conversazione vive, e ne riconoscono l&amp;#x27;avviso. Alla finestra e non alla singola scheda: quale chat sia aperta dentro VS Code lo decide VS Code, e dall&amp;#x27;esterno non si può scegliere una scheda.&lt;/li&gt;
+&lt;li&gt;**Il pannello può tornare nero.** I temi avevano sostituito il nero pieno senza lasciare modo di riaverlo: ora è la prima delle cinque scelte in **Impostazioni → Aspetto → Tema**.&lt;/li&gt;
+&lt;li&gt;**Il segnale luminoso sulla riga del progetto respira** invece di scorrere da un lato all&amp;#x27;altro. La luce che passava sotto il nome attirava l&amp;#x27;occhio nel modo sbagliato: si seguiva il movimento invece di leggere la parola.&lt;/li&gt;
+&lt;li&gt;**Un progetto poteva mostrare due chat avendone una.** Una conversazione aperta e chiusa senza essere usata lasciava un file che si fingeva vivo per ventiquattr&amp;#x27;ore. Ora una sessione che non ha mai scritto niente non viene elencata: non è una chat, è l&amp;#x27;annuncio di una che non c&amp;#x27;è stata.&lt;/li&gt;
+&lt;li&gt;**Cliccare una notifica non apre più le Impostazioni.** Apriva quelle *e* la finestra del progetto, e nessuno le aveva chieste.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.9.0/Claude.Live.0.9.0.dmg" length="2923546" type="application/octet-stream" sparkle:edSignature="hbUjJZH8ZeXCn5nhzhQndcmXTOQ5Fok6f9l6Yg4lkevDq8tf4m2z5JbtKG3dhr1oOiRcb3msKpjIfGXhZ8gwDQ==" />
+    </item>
+    <item>
       <title>Versione 0.8.0</title>
       <sparkle:version>0.8.0</sparkle:version>
       <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
