@@ -5,6 +5,21 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.8.0</title>
+      <sparkle:version>0.8.0</sparkle:version>
+      <sparkle:shortVersionString>0.8.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 21 Aug 2026 07:18:09 +0000</pubDate>
+      <description>&lt;p&gt;Il pannello prende colore, e le impostazioni smettono di essere una lista da scorrere.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**I quattro temi dell&amp;#x27;app iPhone arrivano sul Mac.** Mezzanotte, Purple Heart, Brace e Bosco: il colore scende verso il basso del pannello aperto, e il bordo superiore resta nero in ogni tema — è quello che fa sparire il pannello nel ritaglio del MacBook. Da chiuso non si vede nulla di colorato, perché il colore compare solo in ciò che l&amp;#x27;apertura rivela. Si scegle in **Impostazioni → Aspetto → Tema**, dove sotto i campioni c&amp;#x27;è l&amp;#x27;anteprima del pannello aperto: un quadratino da un centimetro non dice niente su un gradiente che si legge in altezza.&lt;/li&gt;
+&lt;li&gt;**Le impostazioni hanno una barra laterale.** Erano undici sezioni in un&amp;#x27;unica lista, e trovarne una voleva dire ricordarsi a che altezza stava. Ora sono otto voci con icone, raggruppate per la domanda a cui rispondono: Aspetto, Segnale luminoso, Notifiche, Claude Code, iPhone, Frequenza, Diagnostica, Informazioni. Le voci che non c&amp;#x27;entrano con la modalità scelta non compaiono affatto.&lt;/li&gt;
+&lt;li&gt;**«Aggiornamento» si chiama «Frequenza».** Quella sezione decide ogni quanto Claude Live rilegge i limiti d&amp;#x27;uso e i progetti di VS Code, ma il nome si leggeva come «aggiornamenti dell&amp;#x27;app» — che stanno in Informazioni, e sono un&amp;#x27;altra cosa.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.8.0/Claude.Live.0.8.0.dmg" length="2903255" type="application/octet-stream" sparkle:edSignature="hX0cKNsQHIadJXZW2RXhFVWDQIDfskBj/z9h7WeeHHAXKpTIOm9TlRu86pjYxSE6DnwLSs4bQV237PkbWzejBg==" />
+    </item>
+    <item>
       <title>Versione 0.7.1</title>
       <sparkle:version>0.7.1</sparkle:version>
       <sparkle:shortVersionString>0.7.1</sparkle:shortVersionString>
