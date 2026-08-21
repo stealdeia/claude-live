@@ -303,10 +303,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// This is the escape hatch for a hidden menu bar item: double-clicking Claude
     /// Live in the Finder is the one gesture that works no matter what is on screen,
     /// and without it "hide the icon" could be a one-way door.
+    ///
+    /// Rimandato di un istante perché **cliccare una notifica attiva l'app**, e
+    /// macOS riferisce anche quell'attivazione come una riapertura. Il gestore
+    /// della notifica arriva subito dopo e annulla: aprire le Impostazioni sopra
+    /// la finestra che l'utente ha effettivamente chiesto è peggio che non aprire
+    /// niente. Segnalato il 2026-08-21.
+    ///
+    /// Rimandato e non deciso in base a un orario, perché l'ordine delle due
+    /// chiamate non è garantito: annullare funziona in entrambi i sensi, un
+    /// confronto fra timestamp funzionerebbe in uno solo.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        settingsWindow.show()
+        pendingReopen?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.pendingReopen = nil
+            self?.settingsWindow.show()
+        }
+        pendingReopen = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
         return true
     }
+
+    /// L'apertura delle Impostazioni in attesa di essere confermata o annullata.
+    private var pendingReopen: DispatchWorkItem?
 
     /// Brings the *active* surface to the user's attention.
     ///
@@ -445,6 +464,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let info = response.notification.request.content.userInfo
         let path = info["projectPath"] as? String
         Task { @MainActor in
+            // Questa attivazione ha già un motivo: la notifica. Qualunque
+            // riapertura che macOS abbia riferito per lo stesso gesto va
+            // annullata, e c'è tempo perché quella è rimandata di 0,4 secondi.
+            self.pendingReopen?.cancel()
+            self.pendingReopen = nil
             if let path, !path.isEmpty {
                 self.projects.focus(path: path)
                 // Tapping the banner is as much an acknowledgement as clicking the
