@@ -5,6 +5,25 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.9.1</title>
+      <sparkle:version>0.9.1</sparkle:version>
+      <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Fri, 21 Aug 2026 12:58:52 +0000</pubDate>
+      <description>&lt;p&gt;Rispondi ai permessi dal pannello anche quando sei al Mac, se la finestra è coperta.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Il permesso si risponde dal pannello anche stando al Mac.** Finora valeva solo mentre eri via: ma essere al Mac non significa vedere il terminale, e se la finestra del progetto è dietro a un&amp;#x27;altra — o ridotta a icona — il prompt di Claude Code è là dove nessuno lo guarda. Ora in quel caso la richiesta viene trattenuta per 45 secondi e compare nel pannello. Si attiva in **Impostazioni → Telefono → «Anche a finestra coperta»**.&lt;/li&gt;
+&lt;li&gt;**L&amp;#x27;attesa finisce da sé nell&amp;#x27;istante in cui riporti avanti quella finestra.** Da lì in poi il posto giusto per rispondere è il terminale, che è davanti a te: trattenere ancora sarebbe togliere la domanda da sotto gli occhi di chi la sta già guardando.&lt;/li&gt;
+&lt;li&gt;**Una finestra ridotta a icona conta come coperta**, ed è il caso più netto di tutti: là il prompt non lo vedresti mai.&lt;/li&gt;
+&lt;li&gt;**I pulsanti del pannello sono quelli dell&amp;#x27;app per iPhone.** «Consenti» verde pieno e «Nega» contornato a metà riga, «Consenti sempre questo comando» in una capsula larga sotto, tutti e tre tondi. Chi risponde da entrambi gli schermi non deve rileggere i pulsanti ogni volta, e il verde è lo stesso valore condiviso dalle due app, non uno simile a occhio.&lt;/li&gt;
+&lt;li&gt;**«Consenti sempre» è dietro una conferma**, come sull&amp;#x27;iPhone. Gli altri due rispondono a *questa* richiesta; questo risponde a tutte quelle come questa, per sempre — e da capsula larga sarebbe finito a un clic di distanza da «Nega».&lt;/li&gt;
+&lt;li&gt;**Il comando da approvare si legge in un riquadro a caratteri fissi**, fino a quattro righe invece di due: approvare qualcosa che non si legge non è approvare.&lt;/li&gt;
+&lt;li&gt;**Tutti i testi dell&amp;#x27;app sono di un punto più grandi.**&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.9.1/Claude.Live.0.9.1.dmg" length="2972546" type="application/octet-stream" sparkle:edSignature="FDLJouyS62EJNmW3letI3g4bzJyt9bpR8gA5AH32gmHEEXELSAWTzYL6tDWkcLHFdXboFdFckFdqLrIv62YXDQ==" />
+    </item>
+    <item>
       <title>Versione 0.9.0</title>
       <sparkle:version>0.9.0</sparkle:version>
       <sparkle:shortVersionString>0.9.0</sparkle:shortVersionString>
