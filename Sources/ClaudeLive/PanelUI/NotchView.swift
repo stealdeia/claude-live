@@ -122,7 +122,7 @@ struct NotchView: View {
     /// impostazioni: se stesse qui, l'anteprima ne avrebbe una copia e prima o
     /// poi mostrerebbe un colore che il pannello non ha.
     private func themeWash(height: CGFloat) -> LinearGradient {
-        let theme = ColorTheme.all.first { $0.id == settings.panelThemeID } ?? ColorTheme.midnight
+        let theme = ColorTheme.panelChoices.first { $0.id == settings.panelThemeID } ?? ColorTheme.midnight
         return theme.panelWash(blackUntil: height > 0 ? min(1, barHeight / height) : 1)
     }
 

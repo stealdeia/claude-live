@@ -75,7 +75,29 @@ public struct ColorTheme: Identifiable, Hashable, Sendable {
         accent: Color(red: 0.40, green: 0.92, blue: 0.68)
     )
 
+    /// Nero pieno: il pannello com'era prima dei temi.
+    ///
+    /// Non è un tema come gli altri, è la loro assenza — `deep` e `bloom` neri
+    /// rendono invisibile il colore che scende, e resta il nero opaco di sempre.
+    /// L'accento serve comunque, perché qualcosa deve pur risaltare.
+    public static let black = ColorTheme(
+        id: "black",
+        name: "Nero",
+        top: .black,
+        deep: .black,
+        bloom: .black,
+        accent: Color(red: 0.38, green: 0.62, blue: 1.00)
+    )
+
     public static let all: [ColorTheme] = [.midnight, .purpleHeart, .ember, .forest]
+
+    /// Le scelte per il pannello del Mac: il nero e tutti gli altri.
+    ///
+    /// Elenco a parte perché sul telefono il tema riempie l'intero schermo, e
+    /// «tutto nero» lì è una proposta diversa — uno sfondo nero e piatto, non un
+    /// pannello che si confonde con l'hardware. Sul Mac invece è il
+    /// comportamento di prima, e chi lo preferiva deve poterlo riavere.
+    public static let panelChoices: [ColorTheme] = [.black] + all
 }
 
 extension ColorTheme {

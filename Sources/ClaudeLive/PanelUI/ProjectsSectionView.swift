@@ -221,7 +221,8 @@ struct ProjectRowView: View {
                             // Only the chat that raised it: with several running, "one
                             // of them needs you" is the half of the message that was
                             // missing.
-                            palette: session.sessionID == alert?.sessionID ? palette : nil
+                            palette: session.sessionID == alert?.sessionID ? palette : nil,
+                            onSelect: onSelect
                         )
                     }
                 }
@@ -340,8 +341,24 @@ struct ProjectRowView: View {
 private struct ChatRowView: View {
     let session: ClaudeSessionStatus
     let palette: NotchGlowPalette?
+    /// Porta in primo piano la finestra dove vive questa chat, e riconosce il suo
+    /// avviso.
+    ///
+    /// Porta alla *finestra*, non alla scheda: quale conversazione sia aperta
+    /// dentro VS Code lo decide VS Code, e dall'esterno non c'è modo di
+    /// scegliere una scheda. Arrivare nella finestra giusta è comunque il grosso
+    /// del lavoro quando ne hai dieci aperte.
+    let onSelect: () -> Void
+
+    @State private var isHovering = false
 
     var body: some View {
+        Button(action: onSelect) { content }
+            .buttonStyle(.plain)
+            .onHover { isHovering = $0 }
+    }
+
+    private var content: some View {
         HStack(spacing: 3) {
             // Indent under the project's status dot, so the rows read as its
             // children without drawing a tree.
@@ -370,7 +387,16 @@ private struct ChatRowView: View {
         }
         .padding(.trailing, 5)
         .padding(.vertical, 0.5)
-        .background(GlowRowBackground(palette: palette, cornerRadius: 4))
+        .background {
+            // L'alone quando c'è un avviso; altrimenti un accenno al passaggio
+            // del mouse, che è l'unica cosa che dice «si può cliccare».
+            if palette != nil {
+                GlowRowBackground(palette: palette, cornerRadius: 4)
+            } else {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.primary.opacity(isHovering ? 0.07 : 0))
+            }
+        }
         .help(session.tooltip)
     }
 
@@ -398,21 +424,36 @@ private struct GlowRowBackground: View {
     let cornerRadius: CGFloat
 
     /// Ceiling on the brightness. Anything stronger and the project's name stops
-    /// being readable at the moment the band passes under it.
+    /// being readable at the punto più luminoso del respiro.
     private let maxOpacity: Double = 0.34
+
+    /// Il respiro non si spegne del tutto: sotto questa quota di luce la riga
+    /// sembrerebbe lampeggiare invece di respirare, e un lampeggio in
+    /// un'interfaccia significa «errore».
+    private let floorFraction: Double = 0.34
 
     var body: some View {
         if let palette {
             // Nothing animates unless something is pending: with no alert this view
             // is an `EmptyView` and no clock runs.
             TimelineView(.animation) { context in
-                let stops = GlowBand.stops(
-                    phase: GlowBand.phase(at: context.date),
-                    palette: palette,
-                    maxOpacity: maxOpacity
-                )
+                // Una tinta unita che respira, non una banda che attraversa.
+                //
+                // Prima era un gradiente orizzontale con la fase che scorreva, e
+                // il risultato era una luce che passava sotto il nome del progetto
+                // da un lato all'altro. Attira l'occhio nel modo sbagliato: segue
+                // il movimento invece di leggere la parola, e la parola è ciò che
+                // serve. Segnalato il 2026-08-21.
+                //
+                // `phase` è già una curva che va e torna morbidamente — nata per
+                // far viaggiare la banda, funziona come respiro senza modifiche.
+                // Il colore è campionato alla stessa fase, così le tavolozze che
+                // hanno più di un colore continuano a variare nel tempo: quella
+                // arcobaleno cambia tinta, la sfumata va e torna fra le sue due.
+                let phase = GlowBand.phase(at: context.date)
+                let light = maxOpacity * (floorFraction + (1 - floorFraction) * phase)
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(LinearGradient(stops: stops, startPoint: .leading, endPoint: .trailing))
+                    .fill(palette.color(atDistance: phase).opacity(light))
             }
         }
     }

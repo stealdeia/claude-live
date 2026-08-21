@@ -132,7 +132,7 @@ final class Settings: ObservableObject {
     /// ritrovarsi colori che nessuno ha più.
     @Published var panelThemeID: String = ColorTheme.midnight.id {
         didSet {
-            guard ColorTheme.all.contains(where: { $0.id == panelThemeID }) else {
+            guard ColorTheme.panelChoices.contains(where: { $0.id == panelThemeID }) else {
                 panelThemeID = ColorTheme.midnight.id
                 return
             }

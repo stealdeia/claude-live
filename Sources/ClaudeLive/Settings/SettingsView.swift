@@ -125,7 +125,7 @@ struct SettingsView: View {
         Section("Tema") {
             LabeledContent("Colore del pannello") {
                 HStack(spacing: 8) {
-                    ForEach(ColorTheme.all) { theme in
+                    ForEach(ColorTheme.panelChoices) { theme in
                         let chosen = settings.panelThemeID == theme.id
                         Button { settings.panelThemeID = theme.id } label: {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -171,7 +171,7 @@ struct SettingsView: View {
     }
 
     private var chosenTheme: ColorTheme {
-        ColorTheme.all.first { $0.id == settings.panelThemeID } ?? ColorTheme.midnight
+        ColorTheme.panelChoices.first { $0.id == settings.panelThemeID } ?? ColorTheme.midnight
     }
 
     // MARK: - Sections
