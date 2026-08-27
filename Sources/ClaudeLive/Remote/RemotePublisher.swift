@@ -199,13 +199,15 @@ final class RemotePublisher: ObservableObject {
 
     /// Quanti messaggi di ogni conversazione arrivano al telefono.
     ///
-    /// Pochi di proposito. La fotografia viene cifrata e spedita interamente a
-    /// ogni cambiamento, quindi ciò che si aggiunge qui si paga a ogni
-    /// pubblicazione, non una volta. Cinque messaggi da novecento caratteri per
-    /// una manciata di chat stanno in poche decine di migliaia di byte, e sono
-    /// quello che serve per capire dove è arrivata una conversazione — non per
-    /// rileggerla dall'inizio, cosa che si fa al Mac.
-    private static let messagesPerSession = 10
+    /// Venti, e interi. Il numero viene da come si usa: «a volte tu scrivi tanti
+    /// messaggi e se torno su non ricordo nemmeno più cosa ti avevo detto io
+    /// l'ultima volta» — con dieci, l'ultima cosa detta da lui era già fuori.
+    ///
+    /// Costano poco meno di quanto sembri: misurato su una sessione vera,
+    /// venti messaggi interi sono 7.300 caratteri, circa 10 KB una volta
+    /// cifrati. Il tetto che li protegge dai casi patologici sta in
+    /// `ChatMessages`, non qui.
+    private static let messagesPerSession = 20
 
     /// Quanti messaggi conteneva l'ultima fotografia, solo per non ripetere la
     /// stessa riga di diario a ogni pubblicazione.

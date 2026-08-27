@@ -72,6 +72,32 @@ struct ChatMessagesView: View {
     }
 
     private func bubble(_ message: ClaudeMessage) -> some View {
+        MessageBubble(message: message)
+    }
+}
+
+/// Un fumetto, con il suo «leggi tutto».
+///
+/// Separato perché ha uno stato suo: se è aperto o chiuso. Il messaggio arriva
+/// **intero** dal Mac — quello non si tocca, era il difetto — ma un messaggio di
+/// tremila caratteri riempie tre schermate e seppellisce quelli dopo. Quindi si
+/// mostra accorciato e si apre toccando.
+private struct MessageBubble: View {
+    let message: ClaudeMessage
+
+    @State private var expanded = false
+
+    /// Sopra queste righe il fumetto si chiude da sé.
+    ///
+    /// Dodici e non tre: la soglia serve per i messaggi che sono *documenti*, non
+    /// per quelli lunghi. Chiudere qualcosa che si sarebbe letto in un colpo
+    /// aggiunge un tocco senza risparmiare niente.
+    private let collapsedLines = 12
+
+    /// Sotto questa lunghezza non vale nemmeno la pena contare le righe.
+    private var isLong: Bool { message.text.count > 700 }
+
+    var body: some View {
         let mine = message.author == .user
         return HStack(alignment: .bottom, spacing: 0) {
             // I tuoi a destra, quelli di Claude a sinistra: il lato dice chi
@@ -83,6 +109,18 @@ struct ChatMessagesView: View {
                     .font(.footnote)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(expanded || !isLong ? nil : collapsedLines)
+
+                if isLong {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
+                    } label: {
+                        Text(expanded ? "Riduci" : "Leggi tutto")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    .buttonStyle(.plain)
+                }
 
                 if let at = message.at {
                     Text(Format.messageTime(at))

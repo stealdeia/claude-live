@@ -110,6 +110,14 @@ struct ChatDetailView: View {
     /// Chiuso all'apertura: chi entra qui viene a leggere. Si apre dopo.
     @State private var showingRequest = false
 
+    /// L'avviso che sta illuminando l'app, per poterlo spegnere entrando.
+    @EnvironmentObject private var glowState: GlowState
+
+    /// Serve solo a sapere *quale* avviso è in corso: la fotografia non arriva
+    /// fino a questa vista, e passarla da tre livelli di viste per un solo campo
+    /// sarebbe peggio.
+    @EnvironmentObject private var alerts: CurrentAlert
+
     var body: some View {
         ZStack {
             ThemedBackground()
@@ -117,6 +125,17 @@ struct ChatDetailView: View {
         }
         .safeAreaInset(edge: .top) { stateStrip }
         .safeAreaInset(edge: .bottom) { requestBar }
+        // Aprire la chat *è* la presa in carico: chiedere anche di premere
+        // qualcosa per spegnere la luce sarebbe un secondo gesto per la stessa
+        // decisione. Lo spegnimento è graduale, e lo decide chi disegna il
+        // segnale.
+        .onAppear {
+            glowState.seen(
+                sessionID: session.sessionID,
+                projectPath: session.projectPath,
+                alert: alerts.alert
+            )
+        }
         .navigationTitle(session.chatLabel)
         .navigationBarTitleDisplayMode(.inline)
     }

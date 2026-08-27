@@ -2,6 +2,9 @@ import SwiftUI
 #if canImport(AppKit)
 import AppKit
 #endif
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// A colour for the glow, stored as components rather than as a `Color`.
 ///
@@ -30,9 +33,6 @@ public struct GlowRGB: Codable, Equatable, Sendable {
     /// can be in any colour space, and reading components from it without converting
     /// returns nil for the ones that are not RGB — a silent fall back to black.
     ///
-    /// macOS only: it exists for the Settings pickers, and the mobile app has no
-    /// colour picker. Writing an untested UIKit conversion would be worse than not
-    /// offering one.
     public init(_ color: Color) {
         let native = NSColor(color).usingColorSpace(.sRGB) ?? .white
         self.init(
@@ -40,6 +40,37 @@ public struct GlowRGB: Codable, Equatable, Sendable {
             green: Double(native.greenComponent),
             blue: Double(native.blueComponent)
         )
+    }
+    #endif
+
+    #if canImport(UIKit)
+    /// Come sopra, per il selettore di colori dell'app iPhone.
+    ///
+    /// Non esisteva perché l'app mobile non aveva colori da scegliere, e scrivere
+    /// una conversione mai eseguita era peggio che non offrirla. Da quando anche
+    /// sul telefono si scelgono i colori del segnale, serve.
+    ///
+    /// Passa da sRGB in modo esplicito per la stessa ragione della versione
+    /// macOS: un colore che esce dal selettore di sistema può stare in qualunque
+    /// spazio, e leggerne i componenti senza convertirlo dà nero in silenzio.
+    public init(_ color: Color) {
+        let native = UIColor(color)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        if native.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            self.init(red: Double(red), green: Double(green), blue: Double(blue))
+            return
+        }
+        // `getRed` rifiuta i colori che non sono RGB — una scala di grigi, per
+        // esempio. Là si converte davvero invece di arrendersi al nero.
+        if let converted = native.cgColor.converted(
+            to: CGColorSpace(name: CGColorSpace.sRGB)!,
+            intent: .defaultIntent,
+            options: nil
+        ), let parts = converted.components, parts.count >= 3 {
+            self.init(red: Double(parts[0]), green: Double(parts[1]), blue: Double(parts[2]))
+            return
+        }
+        self.init(red: 1, green: 1, blue: 1)
     }
     #endif
 

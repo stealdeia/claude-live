@@ -26,6 +26,9 @@ struct HomeView: View {
     /// dopo essere stata messa qui.
     @State private var readingChat: String?
 
+    @EnvironmentObject private var glow: GlowSettings
+    @EnvironmentObject private var glowState: GlowState
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -103,7 +106,7 @@ struct HomeView: View {
                 Button {
                     onOpenProjects()
                 } label: {
-                    Label("altre \(decidable.count - 1) da approvare", systemImage: "chevron.right")
+                    Label("altre \(decidable.count - 1) da rispondere", systemImage: "chevron.right")
                         .font(.footnote)
                         .labelStyle(TrailingIconLabel())
                 }
@@ -140,22 +143,46 @@ struct HomeView: View {
 
     // MARK: - Progetti, ridotti all'osso
 
+    /// I progetti: un pulsante per vederli tutti, e sotto la lista in cui ogni
+    /// nome porta dentro il suo.
+    ///
+    /// Rifatta il 2026-08-27. Prima il nome non era toccabile e l'unica cosa da
+    /// premere era una freccia piccola in cima: «è difficile cliccare sulla
+    /// freccia», «ora è un po' stretto e faccio fatica a cliccare con le dita».
+    /// Ogni riga ora è alta almeno 52 punti — un dito ne copre 44 — e si tocca
+    /// tutta, nome compreso.
     private func projects(_ snapshot: RemoteSnapshot) -> some View {
         GlassCard {
-            VStack(alignment: .leading, spacing: 12) {
-                header("Progetti", count: snapshot.projects.count, action: onOpenProjects)
+            VStack(alignment: .leading, spacing: 10) {
+                Button(action: onOpenProjects) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder")
+                            .font(.footnote)
+                        Text("Tutti i progetti")
+                            .font(.subheadline.weight(.semibold))
+                        if !snapshot.projects.isEmpty {
+                            Text("\(snapshot.projects.count)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
                 if snapshot.projects.isEmpty {
                     Text("Nessuna sessione aperta")
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.55))
+                        .padding(.bottom, 6)
                 } else {
-                    VStack(spacing: 9) {
+                    VStack(spacing: 0) {
                         ForEach(snapshot.projects, id: \.projectPath) { project in
-                            // Tutta la riga, non solo una freccia: era il
-                            // difetto — «se clicco sul nome del progetto non
-                            // succede niente, devo per forza toccare la freccia
-                            // che è piccola e faccio fatica».
                             NavigationLink {
                                 projectDestination(
                                     project: project,
@@ -167,27 +194,52 @@ struct HomeView: View {
                                     onAnswer: onAnswer
                                 )
                             } label: {
-                                HStack(spacing: 10) {
-                                    StatusDot(state: project.state, isStale: project.isStale, size: 9)
-                                    Text((project.projectPath as NSString).lastPathComponent)
-                                        .font(.subheadline)
-                                        .lineLimit(1)
-                                    Spacer(minLength: 8)
-                                    Text(project.state.label)
-                                        .font(.caption)
-                                        .foregroundStyle(.white.opacity(0.55))
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.white.opacity(0.35))
-                                }
-                                .contentShape(Rectangle())
+                                projectRow(project, in: snapshot)
                             }
                             .buttonStyle(.plain)
+
+                            if project.projectPath != snapshot.projects.last?.projectPath {
+                                Rectangle()
+                                    .fill(.white.opacity(0.07))
+                                    .frame(height: 0.5)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private func projectRow(_ project: ClaudeProjectStatus, in snapshot: RemoteSnapshot) -> some View {
+        let lit = glow.enabled
+            && snapshot.alert?.projectPath == project.projectPath
+            && glowState.isLit(snapshot.alert)
+
+        return HStack(spacing: 11) {
+            StatusDot(state: project.state, isStale: project.isStale, size: 10)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text((project.projectPath as NSString).lastPathComponent)
+                    .font(.body)
+                    .lineLimit(1)
+                Text(project.state.label)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.35))
+        }
+        // Cinquantadue punti: un dito ne copre quarantaquattro, e la riga deve
+        // essere più larga del dito che la cerca.
+        .frame(minHeight: 52)
+        .contentShape(Rectangle())
+        // Pulsa la riga del progetto interessato, come fa sul Mac: la cornice
+        // dice che c'è qualcosa, questa dice quale.
+        .glowingRow(style: glow.style(for: snapshot.alert?.kind ?? .waiting), active: lit)
     }
 
     // MARK: - Utilizzo, due numeri

@@ -35,6 +35,10 @@ public struct ClaudeMessage: Codable, Equatable, Sendable {
     private static let noiseTags = [
         "system-reminder", "ide_selection", "command-name", "command-message",
         "command-args", "local-command-stdout", "local-command-stderr",
+        // Aggiunta il 2026-08-27: nella chat sul telefono comparivano fumetti
+        // attribuiti a Stefano che contenevano l'avviso di fine di un lavoro in
+        // sottofondo. «Viene fuori questa ma io non ho mai scritto nulla.»
+        "task-notification",
     ]
 
     /// Un messaggio leggibile da una riga di trascrizione, o `nil` se quella riga
@@ -56,7 +60,7 @@ public struct ClaudeMessage: Codable, Equatable, Sendable {
 
         let cleaned = withoutNoise(readable(envelope["content"]))
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty else { return nil }
+        guard !cleaned.isEmpty, !isOneElement(cleaned) else { return nil }
 
         return ClaudeMessage(
             author: author,
@@ -76,6 +80,29 @@ public struct ClaudeMessage: Codable, Equatable, Sendable {
             .filter { $0["type"] as? String == "text" }
             .compactMap { $0["text"] as? String }
             .joined(separator: "\n\n")
+    }
+
+    /// Se il messaggio è tutto dentro un'unica etichetta.
+    ///
+    /// L'elenco qui sopra è una lista di nomi noti, e una lista di nomi noti è
+    /// sempre in ritardo: `task-notification` ci è arrivata dopo essere comparsa
+    /// in una chat, attribuita a una persona che non l'aveva scritta. Questa
+    /// regola non ha bisogno di conoscere il nome — se *tutto* il messaggio è un
+    /// solo elemento, non è una frase detta da qualcuno.
+    ///
+    /// Solo l'intero messaggio, e questo è il punto delicato: le etichette
+    /// compaiono anche *dentro* messaggi veri — `<project>`, `<id>`, `<n>` sono
+    /// nei messaggi di questo progetto — e togliere ogni cosa fra parentesi
+    /// angolari mangerebbe pezzi di conversazione.
+    private static func isOneElement(_ text: String) -> Bool {
+        guard text.hasPrefix("<"), text.hasSuffix(">"),
+              let nameEnd = text.firstIndex(of: ">")
+        else { return false }
+        let name = text[text.index(after: text.startIndex)..<nameEnd]
+        guard !name.isEmpty,
+              name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
+        else { return false }
+        return text.hasSuffix("</\(name)>")
     }
 
     private static func withoutNoise(_ text: String) -> String {

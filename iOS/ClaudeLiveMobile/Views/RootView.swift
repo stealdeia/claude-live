@@ -17,6 +17,9 @@ struct RootView: View {
     @State private var showingSettings = false
     @State private var showingPairing = false
     @StateObject private var notifications = NotificationPreferences()
+    @StateObject private var glow = GlowSettings()
+    @StateObject private var glowState = GlowState()
+    @StateObject private var currentAlert = CurrentAlert()
     @Environment(\.scenePhase) private var scenePhase
 
     enum AppTab: Hashable { case home, projects, usage }
@@ -43,6 +46,21 @@ struct RootView: View {
         }
         .tint(themes.theme.accent)
         .environment(\.theme, themes.theme)
+        .environmentObject(glowState)
+        .environmentObject(glow)
+        .environmentObject(currentAlert)
+        .onChange(of: snapshot?.alert) { _, alert in currentAlert.alert = alert }
+        // Sopra tutto e senza intercettare i tocchi: è un segnale, non un
+        // pulsante. Sfuma invece di sparire, perché entrare nella chat è già la
+        // risposta e un taglio secco sembrerebbe un guasto.
+        .overlay {
+            if glow.enabled, let alert = snapshot?.alert, glowState.isLit(alert) {
+                AppGlow(style: glow.style(for: alert.kind))
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.55), value: glowState.dismissed)
+        .animation(.easeOut(duration: 0.55), value: snapshot?.alert)
         // Forced dark: the whole look is a black-to-colour gradient, and there
         // is no light version of it that would still meet the Dynamic Island.
         .preferredColorScheme(.dark)
@@ -51,7 +69,8 @@ struct RootView: View {
                 probe: probe,
                 themes: themes,
                 store: store,
-                notifications: notifications
+                notifications: notifications,
+                glow: glow
             ) {
                 showingSettings = false
                 showingPairing = true
@@ -161,6 +180,7 @@ struct SettingsSheet: View {
     @Bindable var themes: ThemeStore
     @ObservedObject var store: RemoteStore
     @ObservedObject var notifications: NotificationPreferences
+    @ObservedObject var glow: GlowSettings
     let onPair: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -231,6 +251,28 @@ struct SettingsSheet: View {
                         }
 
                         GlassCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Segnale luminoso")
+                                    .font(.subheadline.weight(.semibold))
+
+                                Toggle("Illumina l'app quando arriva un avviso",
+                                       isOn: $glow.enabled)
+                                    .font(.footnote)
+
+                                Text("Pulsa attorno allo schermo e sulla riga del progetto interessato, con lo stesso ritmo della striscia attorno al notch sul Mac. Si spegne entrando nella chat.")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.55))
+
+                                ForEach(ClaudeAlertKind.allCases) { kind in
+                                    glowRow(kind)
+                                        .disabled(!glow.enabled)
+                                        .opacity(glow.enabled ? 1 : 0.4)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        GlassCard {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text("Tema")
                                     .font(.subheadline.weight(.semibold))
@@ -270,6 +312,85 @@ struct SettingsSheet: View {
                 }
             }
         }
+    }
+
+    /// Un tipo di avviso: come si illumina e con quali colori.
+    ///
+    /// Le stesse tre modalità del Mac, con gli stessi nomi. Il pulsante
+    /// «Ripristina» compare solo se c'è qualcosa da ripristinare, perché un
+    /// pulsante che non fa niente insegna a non fidarsi dei pulsanti.
+    private func glowRow(_ kind: ClaudeAlertKind) -> some View {
+        let style = glow.style(for: kind)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(style.palette.color(atDistance: 0))
+                    .frame(width: 10, height: 10)
+                Text(kind.label)
+                    .font(.footnote.weight(.medium))
+                Spacer(minLength: 6)
+                Picker("", selection: Binding(
+                    get: { style.mode },
+                    set: {
+                        glow.setStyle(
+                            GlowStyle(mode: $0, primary: style.primary, secondary: style.secondary),
+                            for: kind
+                        )
+                    }
+                )) {
+                    ForEach(GlowStyle.Mode.allCases) { mode in
+                        Text(mode.label).tag(mode)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .font(.footnote)
+            }
+
+            HStack(spacing: 12) {
+                if style.mode != .rainbow {
+                    ColorPicker("", selection: Binding(
+                        get: { style.primary.color },
+                        set: {
+                            glow.setStyle(
+                                GlowStyle(mode: style.mode, primary: GlowRGB($0), secondary: style.secondary),
+                                for: kind
+                            )
+                        }
+                    ))
+                    .labelsHidden()
+                    Text(style.mode == .blend ? "centro" : "colore")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+
+                if style.mode == .blend {
+                    ColorPicker("", selection: Binding(
+                        get: { style.secondary.color },
+                        set: {
+                            glow.setStyle(
+                                GlowStyle(mode: style.mode, primary: style.primary, secondary: GlowRGB($0)),
+                                for: kind
+                            )
+                        }
+                    ))
+                    .labelsHidden()
+                    Text("estremi")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+
+                Spacer(minLength: 4)
+
+                if !glow.isDefault(kind) {
+                    Button("Ripristina") {
+                        glow.setStyle(.default(for: kind), for: kind)
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func themeChip(_ theme: ColorTheme) -> some View {

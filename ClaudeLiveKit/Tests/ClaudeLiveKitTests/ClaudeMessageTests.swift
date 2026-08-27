@@ -140,6 +140,55 @@ final class ClaudeMessageTests: XCTestCase {
         XCTAssertNil(ClaudeMessage.from(record: record))
     }
 
+    // MARK: - L'avviso che sembrava un messaggio
+
+    /// Il difetto del 2026-08-27: nella chat sul telefono comparivano fumetti
+    /// attribuiti a Stefano che contenevano l'avviso di fine di un lavoro in
+    /// sottofondo. «Viene fuori questa ma io non ho mai scritto nulla.»
+    func testTaskNotificationIsNotAMessage() {
+        let record: [String: Any] = [
+            "type": "user",
+            "message": ["content": [["type": "text", "text":
+                "<task-notification>\n<task-id>br73</task-id>\n<status>completed</status>\n</task-notification>"]]],
+        ]
+        XCTAssertNil(ClaudeMessage.from(record: record))
+    }
+
+    /// La regola generale, che non ha bisogno di conoscere il nome: un elenco di
+    /// nomi noti è sempre in ritardo di un difetto.
+    func testAnyMessageThatIsOneWholeElementIsDropped() {
+        for tag in ["qualcosa-di-nuovo", "avviso_interno", "wrapper42"] {
+            let record: [String: Any] = [
+                "type": "user",
+                "message": ["content": [["type": "text", "text": "<\(tag)>contenuto</\(tag)>"]]],
+            ]
+            XCTAssertNil(ClaudeMessage.from(record: record), "<\(tag)> non è una frase detta")
+        }
+    }
+
+    /// Il punto delicato della regola: le etichette compaiono anche *dentro* i
+    /// messaggi veri, e togliere ogni cosa fra parentesi angolari mangerebbe
+    /// pezzi di conversazione.
+    func testTagsInsideRealProseSurvive() {
+        let record: [String: Any] = [
+            "type": "user",
+            "message": ["content": [["type": "text", "text":
+                "Nel file c'è <project> e anche <id>, non toccarli."]]],
+        ]
+        XCTAssertEqual(
+            ClaudeMessage.from(record: record)?.text,
+            "Nel file c'è <project> e anche <id>, non toccarli."
+        )
+    }
+
+    func testMessageStartingWithATagButContinuingIsKept() {
+        let record: [String: Any] = [
+            "type": "user",
+            "message": ["content": [["type": "text", "text": "<b>ciao</b> e poi altro"]]],
+        ]
+        XCTAssertNotNil(ClaudeMessage.from(record: record))
+    }
+
     // MARK: - Lunghezza
 
     func testLongMessageIsShortened() {
@@ -151,6 +200,18 @@ final class ClaudeMessageTests: XCTestCase {
         let text = ClaudeMessage.from(record: record, maxCharacters: 100)?.text
         XCTAssertEqual(text?.count, 101, "cento caratteri più i puntini")
         XCTAssertTrue(text?.hasSuffix("…") == true)
+    }
+
+    /// Zero vuol dire «nessun taglio»: dal 2026-08-27 i messaggi arrivano
+    /// interi, perché la misura ha mostrato che il taglio non risparmiava niente
+    /// e rovinava proprio i messaggi che valeva la pena leggere.
+    func testZeroLimitMeansNoTruncation() {
+        let long = String(repeating: "a", count: 5000)
+        let record: [String: Any] = [
+            "type": "assistant",
+            "message": ["content": [["type": "text", "text": long]]],
+        ]
+        XCTAssertEqual(ClaudeMessage.from(record: record, maxCharacters: 0)?.text.count, 5000)
     }
 
     func testShortMessageIsUntouched() {

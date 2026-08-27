@@ -22,25 +22,32 @@ import ClaudeLiveKit
 /// del pezzo letto è quasi certamente troncata a metà: non è un caso speciale,
 /// semplicemente non si decodifica e si passa oltre.
 enum ChatMessages {
-    /// Quanto leggere dalla fine. Generoso rispetto ai titoli, perché qui una
-    /// riga sola può essere un messaggio lungo e in mezzo ci sono i risultati
-    /// degli strumenti, che occupano molto spazio e non vengono tenuti.
-    private static let tailBytes: UInt64 = 512 * 1024
-
-    /// Oltre questa lunghezza un messaggio viene troncato.
+    /// Quanto leggere dalla fine.
     ///
-    /// Non per fare economia di byte: sul telefono nessuno legge tremila
-    /// caratteri in una bolla, e il messaggio intero resta nella chat vera.
-    private static let maxCharacters = 600
-
-    /// L'ultimo messaggio ne ha molti di più.
+    /// Due megabyte, misurati e non scelti a occhio: con 512 KB questa sessione
+    /// dava 16 messaggi invece di 20, perché fra un messaggio e l'altro ci sono i
+    /// risultati degli strumenti, che occupano molto spazio e vengono buttati. Un
+    /// megabyte bastava, due danno margine — e questa è una delle sessioni più
+    /// cariche di lavoro che ci siano (14,7 MB di trascrizione), quindi è il caso
+    /// peggiore, non quello medio.
     ///
-    /// Perché è quello che si sta leggendo: la chat sul telefono si apre per
-    /// sapere cosa Claude ha detto *adesso*, e spesso per decidere come
-    /// rispondere a una domanda. Tagliarlo alla stessa misura dei messaggi di
-    /// contesto vorrebbe dire troncare l'unico che conta. Gli altri sono là per
-    /// inquadrarlo, e per quello bastano poche righe.
-    private static let maxCharactersLatest = 3000
+    /// Il costo di leggerne tanti è basso: la cache qui sotto tiene il risultato
+    /// per cinque secondi, e il pannello ridisegna molto più spesso.
+    private static let tailBytes: UInt64 = 2 * 1024 * 1024
+
+    /// Quanto testo al massimo per una chat.
+    ///
+    /// Non un limite per messaggio: i messaggi arrivano **interi**. Tagliarli a
+    /// novecento caratteri era una precauzione presa a occhio, e la misura del
+    /// 2026-08-27 l'ha smentita — venti messaggi interi di una sessione vera
+    /// sono 7.300 caratteri in tutto, mediana 105, e il taglio colpiva solo i
+    /// tre che valeva la pena leggere.
+    ///
+    /// Resta un tetto sul totale perché una chat fatta di venti messaggi
+    /// lunghissimi è possibile, e la fotografia viene spedita a ogni
+    /// cambiamento. Si raccoglie dal più recente, quindi ciò che eventualmente
+    /// resta fuori è il contesto più vecchio.
+    private static let maxCharactersPerChat = 60_000
 
     private struct Cached {
         let messages: [ClaudeMessage]
@@ -84,20 +91,17 @@ enum ChatMessages {
         guard let data = try? handle.readToEnd(), !data.isEmpty else { return [] }
 
         var collected: [ClaudeMessage] = []
+        var used = 0
         let lines = data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
         for line in lines.reversed() {
-            guard collected.count < limit else { break }
+            guard collected.count < limit, used < maxCharactersPerChat else { break }
             guard line.count < 2 * 1024 * 1024,
-                  let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any]
+                  let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                  // Zero: nessun taglio. Il messaggio arriva come è stato scritto.
+                  let message = ClaudeMessage.from(record: object, maxCharacters: 0)
             else { continue }
-            // Si raccoglie a ritroso, quindi il primo che si trova è il più
-            // recente: è quello che va per esteso.
-            let generous = collected.isEmpty
-            guard let message = ClaudeMessage.from(
-                record: object,
-                maxCharacters: generous ? maxCharactersLatest : maxCharacters
-            ) else { continue }
             collected.append(message)
+            used += message.text.count
         }
         // Raccolti a ritroso, letti in avanti.
         return collected.reversed()
