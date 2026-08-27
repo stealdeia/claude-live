@@ -6,6 +6,10 @@ struct ProjectDetailView: View {
     let project: ClaudeProjectStatus
     let sessions: [ClaudeSessionStatus]
     let inFlight: Set<String>
+
+    /// Gli ultimi messaggi di ogni conversazione, per identificativo di sessione.
+    /// Vuoto se il Mac è più vecchio di questa versione dell'app.
+    let messages: [String: [ClaudeMessage]]
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
 
     var body: some View {
@@ -18,6 +22,7 @@ struct ProjectDetailView: View {
                             ChatDetailView(
                                 session: session,
                                 isInFlight: inFlight.contains(session.id),
+                                messages: messages[session.sessionID] ?? [],
                                 onDecide: onDecide
                             )
                         } label: {
@@ -71,6 +76,9 @@ struct ProjectDetailView: View {
 struct ChatDetailView: View {
     let session: ClaudeSessionStatus
     let isInFlight: Bool
+
+    /// Gli ultimi messaggi leggibili, dal più vecchio al più recente.
+    let messages: [ClaudeMessage]
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
 
     var body: some View {
@@ -107,7 +115,7 @@ struct ChatDetailView: View {
                         }
                     }
 
-                    message
+                    conversation
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
@@ -117,31 +125,68 @@ struct ChatDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    /// What Claude wrote — or an honest note that we cannot read it yet.
+    /// Gli ultimi messaggi della conversazione.
     ///
-    /// The empty state says *why* it is empty. "Nothing here" would be read as
-    /// "Claude said nothing", which is a different and wrong fact.
+    /// Il riquadro vuoto spiega *perché* è vuoto. «Niente qui» verrebbe letto
+    /// come «Claude non ha detto niente», che è un fatto diverso e sbagliato — e
+    /// per un pezzo di tempo è stato il caso: il Mac non leggeva le trascrizioni.
     @ViewBuilder
-    private var message: some View {
+    private var conversation: some View {
         GlassCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Ultimo messaggio di Claude", systemImage: "quote.bubble")
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Ultimi messaggi", systemImage: "quote.bubble")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.6))
 
-                if let text = session.lastMessage {
-                    Text(text)
-                        .font(.callout)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text("Il Mac non legge ancora il testo delle conversazioni, quindi qui non c'è nulla da mostrare — non significa che Claude non abbia scritto.")
+                if messages.isEmpty {
+                    Text(emptyExplanation)
                         .font(.footnote)
                         .foregroundStyle(.white.opacity(0.5))
                         .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
+                        bubble(message)
+                    }
                 }
             }
         }
+    }
+
+    /// Vuoto per due motivi diversi, e dirlo male sarebbe peggio che tacere: una
+    /// chat può non avere ancora parole (solo lavoro con gli strumenti), oppure
+    /// il Mac può essere una versione che non li manda.
+    private var emptyExplanation: String {
+        session.lastMessage
+            ?? "Di questa conversazione non c'è ancora niente da leggere: può contenere solo lavoro con gli strumenti, oppure il Mac non l'ha ancora pubblicata. Non vuol dire che Claude non abbia scritto."
+    }
+
+    private func bubble(_ message: ClaudeMessage) -> some View {
+        let mine = message.author == .user
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                Image(systemName: mine ? "person.fill" : "sparkle")
+                    .font(.system(size: 9))
+                Text(mine ? "Tu" : "Claude")
+                    .font(.caption2.weight(.semibold))
+                if let at = message.at {
+                    Text("· \(Format.age(since: at))")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                Spacer(minLength: 2)
+            }
+            .foregroundStyle(mine ? .white.opacity(0.6) : GlowRGB.done.color.opacity(0.8))
+
+            Text(message.text)
+                .font(.footnote)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(.white.opacity(mine ? 0.06 : 0.10))
+        )
     }
 }
 
@@ -152,6 +197,7 @@ struct ChatDetailView: View {
             project: snapshot.projects[0],
             sessions: snapshot.sessions.filter { $0.projectPath == snapshot.projects[0].projectPath },
             inFlight: [],
+            messages: snapshot.messages ?? [:],
             onDecide: { _, _, _ in }
         )
     }
@@ -163,6 +209,10 @@ struct ChatDetailView: View {
         ChatDetailView(
             session: RemoteSnapshot.sample(now: Date()).sessions[0],
             isInFlight: false,
+            messages: [
+                ClaudeMessage(author: .user, text: "Sistemami il pannello.", at: Date()),
+                ClaudeMessage(author: .assistant, text: "Fatto: era una variabile sovrascritta.", at: Date()),
+            ],
             onDecide: { _, _, _ in }
         )
     }

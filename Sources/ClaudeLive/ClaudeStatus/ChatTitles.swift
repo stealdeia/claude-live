@@ -75,7 +75,12 @@ enum ChatTitles {
         String(path.map { $0.isLetter || $0.isNumber ? $0 : "-" })
     }
 
-    private static func transcript(projectPath: String, sessionID: String) -> URL? {
+    /// Il file della conversazione di una sessione, con la sua cache.
+    ///
+    /// Non più privato: da quando si leggono anche gli ultimi messaggi ci sono due
+    /// lettori, e cercare il file due volte vorrebbe dire due cache che possono
+    /// discordare su dove sia la stessa chat.
+    static func transcript(projectPath: String, sessionID: String) -> URL? {
         lock.lock()
         if let known = transcripts[sessionID] {
             lock.unlock()

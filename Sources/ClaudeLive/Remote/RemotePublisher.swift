@@ -150,6 +150,17 @@ final class RemotePublisher: ObservableObject {
             return
         }
 
+        // Da quando la fotografia porta anche gli ultimi messaggi, la sua
+        // dimensione dipende da cosa si è scritto nelle chat — cioè da qualcosa
+        // che non controlliamo. Registrata solo quando esce dai limiti previsti,
+        // perché è l'unico caso in cui c'è una decisione da prendere.
+        if sealed.count > 96 * 1024 {
+            Log.debug(
+                "Fotografia grande: \(sealed.count / 1024) KB, spedita a ogni cambiamento",
+                category: .status
+            )
+        }
+
         var body: [String: Any] = ["payload": sealed]
         if let notify = notificationText() {
             body["notify"] = notify
@@ -186,14 +197,65 @@ final class RemotePublisher: ObservableObject {
         }
     }
 
+    /// Quanti messaggi di ogni conversazione arrivano al telefono.
+    ///
+    /// Pochi di proposito. La fotografia viene cifrata e spedita interamente a
+    /// ogni cambiamento, quindi ciò che si aggiunge qui si paga a ogni
+    /// pubblicazione, non una volta. Cinque messaggi da novecento caratteri per
+    /// una manciata di chat stanno in poche decine di migliaia di byte, e sono
+    /// quello che serve per capire dove è arrivata una conversazione — non per
+    /// rileggerla dall'inizio, cosa che si fa al Mac.
+    private static let messagesPerSession = 5
+
+    /// Quanti messaggi conteneva l'ultima fotografia, solo per non ripetere la
+    /// stessa riga di diario a ogni pubblicazione.
+    private var lastMessageCount = -1
+
     private func makeSnapshot() -> RemoteSnapshot {
-        RemoteSnapshot(
+        let sessions = status.sessionsByPath.values.flatMap { $0 }
+        return RemoteSnapshot(
             usage: usage.snapshot,
             projects: Array(status.statusesByPath.values).sorted { $0.state > $1.state },
-            sessions: status.sessionsByPath.values.flatMap { $0 },
+            sessions: sessions,
             alert: status.topAlert,
-            generatedAt: Date()
+            generatedAt: Date(),
+            messages: recentMessages(of: sessions)
         )
+    }
+
+    /// Gli ultimi messaggi di ogni conversazione, per poterla leggere dal
+    /// telefono.
+    ///
+    /// Le sessioni senza niente da leggere non compaiono affatto: una chiave con
+    /// un elenco vuoto occuperebbe spazio per dire «niente», che è ciò che dice
+    /// già la sua assenza.
+    private func recentMessages(
+        of sessions: [ClaudeSessionStatus]
+    ) -> [String: [ClaudeMessage]]? {
+        var found: [String: [ClaudeMessage]] = [:]
+        for session in sessions {
+            let messages = ChatMessages.recent(
+                projectPath: session.cwd ?? session.projectPath,
+                sessionID: session.sessionID,
+                limit: Self.messagesPerSession
+            )
+            if !messages.isEmpty { found[session.sessionID] = messages }
+        }
+
+        // Registrato solo quando il conto cambia: a ogni pubblicazione sarebbe
+        // rumore, mai sarebbe cecità. Serve a distinguere «la chat non ha parole»
+        // da «il lettore non trova la trascrizione», che sul telefono si vedono
+        // identiche — un riquadro vuoto.
+        let total = found.values.reduce(0) { $0 + $1.count }
+        if total != lastMessageCount {
+            lastMessageCount = total
+            Log.debug(
+                "Messaggi nella fotografia: \(total) in \(found.count) chat su \(sessions.count)",
+                category: .status
+            )
+        }
+
+        return found.isEmpty ? nil : found
     }
 
     /// Generic on purpose: this text is read by Apple and by the relay, so

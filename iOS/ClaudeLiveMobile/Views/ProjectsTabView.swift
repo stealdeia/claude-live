@@ -47,6 +47,7 @@ struct ProjectsTabView: View {
                                         project: project,
                                         sessions: sessions(of: project, in: snapshot),
                                         inFlight: inFlight,
+                                        messages: snapshot.messages ?? [:],
                                         onDecide: onDecide
                                     )
                                 } label: {

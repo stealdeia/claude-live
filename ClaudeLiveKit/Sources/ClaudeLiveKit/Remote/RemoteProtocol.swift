@@ -19,13 +19,24 @@ public struct RemoteSnapshot: Codable, Equatable, Sendable {
     public var alert: ClaudeAlert?
     public var generatedAt: Date
 
+    /// Gli ultimi messaggi leggibili di ogni conversazione, per identificativo di
+    /// sessione.
+    ///
+    /// Facoltativo, e `version` **non** è stata alzata di proposito: un campo
+    /// aggiunto che si può ignorare non rompe niente, mentre alzare la versione
+    /// farebbe rifiutare l'intera fotografia a un telefono più vecchio — che
+    /// perderebbe anche tutto quello che sapeva già leggere, per un campo che non
+    /// gli serve.
+    public var messages: [String: [ClaudeMessage]]?
+
     public init(
         version: Int = RemoteSnapshot.currentVersion,
         usage: UsageSnapshot?,
         projects: [ClaudeProjectStatus],
         sessions: [ClaudeSessionStatus],
         alert: ClaudeAlert?,
-        generatedAt: Date
+        generatedAt: Date,
+        messages: [String: [ClaudeMessage]]? = nil
     ) {
         self.version = version
         self.usage = usage
@@ -33,6 +44,7 @@ public struct RemoteSnapshot: Codable, Equatable, Sendable {
         self.sessions = sessions
         self.alert = alert
         self.generatedAt = generatedAt
+        self.messages = messages
     }
 }
 
