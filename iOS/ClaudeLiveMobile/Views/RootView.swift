@@ -184,6 +184,18 @@ struct SettingsSheet: View {
     let onPair: () -> Void
     @Environment(\.dismiss) private var dismiss
 
+    /// Il tipo di avviso di cui si sta guardando l'anteprima del segnale.
+    ///
+    /// Esiste perché il segnale è l'unica cosa dell'app che non si può giudicare
+    /// da un campione: va visto grande quanto lo schermo e in movimento. Prima
+    /// serviva una domanda vera per vederlo — cioè far succedere qualcosa sul Mac
+    /// per guardare un colore.
+    @State private var previewing: ClaudeAlertKind?
+
+    /// Spegne l'anteprima da sé: un segnale che resta accesso mentre si scelgono i
+    /// colori diventa esso stesso il fastidio che si stava misurando.
+    private static let previewSeconds: Double = 6
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -302,6 +314,21 @@ struct SettingsSheet: View {
                     .padding(.bottom, 24)
                 }
             }
+            .overlay {
+                if let kind = previewing {
+                    ZStack {
+                        // Uno strato invisibile che raccoglie il tocco: chi ha
+                        // visto abbastanza non deve aspettare i sei secondi.
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { previewing = nil }
+                        AppGlow(style: glow.style(for: kind))
+                    }
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.4), value: previewing)
             .preferredColorScheme(.dark)
             .navigationTitle("Impostazioni")
             .navigationBarTitleDisplayMode(.inline)
@@ -381,6 +408,22 @@ struct SettingsSheet: View {
                 }
 
                 Spacer(minLength: 4)
+
+                Button {
+                    previewing = kind
+                    // Si spegne da sé: lasciarlo accesso mentre si sceglie il
+                    // colore vorrebbe dire scegliere il colore dentro la cosa
+                    // che si sta giudicando.
+                    Task {
+                        try? await Task.sleep(for: .seconds(Self.previewSeconds))
+                        if previewing == kind { previewing = nil }
+                    }
+                } label: {
+                    Label("Prova", systemImage: "play.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .tint(.white)
 
                 if !glow.isDefault(kind) {
                     Button("Ripristina") {
