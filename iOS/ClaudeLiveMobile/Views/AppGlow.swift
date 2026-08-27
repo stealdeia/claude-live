@@ -77,8 +77,8 @@ struct AppGlow: View {
     ///
     /// Un valore fisso: quello vero non è esposto da nessuna interfaccia
     /// pubblica, e i telefoni con l'isola dinamica stanno tutti attorno a questo.
-    /// Sbagliarlo di qualche punto non si vede, perché il tracciato è coperto da
-    /// un alone sfocato di quattordici.
+    /// Sbagliarlo di qualche punto non si vede, perché sopra il tracciato passa
+    /// un alone sfocato di sette.
     private static let screenCornerRadius: CGFloat = 55
 }
 
