@@ -1,4 +1,4 @@
-#if canImport(ActivityKit)
+#if os(iOS)
 import ActivityKit
 import Foundation
 
@@ -7,8 +7,12 @@ import Foundation
 /// Sta nel pacchetto condiviso perché deve essere lo stesso tipo per due
 /// bersagli — l'app che avvia l'attività e l'estensione che la disegna — e due
 /// definizioni che devono combaciare byte per byte non possono essere due
-/// definizioni. Su macOS non esiste: `ActivityKit` è solo iOS, e il `canImport`
-/// qui sopra è ciò che permette al Mac di compilare lo stesso pacchetto.
+/// definizioni.
+///
+/// Su macOS non esiste, e la guardia è `os(iOS)` e **non** `canImport`: il
+/// modulo ActivityKit su macOS si importa benissimo, è `ActivityAttributes`
+/// dentro a essere dichiarato non disponibile. Con `canImport` il Mac non
+/// compilava più.
 ///
 /// ## Perché così poco
 ///
