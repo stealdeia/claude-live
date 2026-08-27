@@ -5,6 +5,23 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.10.0</title>
+      <sparkle:version>0.10.0</sparkle:version>
+      <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 27 Aug 2026 09:52:24 +0000</pubDate>
+      <description>&lt;p&gt;Nel pannello si risponde anche alle domande a scelta multipla, non solo ai permessi.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**Le domande di Claude si leggono e si rispondono dal pannello.** Quelle con le opzioni fra cui scegliere, e con lo spazio per scriverne una propria. Prima il pannello sapeva rispondere soltanto alle richieste di permesso — che in modalità automatica non arrivano quasi più, mentre una domanda in quella modalità è **l&amp;#x27;unica cosa** che ferma la sessione ad aspettare una persona: cioè proprio il caso in cui il pannello serve, ed era il solo che non ci arrivava.&lt;/li&gt;
+&lt;li&gt;**La risposta arriva a Claude come una risposta**, non come un permesso negato con un messaggio attaccato: l&amp;#x27;hook riscrive l&amp;#x27;input dello strumento, che è il campo che di norma riempie il terminale. Quindi la domanda risulta risposta e non saltata, e una risposta scritta a mano arriva come tale.&lt;/li&gt;
+&lt;li&gt;**Tre minuti invece di 45 secondi** per rispondere: «Consenti» è un pulsante, una domanda sono due o tre opzioni con le loro descrizioni da leggere. E come sempre l&amp;#x27;attesa finisce da sé nell&amp;#x27;istante in cui riporti in vista la finestra di quel progetto.&lt;/li&gt;
+&lt;li&gt;**«Consenti sempre» non compare per le domande**: rispondere per sempre alla stessa domanda non vorrebbe dire niente.&lt;/li&gt;
+&lt;li&gt;Il diario delle anomalie non registra più un evento che non è mai rispondibile: era una riga a ogni domanda per un limite noto, e un diario deve contenere le sorprese.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.10.0/Claude.Live.0.10.0.dmg" length="3059315" type="application/octet-stream" sparkle:edSignature="OAWuIcndmU8dyDizptvxfNZGaCzM57T9pgffIOSoMM4HnM6eTYoM6wrnOaSlQMgv1RlLJbsI/E2lmK6iRs5iCQ==" />
+    </item>
+    <item>
       <title>Versione 0.9.1</title>
       <sparkle:version>0.9.1</sparkle:version>
       <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
