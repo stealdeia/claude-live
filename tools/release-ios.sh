@@ -43,10 +43,20 @@ if [[ "${DRY_RUN}" == "0" ]]; then
 fi
 
 # --- Numero di build --------------------------------------------------------
-CURRENT="$(grep -oE 'CURRENT_PROJECT_VERSION: "[0-9]+"' iOS/project.yml | grep -oE '[0-9]+')"
+# Da quando esiste anche il bersaglio dell'isola dinamica, queste chiavi
+# compaiono due volte. `sort -u` non serve a scegliere: serve a *pretendere* che
+# le due copie siano d'accordo. App Store Connect rifiuta un archivio in cui
+# l'estensione e l'app che la contiene dichiarano versioni diverse, e l'errore
+# arriva a caricamento finito senza dire quale delle due sia sbagliata.
+CURRENT="$(grep -oE 'CURRENT_PROJECT_VERSION: "[0-9]+"' iOS/project.yml | grep -oE '[0-9]+' | sort -u)"
 [[ -n "${CURRENT}" ]] || fail "Non riesco a leggere CURRENT_PROJECT_VERSION da iOS/project.yml."
+[[ "$(echo "${CURRENT}" | wc -l | tr -d ' ')" == "1" ]] || \
+  fail "app ed estensione dichiarano numeri di build diversi: $(echo ${CURRENT} | tr '\n' ' ')"
 NEXT=$((CURRENT + 1))
-MARKETING="$(grep -oE 'MARKETING_VERSION: "[^"]+"' iOS/project.yml | sed 's/.*"\(.*\)"/\1/')"
+
+MARKETING="$(grep -oE 'MARKETING_VERSION: "[^"]+"' iOS/project.yml | sed 's/.*"\(.*\)"/\1/' | sort -u)"
+[[ "$(echo "${MARKETING}" | wc -l | tr -d ' ')" == "1" ]] || \
+  fail "app ed estensione dichiarano versioni diverse: $(echo ${MARKETING} | tr '\n' ' ')"
 echo "==> Claude Live iPhone ${MARKETING} (${NEXT})"
 
 if [[ "${DRY_RUN}" == "0" ]]; then

@@ -20,6 +20,7 @@ struct RootView: View {
     @StateObject private var glow = GlowSettings()
     @StateObject private var glowState = GlowState()
     @StateObject private var currentAlert = CurrentAlert()
+    @StateObject private var liveActivity = LiveActivityController()
     @Environment(\.scenePhase) private var scenePhase
 
     enum AppTab: Hashable { case home, projects, usage }
@@ -50,6 +51,11 @@ struct RootView: View {
         .environmentObject(glow)
         .environmentObject(currentAlert)
         .onChange(of: snapshot?.alert) { _, alert in currentAlert.alert = alert }
+        // L'isola segue la fotografia: ogni volta che il Mac dice qualcosa di
+        // nuovo, il contenuto dell'attività si aggiorna.
+        .onChange(of: snapshot?.generatedAt) { _, _ in
+            Task { await liveActivity.sync(with: snapshot) }
+        }
         // Sopra tutto e senza intercettare i tocchi: è un segnale, non un
         // pulsante. Sfuma invece di sparire, perché entrare nella chat è già la
         // risposta e un taglio secco sembrerebbe un guasto.
@@ -70,7 +76,8 @@ struct RootView: View {
                 themes: themes,
                 store: store,
                 notifications: notifications,
-                glow: glow
+                glow: glow,
+                liveActivity: liveActivity
             ) {
                 showingSettings = false
                 showingPairing = true
@@ -97,6 +104,7 @@ struct RootView: View {
             // lasciato traccia, e il disallineamento non si vede — si vede solo
             // come una notifica che arriva quando l'interruttore dice di no.
             notifications.attach(to: store)
+            Task { await liveActivity.sync(with: snapshot) }
         }
         .onChange(of: store.isPaired) { _, paired in
             // Appena accoppiato il relay non sa ancora niente di questo telefono.
@@ -181,6 +189,7 @@ struct SettingsSheet: View {
     @ObservedObject var store: RemoteStore
     @ObservedObject var notifications: NotificationPreferences
     @ObservedObject var glow: GlowSettings
+    @ObservedObject var liveActivity: LiveActivityController
     let onPair: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -279,6 +288,28 @@ struct SettingsSheet: View {
                                     glowRow(kind)
                                         .disabled(!glow.enabled)
                                         .opacity(glow.enabled ? 1 : 0.4)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Isola dinamica")
+                                    .font(.subheadline.weight(.semibold))
+
+                                Toggle("Mostra i contatori sull'isola",
+                                       isOn: $liveActivity.enabled)
+                                    .font(.footnote)
+
+                                Text("Le due finestre di utilizzo restano visibili in cima allo schermo e sulla schermata di blocco. Toccando l'isola si apre con lo stato del progetto e la richiesta in sospeso.")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.55))
+
+                                if let problem = liveActivity.problem {
+                                    Label(problem, systemImage: "exclamationmark.triangle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(GlowRGB.waiting.color)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)

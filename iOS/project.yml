@@ -82,3 +82,37 @@ targets:
         # build settings inside entitlements, and this is the one value that must
         # differ between the build on the cable and the build people install.
         aps-environment: $(APS_ENVIRONMENT)
+
+    # L'isola dinamica e la schermata di blocco. Un bersaglio a sé perché gira in
+    # un processo suo: il sistema disegna queste viste anche con l'app chiusa.
+    ClaudeLiveActivity:
+      type: app-extension
+      platform: iOS
+      sources:
+        - ClaudeLiveActivity
+      dependencies:
+        - package: ClaudeLiveKit
+          product: ClaudeLiveKit
+      settings:
+        base:
+          PRODUCT_BUNDLE_IDENTIFIER: it.aldeialab.ClaudeLiveMobile.activity
+          PRODUCT_NAME: ClaudeLiveActivity
+          # Le stesse dell'app, e non è una comodità: App Store Connect rifiuta un
+          # archivio in cui l'estensione e l'app che la contiene dichiarano
+          # versioni diverse.
+          MARKETING_VERSION: "1.0"
+          CURRENT_PROJECT_VERSION: "9"
+          DEVELOPMENT_TEAM: G7PDRQRC29
+          CODE_SIGN_STYLE: Automatic
+          SWIFT_VERSION: "5.9"
+          TARGETED_DEVICE_FAMILY: "1"
+          GENERATE_INFOPLIST_FILE: NO
+          SKIP_INSTALL: YES
+      info:
+        path: ClaudeLiveActivity/Info.plist
+        properties:
+          CFBundleDisplayName: Claude Live
+          CFBundleShortVersionString: $(MARKETING_VERSION)
+          CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+          NSExtension:
+            NSExtensionPointIdentifier: com.apple.widgetkit-extension
