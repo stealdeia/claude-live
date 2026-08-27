@@ -54,6 +54,12 @@ struct ChatMessagesView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            // Il modo giusto di aprirsi in fondo: deciso *prima* del disegno,
+            // quindi non c'è nessun salto da vedere. Chiedere lo scorrimento in
+            // `onAppear` funzionava a volte e a volte no — su una lista pigra
+            // l'ultimo messaggio può non essere ancora disegnato nel momento in
+            // cui glielo si chiede, e allora la richiesta cade nel vuoto.
+            .defaultScrollAnchor(.bottom)
             .onAppear { proxy.scrollTo(Anchor.bottom, anchor: .bottom) }
             .onChange(of: messages.count) { _, _ in
                 // Un messaggio nuovo mentre si guarda: si scende, come farebbe

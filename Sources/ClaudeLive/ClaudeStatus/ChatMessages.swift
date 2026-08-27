@@ -31,7 +31,16 @@ enum ChatMessages {
     ///
     /// Non per fare economia di byte: sul telefono nessuno legge tremila
     /// caratteri in una bolla, e il messaggio intero resta nella chat vera.
-    private static let maxCharacters = 900
+    private static let maxCharacters = 600
+
+    /// L'ultimo messaggio ne ha molti di più.
+    ///
+    /// Perché è quello che si sta leggendo: la chat sul telefono si apre per
+    /// sapere cosa Claude ha detto *adesso*, e spesso per decidere come
+    /// rispondere a una domanda. Tagliarlo alla stessa misura dei messaggi di
+    /// contesto vorrebbe dire troncare l'unico che conta. Gli altri sono là per
+    /// inquadrarlo, e per quello bastano poche righe.
+    private static let maxCharactersLatest = 3000
 
     private struct Cached {
         let messages: [ClaudeMessage]
@@ -79,17 +88,19 @@ enum ChatMessages {
         for line in lines.reversed() {
             guard collected.count < limit else { break }
             guard line.count < 2 * 1024 * 1024,
-                  let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-                  let message = message(from: object)
+                  let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any]
             else { continue }
+            // Si raccoglie a ritroso, quindi il primo che si trova è il più
+            // recente: è quello che va per esteso.
+            let generous = collected.isEmpty
+            guard let message = ClaudeMessage.from(
+                record: object,
+                maxCharacters: generous ? maxCharactersLatest : maxCharacters
+            ) else { continue }
             collected.append(message)
         }
         // Raccolti a ritroso, letti in avanti.
         return collected.reversed()
-    }
-
-    private static func message(from record: [String: Any]) -> ClaudeMessage? {
-        ClaudeMessage.from(record: record, maxCharacters: maxCharacters)
     }
 
 }
