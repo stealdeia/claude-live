@@ -39,4 +39,37 @@ public enum Format {
         f.dateFormat = "HH:mm"
         return f
     }()
+
+    /// L'ora di un messaggio in una chat.
+    ///
+    /// Tre forme, e il passaggio da una all'altra non è estetico: «due minuti fa»
+    /// dice quello che serve sapere di un messaggio appena arrivato, ma «sette ore
+    /// fa» costringe a fare un conto per sapere se era prima o dopo pranzo. Oltre
+    /// l'ora conta *quando*, non *quanto tempo fa*. E oltre la mezzanotte conta
+    /// anche il giorno, altrimenti «14:35» di ieri si legge come oggi.
+    public static func messageTime(_ date: Date, now: Date = Date()) -> String {
+        let seconds = Int(now.timeIntervalSince(date).rounded())
+
+        // Al futuro per pochi secondi si arriva con due orologi che non
+        // concordano — quello del Mac e quello del telefono. Dire «fra un minuto»
+        // sarebbe una spiegazione peggiore del silenzio.
+        if seconds < 45 { return "adesso" }
+        if seconds < 90 { return "un minuto fa" }
+        if seconds < 3600 { return "\(seconds / 60) minuti fa" }
+
+        let calendar = Calendar.current
+        let time = clock.string(from: date)
+        if calendar.isDate(date, inSameDayAs: now) { return time }
+        if calendar.isDateInYesterday(date) { return "ieri \(time)" }
+        return "\(dayMonth.string(from: date)), \(time)"
+    }
+
+    /// Giorno e mese senza anno: in una chat che si legge sul telefono l'anno è
+    /// rumore, e per il caso in cui servisse c'è la chat vera.
+    public static let dayMonth: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "it_IT")
+        f.setLocalizedDateFormatFromTemplate("d MMM")
+        return f
+    }()
 }

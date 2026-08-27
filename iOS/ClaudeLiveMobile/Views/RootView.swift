@@ -96,6 +96,9 @@ struct RootView: View {
                         onDecide: { session, allow, remember in
                             Task { await store.decide(session, allow: allow, remember: remember) }
                         },
+                        onAnswer: { session, answers in
+                            Task { await store.answer(session, answers: answers) }
+                        },
                         onOpenProjects: { tab = .projects },
                         onOpenUsage: { tab = .usage }
                     )
@@ -109,6 +112,9 @@ struct RootView: View {
                         inFlight: store.inFlight,
                         onDecide: { session, allow, remember in
                             Task { await store.decide(session, allow: allow, remember: remember) }
+                        },
+                        onAnswer: { session, answers in
+                            Task { await store.answer(session, answers: answers) }
                         }
                     )
                 }

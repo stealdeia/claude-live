@@ -130,6 +130,19 @@ final class RemoteCommandReceiver: ObservableObject {
             )
             status.decide(session, allow: allow, remember: remember)
 
+        case .answer(let requestID, let answers):
+            guard let session = status.waitingSessions.first(where: { $0.requestID == requestID })
+            else {
+                Log.important("La domanda «\(requestID)» non è più in attesa", category: .status)
+                forget(id: id, base: base, pairID: pairID)
+                return
+            }
+            Log.important(
+                "Dal telefono, risposta in \(session.projectName): \(answers.values.joined(separator: " | "))",
+                category: .status
+            )
+            status.answer(session, answers: answers)
+
         case .prompt:
             // No supported way to inject input into a live session exists yet.
             Log.info("Comando «prompt» ricevuto ma non ancora supportato", category: .status)

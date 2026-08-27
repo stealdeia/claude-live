@@ -15,8 +15,16 @@ struct HomeView: View {
     var problem: String?
     let inFlight: Set<String>
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
+    let onAnswer: (ClaudeSessionStatus, [String: String]) -> Void
     let onOpenProjects: () -> Void
     let onOpenUsage: () -> Void
+
+    /// La chat che si è chiesto di andare a leggere, dal pulsante di una domanda.
+    ///
+    /// Tenuta come identificativo e non come sessione: la fotografia si aggiorna
+    /// ogni cinque secondi, e una copia della sessione sarebbe vecchia un istante
+    /// dopo essere stata messa qui.
+    @State private var readingChat: String?
 
     var body: some View {
         ScrollView {
@@ -45,6 +53,18 @@ struct HomeView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
+        .navigationDestination(item: $readingChat) { sessionID in
+            if let snapshot, let session = snapshot.sessions.first(where: { $0.sessionID == sessionID }) {
+                ChatDetailView(
+                    session: session,
+                    isInFlight: inFlight.contains(session.id),
+                    messages: snapshot.messages?[sessionID] ?? [],
+                    questions: snapshot.questions?[sessionID] ?? [],
+                    onDecide: onDecide,
+                    onAnswer: onAnswer
+                )
+            }
+        }
     }
 
     // MARK: - Quello che chiede attenzione
@@ -59,11 +79,24 @@ struct HomeView: View {
             // is a job, and a job belongs in the Projects tab; Home shows the
             // one that is blocking something right now.
             GlassCard {
-                PendingDecisionCard(
-                    session: decidable[0],
-                    isInFlight: inFlight.contains(decidable[0].id),
-                    onDecide: onDecide
-                )
+                if let asked = snapshot.questions?[decidable[0].sessionID], !asked.isEmpty {
+                    PendingQuestionCard(
+                        session: decidable[0],
+                        questions: asked,
+                        isInFlight: inFlight.contains(decidable[0].id),
+                        // Perché una domanda, a differenza di un permesso, a
+                        // volte non si può decidere senza sapere cosa Claude
+                        // stava facendo: il pulsante porta a leggerlo.
+                        onReadChat: { readingChat = decidable[0].sessionID },
+                        onAnswer: onAnswer
+                    )
+                } else {
+                    PendingDecisionCard(
+                        session: decidable[0],
+                        isInFlight: inFlight.contains(decidable[0].id),
+                        onDecide: onDecide
+                    )
+                }
             }
 
             if decidable.count > 1 {
@@ -119,16 +152,37 @@ struct HomeView: View {
                 } else {
                     VStack(spacing: 9) {
                         ForEach(snapshot.projects, id: \.projectPath) { project in
-                            HStack(spacing: 10) {
-                                StatusDot(state: project.state, isStale: project.isStale, size: 9)
-                                Text((project.projectPath as NSString).lastPathComponent)
-                                    .font(.subheadline)
-                                    .lineLimit(1)
-                                Spacer(minLength: 8)
-                                Text(project.state.label)
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.55))
+                            // Tutta la riga, non solo una freccia: era il
+                            // difetto — «se clicco sul nome del progetto non
+                            // succede niente, devo per forza toccare la freccia
+                            // che è piccola e faccio fatica».
+                            NavigationLink {
+                                projectDestination(
+                                    project: project,
+                                    sessions: sessions(of: project, in: snapshot),
+                                    inFlight: inFlight,
+                                    messages: snapshot.messages ?? [:],
+                                    questions: snapshot.questions ?? [:],
+                                    onDecide: onDecide,
+                                    onAnswer: onAnswer
+                                )
+                            } label: {
+                                HStack(spacing: 10) {
+                                    StatusDot(state: project.state, isStale: project.isStale, size: 9)
+                                    Text((project.projectPath as NSString).lastPathComponent)
+                                        .font(.subheadline)
+                                        .lineLimit(1)
+                                    Spacer(minLength: 8)
+                                    Text(project.state.label)
+                                        .font(.caption)
+                                        .foregroundStyle(.white.opacity(0.55))
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.white.opacity(0.35))
+                                }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -228,15 +282,21 @@ struct TrailingIconLabel: LabelStyle {
 }
 
 #Preview("Home") {
-    ZStack {
-        ThemedBackground()
-        HomeView(
-            snapshot: RemoteSnapshot.sample(now: Date()),
-            inFlight: [],
-            onDecide: { _, _, _ in },
-            onOpenProjects: {},
-            onOpenUsage: {}
-        )
+    // Dentro una pila di navigazione, che ora serve: le righe dei progetti
+    // portano dentro il progetto, e fuori da una pila non porterebbero da nessuna
+    // parte.
+    NavigationStack {
+        ZStack {
+            ThemedBackground()
+            HomeView(
+                snapshot: RemoteSnapshot.sample(now: Date()),
+                inFlight: [],
+                onDecide: { _, _, _ in },
+                onAnswer: { _, _ in },
+                onOpenProjects: {},
+                onOpenUsage: {}
+            )
+        }
     }
     .preferredColorScheme(.dark)
 }

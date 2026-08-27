@@ -29,6 +29,15 @@ public struct RemoteSnapshot: Codable, Equatable, Sendable {
     /// gli serve.
     public var messages: [String: [ClaudeMessage]]?
 
+    /// Le domande a scelta multipla in attesa, per identificativo di sessione.
+    ///
+    /// Senza questo il telefono vedeva una domanda trattenuta come una richiesta
+    /// di permesso, con «Consenti» e «Nega» al posto delle opzioni: premere non
+    /// rispondeva niente e liberava la chiamata, mandando la domanda nel terminale
+    /// mentre l'utente era altrove. Facoltativo come `messages`, e per lo stesso
+    /// motivo.
+    public var questions: [String: [ClaudeQuestion]]?
+
     public init(
         version: Int = RemoteSnapshot.currentVersion,
         usage: UsageSnapshot?,
@@ -36,7 +45,8 @@ public struct RemoteSnapshot: Codable, Equatable, Sendable {
         sessions: [ClaudeSessionStatus],
         alert: ClaudeAlert?,
         generatedAt: Date,
-        messages: [String: [ClaudeMessage]]? = nil
+        messages: [String: [ClaudeMessage]]? = nil,
+        questions: [String: [ClaudeQuestion]]? = nil
     ) {
         self.version = version
         self.usage = usage
@@ -45,6 +55,7 @@ public struct RemoteSnapshot: Codable, Equatable, Sendable {
         self.alert = alert
         self.generatedAt = generatedAt
         self.messages = messages
+        self.questions = questions
     }
 }
 
@@ -60,6 +71,14 @@ public enum RemoteCommand: Codable, Equatable, Sendable {
     /// Send a prompt to a session. Reserved: no supported way to inject input
     /// into a live session exists yet, so nothing sends this today.
     case prompt(sessionID: String, text: String)
+
+    /// Risponde a una domanda a scelta multipla che l'hook sta trattenendo.
+    ///
+    /// Le chiavi sono i testi delle domande, come Claude Code le indirizza. Non
+    /// gli indici delle opzioni: fra il momento in cui si sceglie e quello in cui
+    /// la scelta arriva, l'elenco visto dal telefono e quello vero potrebbero non
+    /// essere più lo stesso, e «la seconda» finirebbe sulla cosa sbagliata.
+    case answer(requestID: String, answers: [String: String])
 }
 
 /// A command with enough context to be judged before it is obeyed.

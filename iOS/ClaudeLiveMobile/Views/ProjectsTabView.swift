@@ -10,6 +10,7 @@ struct ProjectsTabView: View {
     let snapshot: RemoteSnapshot?
     let inFlight: Set<String>
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
+    let onAnswer: (ClaudeSessionStatus, [String: String]) -> Void
 
     var body: some View {
         ScrollView {
@@ -18,14 +19,30 @@ struct ProjectsTabView: View {
                     let decidable = snapshot.sessions.filter(\.isDecidable)
                     if !decidable.isEmpty {
                         VStack(spacing: 12) {
-                            sectionTitle("Da approvare")
+                            sectionTitle("Da rispondere")
                             ForEach(decidable) { session in
                                 GlassCard {
-                                    PendingDecisionCard(
-                                        session: session,
-                                        isInFlight: inFlight.contains(session.id),
-                                        onDecide: onDecide
-                                    )
+                                    // Una domanda a scelta multipla non si
+                                    // «consente»: si risponde. Distinguerle è il
+                                    // motivo per cui la fotografia porta le
+                                    // domande e non solo il fatto che una chat
+                                    // stia aspettando.
+                                    if let asked = snapshot.questions?[session.sessionID],
+                                       !asked.isEmpty {
+                                        PendingQuestionCard(
+                                            session: session,
+                                            questions: asked,
+                                            isInFlight: inFlight.contains(session.id),
+                                            onReadChat: nil,
+                                            onAnswer: onAnswer
+                                        )
+                                    } else {
+                                        PendingDecisionCard(
+                                            session: session,
+                                            isInFlight: inFlight.contains(session.id),
+                                            onDecide: onDecide
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -43,12 +60,14 @@ struct ProjectsTabView: View {
                             sectionTitle("Progetti")
                             ForEach(snapshot.projects, id: \.projectPath) { project in
                                 NavigationLink {
-                                    ProjectDetailView(
+                                    projectDestination(
                                         project: project,
                                         sessions: sessions(of: project, in: snapshot),
                                         inFlight: inFlight,
                                         messages: snapshot.messages ?? [:],
-                                        onDecide: onDecide
+                                        questions: snapshot.questions ?? [:],
+                                        onDecide: onDecide,
+                                        onAnswer: onAnswer
                                     )
                                 } label: {
                                     GlassCard {
@@ -64,12 +83,6 @@ struct ProjectsTabView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
-    }
-
-    private func sessions(of project: ClaudeProjectStatus, in snapshot: RemoteSnapshot) -> [ClaudeSessionStatus] {
-        snapshot.sessions
-            .filter { $0.projectPath == project.projectPath }
-            .sorted { $0.state == $1.state ? $0.updatedAt > $1.updatedAt : $0.state > $1.state }
     }
 
     private func sectionTitle(_ text: String) -> some View {
@@ -119,7 +132,8 @@ struct ProjectsTabView: View {
             ProjectsTabView(
                 snapshot: RemoteSnapshot.sample(now: Date()),
                 inFlight: [],
-                onDecide: { _, _, _ in }
+                onDecide: { _, _, _ in },
+                onAnswer: { _, _ in }
             )
         }
         .navigationTitle("Progetti")

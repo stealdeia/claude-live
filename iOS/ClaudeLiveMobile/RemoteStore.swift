@@ -315,6 +315,62 @@ final class RemoteStore: ObservableObject {
         await refresh()
     }
 
+    /// Risponde a una domanda a scelta multipla che l'hook sta trattenendo.
+    ///
+    /// Il gemello di `decide`, e separato per la stessa ragione per cui i due
+    /// pulsanti non sono lo stesso pulsante: là si concede o si nega, qui si
+    /// scrive una risposta. Prima che esistesse, una domanda arrivata al telefono
+    /// si poteva solo «consentire» — cosa che liberava la chiamata senza
+    /// rispondere niente e mandava la domanda nel terminale, dove nessuno era.
+    func answer(_ session: ClaudeSessionStatus, answers: [String: String]) async {
+        guard let requestID = session.requestID else { return }
+        let filled = answers.filter { !$0.value.isEmpty }
+        guard !filled.isEmpty else { return }
+
+        guard let url = URL(string: relayURL + "/command"),
+              let pairID = RemoteSecrets.read(.pairID),
+              let keyText = RemoteSecrets.read(.encryptionKey),
+              let key = try? RemoteCrypto.importKey(keyText)
+        else { return }
+
+        let envelope = RemoteCommandEnvelope(
+            command: .answer(requestID: requestID, answers: filled)
+        )
+        guard let sealed = try? RemoteCrypto.seal(envelope, with: key) else { return }
+
+        sending.insert(session.id)
+        recomputeInFlight()
+        defer {
+            sending.remove(session.id)
+            recomputeInFlight()
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["id": envelope.id, "payload": sealed]
+        )
+        request.timeoutInterval = 15
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if code != 200 {
+                problem = "Il relay ha rifiutato la risposta (\(code))."
+                return
+            }
+        } catch {
+            problem = "Non sono riuscito a mandare la risposta."
+            return
+        }
+
+        answeredRequests[session.id] = requestID
+        recomputeInFlight()
+        await refresh()
+    }
+
     /// Polls while the app is on screen. Stopped when it is not: a phone that
     /// keeps asking from a pocket spends battery to learn things nobody reads.
     func startRefreshing(every seconds: Duration = .seconds(5)) {

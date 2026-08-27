@@ -205,7 +205,7 @@ final class RemotePublisher: ObservableObject {
     /// una manciata di chat stanno in poche decine di migliaia di byte, e sono
     /// quello che serve per capire dove è arrivata una conversazione — non per
     /// rileggerla dall'inizio, cosa che si fa al Mac.
-    private static let messagesPerSession = 5
+    private static let messagesPerSession = 10
 
     /// Quanti messaggi conteneva l'ultima fotografia, solo per non ripetere la
     /// stessa riga di diario a ogni pubblicazione.
@@ -219,7 +219,8 @@ final class RemotePublisher: ObservableObject {
             sessions: sessions,
             alert: status.topAlert,
             generatedAt: Date(),
-            messages: recentMessages(of: sessions)
+            messages: recentMessages(of: sessions),
+            questions: status.pendingQuestions.isEmpty ? nil : status.pendingQuestions
         )
     }
 
