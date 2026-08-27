@@ -121,7 +121,11 @@ struct ChatDetailView: View {
     var body: some View {
         ZStack {
             ThemedBackground()
-            ChatMessagesView(messages: messages, emptyExplanation: emptyExplanation)
+            ChatMessagesView(
+                messages: messages,
+                emptyExplanation: emptyExplanation,
+                activity: (session.state, session.activityLabel)
+            )
         }
         .safeAreaInset(edge: .top) { stateStrip }
         .safeAreaInset(edge: .bottom) { requestBar }

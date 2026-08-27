@@ -24,6 +24,14 @@ struct ChatMessagesView: View {
     /// che è un fatto diverso.
     let emptyExplanation: String
 
+    /// Cosa sta facendo Claude adesso, se sta facendo qualcosa.
+    ///
+    /// Sotto l'ultimo messaggio e non solo nella riga in cima: là si legge
+    /// guardando lo stato, qui si legge **leggendo la conversazione** — che è
+    /// dove si guarda quando si aspetta la riga dopo. È lo stesso posto dove
+    /// qualsiasi app di messaggi mette «sta scrivendo…».
+    var activity: (state: ClaudeActivity, label: String)?
+
     /// Ancora dell'ultimo messaggio, per portarci la vista all'apertura.
     private enum Anchor: Hashable { case bottom }
 
@@ -41,6 +49,19 @@ struct ChatMessagesView: View {
                         ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
                             bubble(message)
                         }
+                    }
+
+                    if let activity, activity.state == .working || activity.state == .waitingInput {
+                        HStack(spacing: 7) {
+                            StatusDot(state: activity.state, size: 7)
+                            Text(activity.label)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.6))
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.leading, 2)
+                        .padding(.top, 2)
                     }
 
                     // Un punto invisibile in fondo, che è l'unico modo affidabile
@@ -61,6 +82,11 @@ struct ChatMessagesView: View {
             // cui glielo si chiede, e allora la richiesta cade nel vuoto.
             .defaultScrollAnchor(.bottom)
             .onAppear { proxy.scrollTo(Anchor.bottom, anchor: .bottom) }
+            .onChange(of: activity?.label) { _, _ in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(Anchor.bottom, anchor: .bottom)
+                }
+            }
             .onChange(of: messages.count) { _, _ in
                 // Un messaggio nuovo mentre si guarda: si scende, come farebbe
                 // qualsiasi app di messaggi.

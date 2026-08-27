@@ -54,6 +54,15 @@ struct ClaudeLiveActivityWidget: Widget {
         return opened
     }
 
+    /// Dove porta il tocco su una riga: quel progetto.
+    static func link(toProject project: ClaudeIslandState.Project) -> URL {
+        var parts = URLComponents()
+        parts.scheme = "claudelive"
+        parts.host = "project"
+        parts.queryItems = [URLQueryItem(name: "path", value: project.path)]
+        return parts.url ?? URL(string: "claudelive://open")!
+    }
+
     /// Dove porta il tocco: la chat dell'avviso, o l'app.
     ///
     /// Uno schema tutto suo e non un indirizzo web: deve aprire *questa* app,
@@ -71,16 +80,20 @@ struct ClaudeLiveActivityWidget: Widget {
             // i due anelli ai lati, il progetto in mezzo, la richiesta in fondo.
             DynamicIslandExpandedRegion(.leading) {
                 ActivityRing(
-                    title: "5 ore",
+                    label: "5h",
                     percent: state.fiveHourPercent,
-                    resetsAt: state.fiveHourResetsAt
+                    resetsAt: state.fiveHourResetsAt,
+                    showsReset: false,
+                    diameter: 40
                 )
             }
             DynamicIslandExpandedRegion(.trailing) {
                 ActivityRing(
-                    title: "7 giorni",
+                    label: "7g",
                     percent: state.sevenDayPercent,
-                    resetsAt: state.sevenDayResetsAt
+                    resetsAt: state.sevenDayResetsAt,
+                    showsReset: false,
+                    diameter: 40
                 )
             }
             DynamicIslandExpandedRegion(.center) {
@@ -90,9 +103,14 @@ struct ClaudeLiveActivityWidget: Widget {
                     .lineLimit(1)
             }
             DynamicIslandExpandedRegion(.bottom) {
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 7) {
                     ForEach(state.projects) { project in
-                        ProjectLine(project: project, tint: tint(for: state))
+                        // Ogni riga porta al *suo* progetto, non alla schermata
+                        // iniziale: se l'isola mostra tre nomi, toccarne uno deve
+                        // portare a quello che si è toccato.
+                        Link(destination: Self.link(toProject: project)) {
+                            ProjectLine(project: project, tint: tint(for: state))
+                        }
                     }
 
                     if let pending = state.pending {
@@ -165,6 +183,9 @@ private struct ProjectLine: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
+        // Il pallino veniva tagliato in cima: senza un'altezza dichiarata la riga
+        // si stringe su quella del testo, e il cerchio sporge.
+        .frame(minHeight: 16)
     }
 
     private var color: Color {
@@ -206,18 +227,30 @@ private struct CompactUsage: View {
     }
 }
 
-/// Un anello con la sua percentuale e il tempo che resta.
+/// Un anello: la finestra dentro, la percentuale sotto, e — dove c'è spazio —
+/// quanto manca all'azzeramento.
+///
+/// La dicitura sta **dentro** il cerchio come sul Mac, e non sotto: nel cerchio
+/// c'è spazio e sotto no, e un numero sotto un cerchio vuoto non dice di cosa
+/// sia la percentuale.
 ///
 /// Disegnato qui e non riusato dall'app: la vista dell'app ha animazioni e
 /// gradienti che in un widget non vengono eseguiti, e una copia semplice che
-/// funziona è meglio di una copia ricca che viene disegnata a metà.
+/// funziona è meglio di una ricca disegnata a metà.
 private struct ActivityRing: View {
-    let title: String
+    /// «5h» o «7g»: la finestra, non il suo nome per esteso.
+    let label: String
     let percent: Double?
     let resetsAt: Date?
 
+    /// Nell'isola aperta lo spazio è quello che è, e il tempo che manca è la cosa
+    /// meno urgente delle tre.
+    var showsReset: Bool = true
+
+    var diameter: CGFloat = 44
+
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 2) {
             ZStack {
                 Circle()
                     .stroke(.white.opacity(0.16), lineWidth: 4)
@@ -225,22 +258,19 @@ private struct ActivityRing: View {
                     .trim(from: 0, to: (percent ?? 0) / 100)
                     .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text(percent.map { "\(Int($0.rounded()))" } ?? "–")
+                Text(label)
                     .font(.system(size: 12, weight: .semibold))
-                    .monospacedDigit()
             }
-            .frame(width: 38, height: 38)
+            .frame(width: diameter, height: diameter)
 
-            Text(title)
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
+            Text(percent.map { "\(Int($0.rounded()))%" } ?? "–")
+                .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color)
 
-            // Il conto alla rovescia lo tiene il sistema: `timer` si aggiorna da
-            // sé anche in un widget, che è l'unica animazione concessa qui.
-            if let resetsAt, resetsAt > .now {
-                Text(resetsAt, style: .timer)
+            if showsReset, let resetsAt {
+                Text(Format.resetDelay(until: resetsAt))
                     .font(.system(size: 9))
-                    .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
         }
@@ -263,12 +293,12 @@ private struct LockScreenView: View {
     var body: some View {
         HStack(spacing: 14) {
             ActivityRing(
-                title: "5 ore",
+                label: "5h",
                 percent: state.fiveHourPercent,
                 resetsAt: state.fiveHourResetsAt
             )
             ActivityRing(
-                title: "7 giorni",
+                label: "7g",
                 percent: state.sevenDayPercent,
                 resetsAt: state.sevenDayResetsAt
             )

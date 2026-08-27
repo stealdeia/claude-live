@@ -50,6 +50,19 @@ struct HomeView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
+        .navigationDestination(item: $openRequest.projectPath) { path in
+            if let snapshot, let project = snapshot.projects.first(where: { $0.projectPath == path }) {
+                projectDestination(
+                    project: project,
+                    sessions: sessions(of: project, in: snapshot),
+                    inFlight: inFlight,
+                    messages: snapshot.messages ?? [:],
+                    questions: snapshot.questions ?? [:],
+                    onDecide: onDecide,
+                    onAnswer: onAnswer
+                )
+            }
+        }
         .navigationDestination(item: $openRequest.chatSessionID) { sessionID in
             if let snapshot, let session = snapshot.sessions.first(where: { $0.sessionID == sessionID }) {
                 ChatDetailView(
@@ -122,17 +135,10 @@ struct HomeView: View {
                     Spacer()
                 }
             }
-        } else {
-            GlassCard {
-                HStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(GlowRGB.done.color)
-                    Text("Nessuna richiesta in sospeso")
-                        .font(.subheadline)
-                    Spacer()
-                }
-            }
         }
+        // Niente, quando non c'è niente. Un riquadro che dice «nessuna richiesta
+        // in sospeso» occupa la parte più preziosa dello schermo per dire che non
+        // è successo nulla, e lo stato di ogni progetto lo dice già la lista.
     }
 
     // MARK: - Progetti, ridotti all'osso

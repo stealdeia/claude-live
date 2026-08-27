@@ -11,7 +11,10 @@ extension ClaudeActivity {
     var tint: Color {
         switch self {
         case .waitingInput: return GlowRGB.waiting.color
-        case .working: return .accentColor
+        // Verde e non il colore d'accento: «sta lavorando» è la stessa cosa che
+        // sul Mac è verde, e l'azzurro del sistema la faceva leggere come una
+        // voce selezionata invece che come uno stato.
+        case .working: return GlowRGB.done.color
         case .error: return GlowRGB.failed.color
         case .idle: return .secondary
         case .unknown: return .secondary
@@ -36,20 +39,51 @@ struct StatusDot: View {
     var isStale: Bool = false
     var size: CGFloat = 10
 
+    /// Se pulsa. I tre stati che chiedono attenzione pulsano, gli altri no: un
+    /// pallino fermo accanto a una chat a riposo è un'informazione, uno che pulsa
+    /// per niente è rumore che insegna a ignorarlo.
+    private var breathes: Bool {
+        !isStale && (state == .working || state == .waitingInput || state == .error)
+    }
+
+    @State private var phase = false
+
     var body: some View {
-        Circle()
-            .fill(state.tint)
-            .frame(width: size, height: size)
-            // A stale record is drawn faded rather than hidden or recoloured:
-            // "I am not sure any more" is different from both "fine" and "wrong".
-            .opacity(isStale ? 0.4 : 1)
-            .overlay {
-                if state == .working {
-                    Circle()
-                        .stroke(state.tint.opacity(0.35), lineWidth: 4)
-                        .scaleEffect(1.9)
-                }
+        ZStack {
+            // L'alone che respira. Fuori dal cerchio pieno, così il pallino resta
+            // della sua dimensione e a muoversi è la luce attorno — come la
+            // striscia sul Mac, che pulsa senza cambiare spessore.
+            if breathes {
+                Circle()
+                    .fill(state.tint.opacity(phase ? 0.05 : 0.30))
+                    .frame(width: size * (phase ? 2.6 : 1.6), height: size * (phase ? 2.6 : 1.6))
             }
+
+            Circle()
+                .fill(state.tint)
+                .frame(width: size, height: size)
+                // A stale record is drawn faded rather than hidden or recoloured:
+                // "I am not sure any more" is different from both "fine" and "wrong".
+                .opacity(isStale ? 0.4 : 1)
+        }
+        // Una cornice fissa: senza, l'alone che cresce sposta ciò che gli sta
+        // accanto a ogni respiro.
+        .frame(width: size * 2.6, height: size * 2.6)
+        .onAppear {
+            guard breathes else { return }
+            withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
+                phase = true
+            }
+        }
+        .onChange(of: breathes) { _, now in
+            if now {
+                withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: true)) {
+                    phase = true
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { phase = false }
+            }
+        }
     }
 }
 

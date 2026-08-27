@@ -132,13 +132,19 @@ struct RootView: View {
         if url.host == "chat" {
             let session = url.pathComponents.filter { $0 != "/" }.first
             if let session, !session.isEmpty { openRequest.chatSessionID = session }
+            return
+        }
+        if url.host == "project" {
+            let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "path" }?.value
+            if let path, !path.isEmpty { openRequest.projectPath = path }
         }
     }
 
     private var tabs: some View {
         TabView(selection: $tab) {
             Tab("Home", systemImage: "house", value: AppTab.home) {
-                shell(title: "Claude Live") {
+                shell(title: "Vibing Code Live") {
                     HomeView(
                         snapshot: snapshot,
                         problem: store.problem,

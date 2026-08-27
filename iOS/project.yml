@@ -60,7 +60,7 @@ targets:
     info:
       path: ClaudeLiveMobile/Info.plist
       properties:
-        CFBundleDisplayName: Claude Live
+        CFBundleDisplayName: Vibing Code Live
         # Collegate alle impostazioni, non scritte qui: XcodeGen mette un
         # `CFBundleVersion: 1` fisso come predefinito, che non ha alcun rapporto
         # con il numero di build — alzarlo nelle impostazioni non arrivava
@@ -140,7 +140,7 @@ targets:
     info:
       path: ClaudeLiveActivity/Info.plist
       properties:
-        CFBundleDisplayName: Claude Live
+        CFBundleDisplayName: Vibing Code Live
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

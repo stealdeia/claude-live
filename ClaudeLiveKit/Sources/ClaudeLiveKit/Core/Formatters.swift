@@ -64,6 +64,34 @@ public enum Format {
         return "\(dayMonth.string(from: date)), \(time)"
     }
 
+    /// Quanto manca all'azzeramento di una finestra di utilizzo.
+    ///
+    /// Tre forme, e il confine è la leggibilità di un numero: «89:18:03» — che è
+    /// ciò che un conto alla rovescia normale mostra per la finestra dei sette
+    /// giorni — richiede una divisione a mente per sapere che sono tre giorni e
+    /// mezzo. Oltre le ventiquattro ore quindi si contano i giorni, e le ore che
+    /// restano oltre quelli.
+    ///
+    /// Testo fermo e non un cronometro: un cronometro di sistema sa contare solo
+    /// in ore, minuti e secondi, ed è esattamente la forma che qui non serve.
+    public static func resetDelay(until date: Date, now: Date = Date()) -> String {
+        let seconds = Int(date.timeIntervalSince(now).rounded())
+        guard seconds > 0 else { return "adesso" }
+
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(max(1, minutes)) min" }
+
+        let hours = minutes / 60
+        if hours < 24 {
+            let rest = minutes % 60
+            return rest > 0 ? "\(hours)h \(rest)m" : "\(hours)h"
+        }
+
+        let days = hours / 24
+        let rest = hours % 24
+        return rest > 0 ? "\(days)g \(rest)h" : "\(days)g"
+    }
+
     /// Giorno e mese senza anno: in una chat che si legge sul telefono l'anno è
     /// rumore, e per il caso in cui servisse c'è la chat vera.
     public static let dayMonth: DateFormatter = {

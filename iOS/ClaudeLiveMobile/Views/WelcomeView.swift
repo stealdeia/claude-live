@@ -35,7 +35,7 @@ struct WelcomeView: View {
     private let pages: [Page] = [
         Page(
             icon: "sparkles",
-            title: "Claude Live",
+            title: "Vibing Code Live",
             text: "Guarda da qui cosa sta facendo Claude Code sul tuo Mac, e rispondi ai permessi senza tornare alla scrivania.\n\nPer cominciare serve accoppiare il telefono al Mac: tre passaggi.",
             action: "Iniziamo"
         ),

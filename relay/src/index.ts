@@ -299,7 +299,7 @@ export class PairState {
 
       const sentAt = Date.now()
       const result = await sendPush(this.env, token, {
-        aps: { alert: { title: 'Claude Live', body: 'Prova di velocità' }, sound: 'default' },
+        aps: { alert: { title: 'Vibing Code Live', body: 'Prova di velocità' }, sound: 'default' },
         sentAt,
       }, environment)
 
@@ -335,7 +335,7 @@ export class PairState {
           // il campo che a un estraneo interesserebbe di più. Il dettaglio lo
           // mette l'app, dopo aver aperto lo snapshot.
           pushed = await sendPush(this.env, token, {
-            aps: { alert: { title: 'Claude Live', body: body.notify }, sound: 'default' },
+            aps: { alert: { title: 'Vibing Code Live', body: body.notify }, sound: 'default' },
           }, environment)
         }
       }

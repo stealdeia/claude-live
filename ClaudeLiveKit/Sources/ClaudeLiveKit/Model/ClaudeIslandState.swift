@@ -61,7 +61,7 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
 
     /// Cosa è successo, in una riga.
     public var headline: String {
-        guard let alert else { return "Claude Live" }
+        guard let alert else { return "Vibing Code Live" }
         switch alert {
         case .waiting: return "Claude aspetta una risposta"
         case .done: return "Claude ha finito"
@@ -73,6 +73,13 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
     public struct Project: Codable, Hashable, Identifiable, Sendable {
         public var name: String
 
+        /// Il percorso completo, per il collegamento che apre *questo* progetto.
+        ///
+        /// Non esce dal telefono: finisce dentro un indirizzo `claudelive://` che
+        /// iOS passa all'app. Il nome da solo non basterebbe — due progetti
+        /// possono chiamarsi uguale in cartelle diverse.
+        public var path: String
+
         /// Lo stato, col nome che ha nel pacchetto: `ClaudeActivity`. Nome
         /// scomodo nel contesto dell'isola — «attività» è anche quella — ma
         /// rinominarlo toccherebbe il Mac per una comodità di lettura.
@@ -83,8 +90,9 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
 
         public var id: String { name }
 
-        public init(name: String, state: ClaudeActivity, alerting: Bool) {
+        public init(name: String, path: String, state: ClaudeActivity, alerting: Bool) {
             self.name = name
+            self.path = path
             self.state = state
             self.alerting = alerting
         }
@@ -109,6 +117,7 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
         let projects = snapshot.projects.prefix(3).map { project in
             Project(
                 name: (project.projectPath as NSString).lastPathComponent,
+                path: project.projectPath,
                 state: project.state,
                 alerting: project.projectPath == alertPath
             )

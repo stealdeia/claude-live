@@ -127,4 +127,11 @@ final class CurrentAlert: ObservableObject {
 @MainActor
 final class OpenRequest: ObservableObject {
     @Published var chatSessionID: String?
+
+    /// Il progetto che l'isola dinamica ha chiesto di aprire, per percorso.
+    ///
+    /// Per percorso e non per nome: due progetti possono chiamarsi uguale in
+    /// cartelle diverse, e aprire «quello sbagliato con il nome giusto» è il
+    /// genere di errore che nessuno collega a un indirizzo.
+    @Published var projectPath: String?
 }
