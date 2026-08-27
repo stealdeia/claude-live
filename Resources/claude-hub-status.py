@@ -65,7 +65,15 @@ SCHEMA = 2
 # which guards against a recycled pid from an earlier run.
 HEARTBEAT_MAX_AGE = 60
 DEFAULT_WAIT_SECONDS = 0
+# Ogni quanto l'hook guarda se è arrivata una risposta.
+#
+# Fitto all'inizio e poi rado: una risposta data dal pannello arriva in un paio
+# di secondi, e là quei centesimi si vedono. Ma un'attesa può durare un'ora, e
+# ventiquattromila giri a controllare un file sono lavoro sprecato su un Mac che
+# nel frattempo compila.
 POLL_INTERVAL = 0.15
+POLL_INTERVAL_SLOW = 1.0
+POLL_FAST_SECONDS = 30
 
 
 def read_payload():
@@ -281,7 +289,7 @@ def wait_seconds(reason="away", question=False):
     else:
         key, default = "decision_wait_seconds", DEFAULT_WAIT_SECONDS
     try:
-        return max(0, min(600, float(config.get(key, default))))
+        return max(0, min(3600, float(config.get(key, default))))
     except Exception:
         return default
 
@@ -634,7 +642,8 @@ def await_decision(request_id, timeout, tool=None, path=None):
     # coperto un file di risposta invece di una finestra. Rispondeva no, e ogni
     # attesa «finestra coperta» finiva al primo giro. Nomi distinti, allora.
     decision_file = os.path.join(DECISIONS_DIR, f"{request_id}.json")
-    deadline = time.time() + timeout
+    started = time.time()
+    deadline = started + timeout
     while time.time() < deadline:
         if tool is not None and path is not None and not still_holding(path):
             return None
@@ -656,7 +665,7 @@ def await_decision(request_id, timeout, tool=None, path=None):
                     str(k): str(v) for k, v in chosen.items() if isinstance(v, str)
                 }
             return None
-        time.sleep(POLL_INTERVAL)
+        time.sleep(POLL_INTERVAL if time.time() - started < POLL_FAST_SECONDS else POLL_INTERVAL_SLOW)
     return None
 
 

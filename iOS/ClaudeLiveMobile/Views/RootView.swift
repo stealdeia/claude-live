@@ -58,7 +58,12 @@ struct RootView: View {
         // L'isola segue la fotografia: ogni volta che il Mac dice qualcosa di
         // nuovo, il contenuto dell'attività si aggiorna.
         .onChange(of: snapshot?.generatedAt) { _, _ in
-            Task { await liveActivity.sync(with: snapshot) }
+            Task { await liveActivity.sync(with: snapshot, alertSeen: alertAlreadySeen) }
+        }
+        // Anche quando spegni il bagliore entrando in una chat: l'isola deve
+        // seguire lo stesso gesto, non aspettare la prossima fotografia.
+        .onChange(of: glowState.dismissed) { _, _ in
+            Task { await liveActivity.sync(with: snapshot, alertSeen: alertAlreadySeen) }
         }
         // Sopra tutto e senza intercettare i tocchi: è un segnale, non un
         // pulsante. Sfuma invece di sparire, perché entrare nella chat è già la
@@ -109,7 +114,7 @@ struct RootView: View {
             // come una notifica che arriva quando l'interruttore dice di no.
             notifications.attach(to: store)
             liveActivity.attach(to: store)
-            Task { await liveActivity.sync(with: snapshot) }
+            Task { await liveActivity.sync(with: snapshot, alertSeen: alertAlreadySeen) }
         }
         .onChange(of: store.isPaired) { _, paired in
             // Appena accoppiato il relay non sa ancora niente di questo telefono.
@@ -139,6 +144,12 @@ struct RootView: View {
                 .queryItems?.first { $0.name == "path" }?.value
             if let path, !path.isEmpty { openRequest.projectPath = path }
         }
+    }
+
+    /// Se l'avviso in corso è già stato preso in carico su questo telefono.
+    private var alertAlreadySeen: Bool {
+        guard let alert = snapshot?.alert else { return false }
+        return !glowState.isLit(alert)
     }
 
     private var tabs: some View {

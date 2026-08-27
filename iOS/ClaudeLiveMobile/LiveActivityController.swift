@@ -68,7 +68,12 @@ final class LiveActivityController: ObservableObject {
     }
 
     /// Porta l'isola in pari con quello che il Mac ha detto.
-    func sync(with snapshot: RemoteSnapshot?) async {
+    ///
+    /// `alertSeen` è la stessa cosa che spegne il bagliore dentro l'app: aprire
+    /// la chat vale come averlo visto. Senza, il filo attorno all'isola restava
+    /// verde mentre l'app aveva già smesso di brillare — due parti della stessa
+    /// app che dicevano cose diverse sullo stesso avviso.
+    func sync(with snapshot: RemoteSnapshot?, alertSeen: Bool = false) async {
         guard enabled, let snapshot else { return }
 
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
@@ -77,7 +82,18 @@ final class LiveActivityController: ObservableObject {
         }
         problem = nil
 
-        let island = ClaudeIslandState(snapshot: snapshot)
+        var island = ClaudeIslandState(snapshot: snapshot)
+        if alertSeen {
+            // Solo l'avviso, non la richiesta: che tu l'abbia letta non vuol dire
+            // che sia stata risposta, e l'isola deve continuare a dire che c'è
+            // qualcosa in attesa.
+            island.alertKind = nil
+            island.projects = island.projects.map {
+                var p = $0
+                p.alerting = false
+                return p
+            }
+        }
         let content = Self.content(island)
 
         if let activity {

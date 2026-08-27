@@ -23,8 +23,22 @@ final class RemoteCommandReceiver: ObservableObject {
     /// the user saw once.
     private var handled = Set<String>()
 
-    /// Brisk, because a hook is waiting on the other side of it.
-    private static let interval: Duration = .seconds(2)
+    /// Ogni quanto chiedere al relay, secondo da quanto si sta aspettando.
+    ///
+    /// Fitto all'inizio e poi rado, e non è un'ottimizzazione gratuita: da quando
+    /// una domanda può restare in sospeso per un'ora, due secondi fissi sarebbero
+    /// milleseicento richieste per una sola domanda — più di quante un utente ne
+    /// faccia in un giorno intero di lavoro. E sarebbero spese nel momento meno
+    /// utile: chi risponde dal telefono lo fa nei primi secondi o dopo molti
+    /// minuti, quasi mai nel mezzo.
+    ///
+    /// I primi due minuti restano stretti perché è là che una risposta arriva
+    /// davvero in fretta e i secondi si vedono.
+    private static func interval(waitingFor elapsed: TimeInterval) -> Duration {
+        if elapsed < 120 { return .seconds(2) }
+        if elapsed < 600 { return .seconds(10) }
+        return .seconds(30)
+    }
 
     init(settings: Settings, status: ClaudeStatusStore) {
         self.settings = settings
@@ -44,9 +58,10 @@ final class RemoteCommandReceiver: ObservableObject {
         guard loop == nil else { return }
         Log.debug("Ascolto i comandi dal telefono", category: .status)
         loop = Task { [weak self] in
+            let since = Date()
             while !Task.isCancelled {
                 await self?.collect()
-                try? await Task.sleep(for: Self.interval)
+                try? await Task.sleep(for: Self.interval(waitingFor: Date().timeIntervalSince(since)))
             }
         }
     }

@@ -28,11 +28,11 @@ struct ClaudeLiveActivityWidget: Widget {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
             let state = Self.resolve(context.state)
             LockScreenView(state: state)
-                .widgetURL(Self.link(for: state))
+                .widgetURL(Self.homeLink)
         } dynamicIsland: { context in
             let state = Self.resolve(context.state)
             return island(for: state)
-                .widgetURL(Self.link(for: state))
+                .widgetURL(Self.homeLink)
         }
     }
 
@@ -63,15 +63,21 @@ struct ClaudeLiveActivityWidget: Widget {
         return parts.url ?? URL(string: "claudelive://open")!
     }
 
-    /// Dove porta il tocco: la chat dell'avviso, o l'app.
+    /// Dove porta il tocco «da altre parti»: la schermata iniziale.
+    ///
+    /// Non la chat dell'avviso, che era la scelta di prima: le righe dei progetti
+    /// e la richiesta hanno un collegamento loro, e tutto il resto — lo spazio
+    /// vuoto, gli anelli, il titolo — non promette niente in particolare. Chi
+    /// tocca là si aspetta di aprire l'app, non di finire in una conversazione.
     ///
     /// Uno schema tutto suo e non un indirizzo web: deve aprire *questa* app,
     /// anche se il telefono non ha rete.
-    static func link(for state: ClaudeIslandState) -> URL? {
-        if let session = state.alertSessionID, !session.isEmpty {
-            return URL(string: "claudelive://chat/\(session)")
-        }
-        return URL(string: "claudelive://open")
+    static let homeLink = URL(string: "claudelive://open")!
+
+    /// La chat che sta aspettando, per il collegamento sulla richiesta.
+    static func link(toWaitingChat state: ClaudeIslandState) -> URL {
+        guard let session = state.alertSessionID, !session.isEmpty else { return homeLink }
+        return URL(string: "claudelive://chat/\(session)") ?? homeLink
     }
 
     private func island(for state: ClaudeIslandState) -> DynamicIsland {
@@ -114,10 +120,14 @@ struct ClaudeLiveActivityWidget: Widget {
                     }
 
                     if let pending = state.pending {
-                        Text(pending)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                        // La richiesta porta alla chat che la sta aspettando: è
+                        // l'unica cosa qui che ha un posto preciso dove andare.
+                        Link(destination: Self.link(toWaitingChat: state)) {
+                            Text(pending)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
                     }
 
                     // Nessun pulsante per rispondere, di proposito: la risposta si
@@ -136,9 +146,9 @@ struct ClaudeLiveActivityWidget: Widget {
         } compactLeading: {
             // Chiusa: i due contatori, uno per lato. È quello che si vuole sapere
             // di sfuggita, e l'unica cosa che sta in questo spazio.
-            CompactUsage(percent: state.fiveHourPercent, symbol: "clock")
+            CompactUsage(percent: state.fiveHourPercent, label: "5h")
         } compactTrailing: {
-            CompactUsage(percent: state.sevenDayPercent, symbol: "calendar")
+            CompactUsage(percent: state.sevenDayPercent, label: "7g")
         } minimal: {
             // Quando l'isola è divisa con un'altra attività resta un pallino: il
             // più urgente dei due numeri, o il colore dell'avviso se ce n'è uno.
@@ -204,19 +214,23 @@ private struct ProjectLine: View {
 /// numero, e «62» accanto a un orologio non si confonde con altro.
 private struct CompactUsage: View {
     let percent: Double?
-    let symbol: String
+
+    /// «5h» o «7g»: quale finestra è questo numero.
+    let label: String
 
     var body: some View {
         HStack(spacing: 3) {
-            Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
-            if let percent {
-                Text("\(Int(percent.rounded()))")
-                    .font(.system(size: 13, weight: .semibold))
-                    .monospacedDigit()
-            }
+            // La dicitura, non un'icona. Un orologio e un calendario dicono
+            // «tempo» e «giorni» a chi già sa cosa sta guardando, e niente a
+            // chiunque altro: «5h» e «7g» lo dicono a tutti, e occupano meno.
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+            Text(percent.map { "\(Int($0.rounded()))" } ?? "–")
+                .font(.system(size: 13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color)
         }
-        .foregroundStyle(color)
     }
 
     /// Lo stesso codice colore degli anelli sul Mac: verde fino a metà, ambra
@@ -310,14 +324,21 @@ private struct LockScreenView: View {
                     .lineLimit(1)
 
                 ForEach(state.projects) { project in
-                    ProjectLine(project: project, tint: tint)
+                    // Anche qui, non solo nell'isola aperta: toccare un nome
+                    // porta a quel progetto. Prima la schermata di blocco aveva
+                    // un solo collegamento per tutto.
+                    Link(destination: ClaudeLiveActivityWidget.link(toProject: project)) {
+                        ProjectLine(project: project, tint: tint)
+                    }
                 }
 
                 if let pending = state.pending {
-                    Text(pending)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    Link(destination: ClaudeLiveActivityWidget.link(toWaitingChat: state)) {
+                        Text(pending)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                 }
             }
 

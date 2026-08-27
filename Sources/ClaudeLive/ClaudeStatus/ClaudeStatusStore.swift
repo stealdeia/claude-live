@@ -204,12 +204,20 @@ final class ClaudeStatusStore: ObservableObject {
 
     /// Quanto attendere la risposta a una domanda a scelta multipla.
     ///
-    /// Quattro volte tanto, e non per generosità: «Consenti» è un pulsante,
-    /// mentre una domanda sono due o tre opzioni con le loro descrizioni da
-    /// leggere, e a volte una risposta da scrivere a mano. Qui il tempo lungo
-    /// costa poco, perché l'attesa finisce da sé nell'istante in cui la finestra
-    /// di quel progetto torna in vista.
-    private static let questionWaitSeconds: Double = 180
+    /// Cinquantacinque minuti, non tre.
+    ///
+    /// Tre erano una mia prudenza mal posta. Una domanda non è un permesso: un
+    /// permesso lasciato in sospeso blocca un comando, una domanda lasciata in
+    /// sospeso è una conversazione che aspetta — e aspettare è esattamente ciò
+    /// che deve poter fare mentre sei fuori. «Non è possibile lasciarla lì in
+    /// sospeso fino a quando voglio?» (Stefano, 2026-08-27): sì, e il limite non
+    /// era una scelta di progetto ma il tempo massimo dell'hook, ora alzato a
+    /// un'ora. Questi restano cinque minuti sotto, per non farlo uccidere a metà.
+    ///
+    /// Il tempo lungo costa poco perché l'attesa finisce da sé nell'istante in
+    /// cui riporti in vista quella finestra o torni alla tastiera: si consuma
+    /// solo quando davvero non c'è nessuno al Mac.
+    private static let questionWaitSeconds: Double = 3300
 
     /// I progetti la cui finestra è coperta, per l'hook.
     private var coveredProjects: Set<String> = []

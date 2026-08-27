@@ -158,7 +158,18 @@ def hook_timeout(event):
     The value is only a ceiling: the hook returns as soon as it has an answer,
     or as soon as `decision_wait_seconds` elapses.
     """
-    return 600 if event in ("PermissionRequest", "PreToolUse") else 5
+    # Un'ora, non dieci minuti.
+    #
+    # Questo numero è il tetto vero di tutto l'impianto: Claude Code uccide
+    # l'hook quando scade, e quando l'hook muore la domanda ricompare nel
+    # terminale — dove, se sei fuori casa, non c'è nessuno a leggerla. Il senso
+    # dell'app è lavorare da remoto «senza troppi limiti di tempo, finché il Mac
+    # rimane collegato» (Stefano, 2026-08-27), e dieci minuti erano un limite.
+    #
+    # Costa poco tenerlo alto: l'attesa finisce da sé nell'istante in cui torni
+    # alla tastiera o riporti in vista quella finestra, quindi il tempo lungo si
+    # consuma solo quando davvero non c'è nessuno al Mac.
+    return 3600 if event in ("PermissionRequest", "PreToolUse") else 5
 
 
 def add_our_hooks(settings):

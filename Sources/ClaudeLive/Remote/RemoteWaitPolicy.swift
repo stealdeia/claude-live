@@ -32,7 +32,11 @@ final class RemoteWaitPolicy: ObservableObject {
     /// Five minutes costs nothing when nobody is at the Mac: the session would
     /// have sat idle regardless. It only ever ends early, the moment you come
     /// back.
-    private static let awaySeconds: Double = 300
+    /// Mezz'ora, non cinque minuti: sei fuori, il telefono è l'unica strada, e
+    /// «cinque minuti per accorgersi della notifica» è una stima ottimistica di
+    /// quanto ci si mette a tirare fuori il telefono dalla tasca. Finisce da sé
+    /// appena torni alla tastiera.
+    private static let awaySeconds: Double = 1800
 
     /// Untouched for this long counts as away, even with the screen unlocked.
     ///

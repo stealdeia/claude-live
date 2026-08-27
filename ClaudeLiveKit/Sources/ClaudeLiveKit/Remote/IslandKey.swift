@@ -43,10 +43,18 @@ public enum IslandKey {
 
         var insert = query
         insert[kSecValueData as String] = data
-        // Solo su questo telefono e solo da sbloccato: l'isola si disegna a
-        // schermo acceso, quindi non serve che la chiave sia leggibile prima del
-        // primo sblocco — e non esserlo è una garanzia in meno da spiegare.
-        insert[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        // Dopo il primo sblocco, e solo su questo telefono.
+        //
+        // **Non** «da sbloccato»: era la mia scelta iniziale, con la
+        // giustificazione che «l'isola si disegna a schermo acceso». Ma schermo
+        // acceso non è sbloccato, e la Live Activity sulla schermata di blocco
+        // viene disegnata proprio mentre il telefono è bloccato — quindi la
+        // chiave non si trovava, la scatola non si apriva, e l'isola mostrava
+        // trattini al posto dei numeri. Visto il 2026-08-27.
+        //
+        // «Dopo il primo sblocco» è il minimo che permette di lavorare a telefono
+        // bloccato: da riavviato e mai sbloccato la chiave resta inaccessibile.
+        insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         return SecItemAdd(insert as CFDictionary, nil) == errSecSuccess
     }
 
