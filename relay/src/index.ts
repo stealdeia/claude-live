@@ -145,12 +145,22 @@ async function apnsToken(env: Env): Promise<string> {
  * Ritenta una volta sola, e solo su 403: quello è l'errore della firma, e la
  * seconda firma è nuova per costruzione.
  */
+/**
+ * Il tipo di notifica, che decide anche l'argomento.
+ *
+ * Le Live Activity non si aggiornano con una notifica normale: vogliono il tipo
+ * `liveactivity` e un argomento con un suffisso proprio. Sbagliare uno dei due
+ * dà un rifiuto che parla d'altro, quindi stanno insieme in un posto solo.
+ */
+type PushKind = 'alert' | 'liveactivity'
+
 async function sendPush(
   env: Env,
   deviceToken: string,
   body: Record<string, unknown>,
   environment?: string,
-  retrying = false
+  retrying = false,
+  kind: PushKind = 'alert'
 ): Promise<{ ok: boolean; status: number; reason?: string }> {
   const world = environment ?? env.APNS_ENV
   const host = world === 'production' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com'
@@ -159,8 +169,9 @@ async function sendPush(
     method: 'POST',
     headers: {
       authorization: `bearer ${await apnsToken(env)}`,
-      'apns-topic': env.APNS_TOPIC,
-      'apns-push-type': 'alert',
+      'apns-topic':
+        kind === 'liveactivity' ? `${env.APNS_TOPIC}.push-type.liveactivity` : env.APNS_TOPIC,
+      'apns-push-type': kind,
       // 10 è «consegna adesso». Meno lascia a iOS la facoltà di accorpare, che
       // misurerebbe la discrezione di Apple invece del nostro giro.
       'apns-priority': '10',
@@ -174,7 +185,7 @@ async function sendPush(
     // risolve; se la chiave è davvero sbagliata, il secondo tentativo fallisce
     // identico e non abbiamo perso nulla.
     cachedToken = null
-    return sendPush(env, deviceToken, body, environment, true)
+    return sendPush(env, deviceToken, body, environment, true, kind)
   }
 
   if (response.ok) return { ok: true, status: response.status }
@@ -304,6 +315,7 @@ export class PairState {
         payload?: string
         notify?: string
         notifyKind?: string
+        activity?: string
       }
       if (typeof body.payload !== 'string' || body.payload.length === 0) {
         return json({ error: 'payload mancante' }, 400)
@@ -327,10 +339,57 @@ export class PairState {
           }, environment)
         }
       }
-      return json({ ok: true, pushed })
+      // L'isola dinamica, se il Mac ha mandato il suo contenuto.
+      //
+      // Il contenuto è una scatola sigillata: questo Worker la mette dentro la
+      // notifica senza poterla aprire, e l'estensione dell'isola la apre sul
+      // telefono. È il motivo per cui l'isola può mostrare i nomi dei progetti
+      // senza che passino leggibili da qui né da Apple.
+      let island: unknown = null
+      if (body.activity) {
+        const token = await this.ctx.storage.get<string>('activityToken')
+        const { environment } = await this.device()
+        if (token) {
+          const now = Math.floor(Date.now() / 1000)
+          island = await sendPush(
+            this.env,
+            token,
+            {
+              aps: {
+                timestamp: now,
+                event: 'update',
+                'content-state': { sealed: body.activity },
+                // La stessa scadenza che l'app mette quando aggiorna da sé: dopo,
+                // iOS sbiadisce l'isola invece di mostrare numeri vecchi come se
+                // fossero di adesso.
+                'stale-date': now + 600,
+              },
+            },
+            environment,
+            false,
+            'liveactivity'
+          )
+        }
+      }
+
+      return json({ ok: true, pushed, island })
     }
 
     // Il telefono chiede l'ultima fotografia.
+    // Il telefono consegna il token di una Live Activity in corso.
+    //
+    // Diverso da quello di `/register`: quello indirizza il telefono, questo
+    // indirizza *una singola attività*. Cambia mentre l'attività vive, e uno
+    // stantio è una notifica che Apple accetta e consegna a nessuno.
+    if (url.pathname === '/activity-token' && request.method === 'POST') {
+      const { token } = (await request.json()) as { token?: string }
+      if (!token || !/^[0-9a-fA-F]{64,200}$/.test(token)) {
+        return json({ error: 'token mancante o malformato' }, 400)
+      }
+      await this.ctx.storage.put('activityToken', token)
+      return json({ ok: true })
+    }
+
     // Quali avvisi il telefono vuole ricevere.
     //
     // Deciso qui e non sul Mac perché il Mac interroga questo Worker *solo*

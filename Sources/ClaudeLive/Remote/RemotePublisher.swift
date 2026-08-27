@@ -162,6 +162,17 @@ final class RemotePublisher: ObservableObject {
         }
 
         var body: [String: Any] = ["payload": sealed]
+
+        // Il contenuto dell'isola dinamica, sigillato a parte.
+        //
+        // A parte e non dentro la fotografia perché il relay deve poterlo
+        // *inoltrare* dentro una notifica senza aprirlo, mentre la fotografia non
+        // la tocca nessuno. Sigillato con la stessa chiave: da fuori si vede una
+        // stringa, non i nomi dei tuoi progetti.
+        if let island = islandToSend(), let box = try? RemoteCrypto.seal(island, with: key) {
+            body["activity"] = box
+            lastIsland = island
+        }
         if let notify = notificationText() {
             body["notify"] = notify
             // Il tipo viaggia accanto al testo perché è il relay a decidere se
@@ -212,6 +223,31 @@ final class RemotePublisher: ObservableObject {
     /// Quanti messaggi conteneva l'ultima fotografia, solo per non ripetere la
     /// stessa riga di diario a ogni pubblicazione.
     private var lastMessageCount = -1
+
+    /// L'ultimo contenuto mandato all'isola dinamica, per non rimandarlo uguale.
+    ///
+    /// iOS concede a un'attività un numero limitato di aggiornamenti per
+    /// notifica, e finito quello li scarta — silenziosamente. Il Mac pubblica
+    /// anche solo per dire «sono vivo», e quelle pubblicazioni non cambiano
+    /// niente di ciò che l'isola mostra: mandarle brucerebbe il bilancio per
+    /// niente, e l'aggiornamento che conta arriverebbe quando non c'è più credito.
+    private var lastIsland: ClaudeIslandState?
+
+    /// Il contenuto dell'isola, se è cambiato da quello di prima.
+    ///
+    /// Il confronto ignora l'ora: quella cambia a ogni pubblicazione, quindi
+    /// confrontando tutto due contenuti identici sembrerebbero sempre diversi e
+    /// il risparmio non ci sarebbe.
+    private func islandToSend() -> ClaudeIslandState? {
+        let island = ClaudeIslandState(snapshot: makeSnapshot())
+        guard let last = lastIsland else { return island }
+
+        var a = island, b = last
+        let epoch = Date(timeIntervalSince1970: 0)
+        a.updatedAt = epoch
+        b.updatedAt = epoch
+        return a == b ? nil : island
+    }
 
     private func makeSnapshot() -> RemoteSnapshot {
         let sessions = status.sessionsByPath.values.flatMap { $0 }

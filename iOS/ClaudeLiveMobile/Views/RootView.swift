@@ -108,11 +108,15 @@ struct RootView: View {
             // lasciato traccia, e il disallineamento non si vede — si vede solo
             // come una notifica che arriva quando l'interruttore dice di no.
             notifications.attach(to: store)
+            liveActivity.attach(to: store)
             Task { await liveActivity.sync(with: snapshot) }
         }
         .onChange(of: store.isPaired) { _, paired in
             // Appena accoppiato il relay non sa ancora niente di questo telefono.
-            if paired { notifications.attach(to: store) }
+            if paired {
+                notifications.attach(to: store)
+                liveActivity.attach(to: store)
+            }
         }
     }
 

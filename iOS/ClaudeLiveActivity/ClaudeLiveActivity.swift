@@ -26,35 +26,46 @@ struct ClaudeLiveActivityBundle: WidgetBundle {
 struct ClaudeLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
-            LockScreenView(state: context.state)
-            .widgetURL(Self.link(for: context.state))
+            let state = Self.resolve(context.state)
+            LockScreenView(state: state)
+                .widgetURL(Self.link(for: state))
         } dynamicIsland: { context in
-            island(for: context.state)
-                .widgetURL(Self.link(for: context.state))
+            let state = Self.resolve(context.state)
+            return island(for: state)
+                .widgetURL(Self.link(for: state))
         }
+    }
+
+    /// Il contenuto da disegnare, aperto se era sigillato.
+    ///
+    /// Un aggiornamento che arriva per notifica è cifrato: il relay lo trasporta
+    /// senza poterlo leggere, e la chiave sta nel portachiavi condiviso con
+    /// l'app. Se manca — l'app non è mai stata aperta da quando esiste questa
+    /// versione, o l'accoppiamento è stato rifatto — si mostra un'isola spoglia,
+    /// che è meglio di una che mente.
+    static func resolve(
+        _ state: ClaudeActivityAttributes.ContentState
+    ) -> ClaudeIslandState {
+        if let island = state.island { return island }
+        guard let sealed = state.sealed,
+              let key = IslandKey.read(),
+              let opened = try? RemoteCrypto.open(ClaudeIslandState.self, from: sealed, with: key)
+        else { return ClaudeIslandState() }
+        return opened
     }
 
     /// Dove porta il tocco: la chat dell'avviso, o l'app.
     ///
     /// Uno schema tutto suo e non un indirizzo web: deve aprire *questa* app,
     /// anche se il telefono non ha rete.
-    static func link(for state: ClaudeActivityAttributes.ContentState) -> URL? {
+    static func link(for state: ClaudeIslandState) -> URL? {
         if let session = state.alertSessionID, !session.isEmpty {
             return URL(string: "claudelive://chat/\(session)")
         }
         return URL(string: "claudelive://open")
     }
 
-    private func headline(for state: ClaudeActivityAttributes.ContentState) -> String {
-        guard let alert = state.alert else { return "Claude Live" }
-        switch alert {
-        case .waiting: return "Claude aspetta una risposta"
-        case .done: return "Claude ha finito"
-        case .failed: return "Claude si è interrotto"
-        }
-    }
-
-    private func island(for state: ClaudeActivityAttributes.ContentState) -> DynamicIsland {
+    private func island(for state: ClaudeIslandState) -> DynamicIsland {
         DynamicIsland {
             // Aperta: le stesse cose del pannello sul Mac, nello stesso ordine —
             // i due anelli ai lati, il progetto in mezzo, la richiesta in fondo.
@@ -73,7 +84,7 @@ struct ClaudeLiveActivityWidget: Widget {
                 )
             }
             DynamicIslandExpandedRegion(.center) {
-                Text(headline(for: state))
+                Text(state.headline)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(state.alert == nil ? .primary : tint(for: state))
                     .lineLimit(1)
@@ -122,7 +133,7 @@ struct ClaudeLiveActivityWidget: Widget {
         .keylineTint(tint(for: state))
     }
 
-    private func tint(for state: ClaudeActivityAttributes.ContentState) -> Color {
+    private func tint(for state: ClaudeIslandState) -> Color {
         state.alert?.defaultColor.color ?? .white
     }
 
@@ -137,7 +148,7 @@ struct ClaudeLiveActivityWidget: Widget {
 /// Il pallino usa i colori del pannello sul Mac, mappati qui a mano: la vista
 /// che li tiene vive nell'app, e un widget non può dipendere dall'app.
 private struct ProjectLine: View {
-    let project: ClaudeActivityAttributes.ContentState.Project
+    let project: ClaudeIslandState.Project
     let tint: Color
 
     var body: some View {
@@ -247,7 +258,7 @@ private struct ActivityRing: View {
 /// non un pezzo dell'isola di sistema. Fermo, non pulsante — resta il limite di
 /// prima — ma del colore giusto.
 private struct LockScreenView: View {
-    let state: ClaudeActivityAttributes.ContentState
+    let state: ClaudeIslandState
 
     var body: some View {
         HStack(spacing: 14) {
@@ -263,7 +274,7 @@ private struct LockScreenView: View {
             )
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(headline)
+                Text(state.headline)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(state.alert == nil ? .primary : tint)
                     .lineLimit(1)
@@ -306,14 +317,6 @@ private struct LockScreenView: View {
         state.alert?.defaultColor.color ?? .white
     }
 
-    private var headline: String {
-        guard let alert = state.alert else { return "Claude Live" }
-        switch alert {
-        case .waiting: return "Claude aspetta una risposta"
-        case .done: return "Claude ha finito"
-        case .failed: return "Claude si è interrotto"
-        }
-    }
 }
 
 private extension UsageLevel {

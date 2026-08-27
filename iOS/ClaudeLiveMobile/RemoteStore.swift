@@ -147,6 +147,27 @@ final class RemoteStore: ObservableObject {
         }
     }
 
+    /// Consegna al relay il token con cui aggiornare l'isola dinamica.
+    ///
+    /// Un token diverso da quello delle notifiche normali: quello indirizza il
+    /// telefono, questo indirizza *una singola attività*. Se il relay ha quello
+    /// vecchio, Apple accetta la notifica e non la consegna a nessuno — il guasto
+    /// più silenzioso che ci sia, per questo viene rimandato a ogni cambiamento.
+    func sendActivityToken(_ token: String) async {
+        guard isPaired,
+              let url = URL(string: relayURL + "/activity-token"),
+              let pairID = RemoteSecrets.read(.pairID)
+        else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["token": token])
+        request.timeoutInterval = 15
+        _ = try? await URLSession.shared.data(for: request)
+    }
+
     func unpair() {
         RemoteSecrets.reset()
         relayURL = ""
