@@ -19,13 +19,7 @@ struct HomeView: View {
     let onOpenProjects: () -> Void
     let onOpenUsage: () -> Void
 
-    /// La chat che si è chiesto di andare a leggere, dal pulsante di una domanda.
-    ///
-    /// Tenuta come identificativo e non come sessione: la fotografia si aggiorna
-    /// ogni cinque secondi, e una copia della sessione sarebbe vecchia un istante
-    /// dopo essere stata messa qui.
-    @State private var readingChat: String?
-
+    @EnvironmentObject private var openRequest: OpenRequest
     @EnvironmentObject private var glow: GlowSettings
     @EnvironmentObject private var glowState: GlowState
 
@@ -56,7 +50,7 @@ struct HomeView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
-        .navigationDestination(item: $readingChat) { sessionID in
+        .navigationDestination(item: $openRequest.chatSessionID) { sessionID in
             if let snapshot, let session = snapshot.sessions.first(where: { $0.sessionID == sessionID }) {
                 ChatDetailView(
                     session: session,
@@ -90,7 +84,7 @@ struct HomeView: View {
                         // Perché una domanda, a differenza di un permesso, a
                         // volte non si può decidere senza sapere cosa Claude
                         // stava facendo: il pulsante porta a leggerlo.
-                        onReadChat: { readingChat = decidable[0].sessionID },
+                        onReadChat: { openRequest.chatSessionID = decidable[0].sessionID },
                         onAnswer: onAnswer
                     )
                 } else {

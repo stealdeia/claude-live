@@ -58,14 +58,14 @@ final class LiveActivityController: ObservableObject {
         let state = Self.state(from: snapshot)
 
         if let activity {
-            await activity.update(ActivityContent(state: state, staleDate: nil))
+            await activity.update(Self.content(state))
             return
         }
 
         do {
             activity = try Activity.request(
                 attributes: ClaudeActivityAttributes(),
-                content: ActivityContent(state: state, staleDate: nil),
+                content: Self.content(state),
                 // Nessun tipo di notifica per ora: finché il relay non manda
                 // aggiornamenti, chiedere `.token` produrrebbe un token che
                 // nessuno usa.
@@ -82,19 +82,40 @@ final class LiveActivityController: ObservableObject {
         self.activity = nil
     }
 
+    /// Il contenuto, con una data di scadenza.
+    ///
+    /// La scadenza è la risposta onesta a una domanda che il sistema pone e noi
+    /// no: un'attività continua a essere disegnata anche quando l'app non gira
+    /// più — è un altro processo — quindi i numeri potrebbero essere di ore
+    /// prima. Passata questa data iOS la mostra sbiadita, cioè dice da sé «questi
+    /// dati sono vecchi» invece di lasciar credere che siano di adesso.
+    ///
+    /// Dieci minuti: il Mac pubblica almeno una volta al minuto quando è vivo,
+    /// quindi dieci minuti di silenzio significano che non lo è.
+    private static func content(
+        _ state: ClaudeActivityAttributes.ContentState
+    ) -> ActivityContent<ClaudeActivityAttributes.ContentState> {
+        ActivityContent(state: state, staleDate: state.updatedAt.addingTimeInterval(600))
+    }
+
     // MARK: - Da fotografia a contenuto
 
     /// Cosa dell'intera fotografia finisce nell'isola.
     ///
     /// Poco, e scelto: nello spazio dell'isola una cosa in più è una cosa in meno
     /// leggibile. I due contatori perché sono il motivo per cui si guarda là, e
-    /// **un** progetto — quello che chiede attenzione — perché elencarli tutti
-    /// vorrebbe dire non leggerne nessuno.
+    /// **tre** progetti perché tre righe è quanto ci sta — arrivano già ordinati
+    /// per urgenza, quindi i tre mostrati sono i tre che contano.
     static func state(from snapshot: RemoteSnapshot) -> ClaudeActivityAttributes.ContentState {
-        // Il progetto di cui parlare: quello dell'avviso se c'è, altrimenti il
-        // primo, che arriva già ordinato per urgenza dal Mac.
-        let project = snapshot.alert?.projectName
-            ?? snapshot.projects.first.map { ($0.projectPath as NSString).lastPathComponent }
+        let alertPath = snapshot.alert?.projectPath
+
+        let projects = snapshot.projects.prefix(3).map { project in
+            ClaudeActivityAttributes.ContentState.Project(
+                name: (project.projectPath as NSString).lastPathComponent,
+                state: project.state,
+                alerting: project.projectPath == alertPath
+            )
+        }
 
         let session = snapshot.sessions.first { $0.isDecidable }
         let pending: String? = {
@@ -110,8 +131,11 @@ final class LiveActivityController: ObservableObject {
             fiveHourResetsAt: snapshot.usage?.fiveHour?.resetAt,
             sevenDayPercent: snapshot.usage?.sevenDay?.percent,
             sevenDayResetsAt: snapshot.usage?.sevenDay?.resetAt,
-            projectName: project,
-            stateLabel: snapshot.projects.first?.state.label,
+            projects: Array(projects),
+            // La chat da aprire: quella della richiesta in attesa se c'è,
+            // altrimenti quella nominata dall'avviso. Toccando l'isola si
+            // finisce dove c'è qualcosa da fare, non nella schermata iniziale.
+            alertSessionID: session?.sessionID ?? snapshot.alert?.sessionID,
             alertKind: snapshot.alert?.kind.rawValue,
             pending: pending,
             updatedAt: snapshot.generatedAt

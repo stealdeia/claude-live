@@ -21,6 +21,7 @@ struct RootView: View {
     @StateObject private var glowState = GlowState()
     @StateObject private var currentAlert = CurrentAlert()
     @StateObject private var liveActivity = LiveActivityController()
+    @StateObject private var openRequest = OpenRequest()
     @Environment(\.scenePhase) private var scenePhase
 
     enum AppTab: Hashable { case home, projects, usage }
@@ -50,6 +51,9 @@ struct RootView: View {
         .environmentObject(glowState)
         .environmentObject(glow)
         .environmentObject(currentAlert)
+        .environmentObject(openRequest)
+        // Il tocco sull'isola dinamica arriva qui, come indirizzo.
+        .onOpenURL { url in open(url) }
         .onChange(of: snapshot?.alert) { _, alert in currentAlert.alert = alert }
         // L'isola segue la fotografia: ogni volta che il Mac dice qualcosa di
         // nuovo, il contenuto dell'attività si aggiorna.
@@ -109,6 +113,21 @@ struct RootView: View {
         .onChange(of: store.isPaired) { _, paired in
             // Appena accoppiato il relay non sa ancora niente di questo telefono.
             if paired { notifications.attach(to: store) }
+        }
+    }
+
+    /// Apre quello che l'isola dinamica ha chiesto di aprire.
+    ///
+    /// `claudelive://chat/<sessione>` porta in quella chat, qualunque altra cosa
+    /// porta in Home. Tollerante di proposito: un indirizzo che non si capisce
+    /// deve aprire l'app, non far niente — chi ha toccato l'isola si aspetta di
+    /// essere portato dentro.
+    private func open(_ url: URL) {
+        tab = .home
+        guard url.scheme == "claudelive" else { return }
+        if url.host == "chat" {
+            let session = url.pathComponents.filter { $0 != "/" }.first
+            if let session, !session.isEmpty { openRequest.chatSessionID = session }
         }
     }
 

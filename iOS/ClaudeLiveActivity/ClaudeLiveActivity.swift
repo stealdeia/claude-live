@@ -27,8 +27,30 @@ struct ClaudeLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
             LockScreenView(state: context.state)
+            .widgetURL(Self.link(for: context.state))
         } dynamicIsland: { context in
             island(for: context.state)
+                .widgetURL(Self.link(for: context.state))
+        }
+    }
+
+    /// Dove porta il tocco: la chat dell'avviso, o l'app.
+    ///
+    /// Uno schema tutto suo e non un indirizzo web: deve aprire *questa* app,
+    /// anche se il telefono non ha rete.
+    static func link(for state: ClaudeActivityAttributes.ContentState) -> URL? {
+        if let session = state.alertSessionID, !session.isEmpty {
+            return URL(string: "claudelive://chat/\(session)")
+        }
+        return URL(string: "claudelive://open")
+    }
+
+    private func headline(for state: ClaudeActivityAttributes.ContentState) -> String {
+        guard let alert = state.alert else { return "Claude Live" }
+        switch alert {
+        case .waiting: return "Claude aspetta una risposta"
+        case .done: return "Claude ha finito"
+        case .failed: return "Claude si è interrotto"
         }
     }
 
@@ -51,28 +73,34 @@ struct ClaudeLiveActivityWidget: Widget {
                 )
             }
             DynamicIslandExpandedRegion(.center) {
-                VStack(spacing: 2) {
-                    Text(state.projectName ?? "Claude Live")
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                    if let label = state.stateLabel {
-                        Text(label)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
+                Text(headline(for: state))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(state.alert == nil ? .primary : tint(for: state))
+                    .lineLimit(1)
             }
             DynamicIslandExpandedRegion(.bottom) {
-                if let pending = state.pending {
-                    HStack(spacing: 6) {
-                        Image(systemName: "questionmark.bubble.fill")
-                            .font(.caption2)
-                            .foregroundStyle(tint(for: state))
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(state.projects) { project in
+                        ProjectLine(project: project, tint: tint(for: state))
+                    }
+
+                    if let pending = state.pending {
                         Text(pending)
                             .font(.caption2)
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
-                        Spacer(minLength: 0)
+                    }
+
+                    // Nessun pulsante per rispondere, di proposito: la risposta si
+                    // dà nell'app, dove si vede anche la conversazione. Qui basta
+                    // una porta, e tutta l'isola è quella porta.
+                    if state.alert != nil {
+                        HStack(spacing: 4) {
+                            Text("Tocca per aprire")
+                            Image(systemName: "arrow.up.right")
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(tint(for: state))
                     }
                 }
             }
@@ -101,6 +129,40 @@ struct ClaudeLiveActivityWidget: Widget {
     private func percentLabel(_ percent: Double?) -> String? {
         guard let percent else { return nil }
         return "\(Int(percent.rounded()))"
+    }
+}
+
+/// Un progetto: il pallino del suo stato, il nome, e cosa sta facendo.
+///
+/// Il pallino usa i colori del pannello sul Mac, mappati qui a mano: la vista
+/// che li tiene vive nell'app, e un widget non può dipendere dall'app.
+private struct ProjectLine: View {
+    let project: ClaudeActivityAttributes.ContentState.Project
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(project.alerting ? tint : color)
+                .frame(width: 7, height: 7)
+            Text(project.name)
+                .font(.caption2.weight(project.alerting ? .semibold : .regular))
+                .lineLimit(1)
+            Text(project.state.label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var color: Color {
+        switch project.state {
+        case .waitingInput: return GlowRGB.waiting.color
+        case .error: return GlowRGB.failed.color
+        case .working: return GlowRGB.done.color
+        case .idle, .unknown: return .secondary
+        }
     }
 }
 
@@ -200,21 +262,20 @@ private struct LockScreenView: View {
                 resetsAt: state.sevenDayResetsAt
             )
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(state.projectName ?? "Claude Live")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(headline)
                     .font(.footnote.weight(.semibold))
+                    .foregroundStyle(state.alert == nil ? .primary : tint)
                     .lineLimit(1)
 
-                if let label = state.stateLabel {
-                    Text(label)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                ForEach(state.projects) { project in
+                    ProjectLine(project: project, tint: tint)
                 }
 
                 if let pending = state.pending {
                     Text(pending)
                         .font(.caption2)
-                        .foregroundStyle(tint)
+                        .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
             }
@@ -243,6 +304,15 @@ private struct LockScreenView: View {
 
     private var tint: Color {
         state.alert?.defaultColor.color ?? .white
+    }
+
+    private var headline: String {
+        guard let alert = state.alert else { return "Claude Live" }
+        switch alert {
+        case .waiting: return "Claude aspetta una risposta"
+        case .done: return "Claude ha finito"
+        case .failed: return "Claude si è interrotto"
+        }
     }
 }
 

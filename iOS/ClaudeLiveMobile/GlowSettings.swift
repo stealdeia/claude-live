@@ -115,3 +115,16 @@ final class GlowState: ObservableObject {
 final class CurrentAlert: ObservableObject {
     @Published var alert: ClaudeAlert?
 }
+
+/// La chat che qualcosa ha chiesto di aprire.
+///
+/// Due cose ci scrivono: il pulsante «Leggi la chat» di una domanda in Home, e il
+/// tocco sull'isola dinamica, che arriva come un indirizzo `claudelive://`. Prima
+/// era uno stato privato della Home, dove il secondo non poteva arrivare.
+///
+/// Tenuta come identificativo e non come sessione: la fotografia si aggiorna ogni
+/// cinque secondi, e una copia della sessione sarebbe vecchia un istante dopo.
+@MainActor
+final class OpenRequest: ObservableObject {
+    @Published var chatSessionID: String?
+}
