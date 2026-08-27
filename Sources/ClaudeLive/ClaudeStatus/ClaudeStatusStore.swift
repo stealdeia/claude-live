@@ -16,6 +16,13 @@ final class ClaudeStatusStore: ObservableObject {
     /// confused with answering another in the same project.
     @Published private(set) var waitingSessions: [ClaudeSessionStatus] = []
 
+    /// Le domande a scelta multipla in attesa, per identificativo di sessione.
+    ///
+    /// Tenute a parte e non dentro la sessione: durano quanto l'attesa dell'hook,
+    /// mentre la sessione dura quanto la chat. Il pannello guarda qui per sapere
+    /// se una richiesta è una domanda da leggere o un permesso da concedere.
+    @Published private(set) var pendingQuestions: [String: [ClaudeQuestion]] = [:]
+
     /// Every live session, grouped by project and sorted most urgent first.
     ///
     /// This is what the panel shows as "chats": one Claude Code session is one
@@ -195,6 +202,15 @@ final class ClaudeStatusStore: ObservableObject {
     /// che rende questo numero poco importante.
     private static let coveredWaitSeconds: Double = 45
 
+    /// Quanto attendere la risposta a una domanda a scelta multipla.
+    ///
+    /// Quattro volte tanto, e non per generosità: «Consenti» è un pulsante,
+    /// mentre una domanda sono due o tre opzioni con le loro descrizioni da
+    /// leggere, e a volte una risposta da scrivere a mano. Qui il tempo lungo
+    /// costa poco, perché l'attesa finisce da sé nell'istante in cui la finestra
+    /// di quel progetto torna in vista.
+    private static let questionWaitSeconds: Double = 180
+
     /// I progetti la cui finestra è coperta, per l'hook.
     private var coveredProjects: Set<String> = []
 
@@ -220,6 +236,7 @@ final class ClaudeStatusStore: ObservableObject {
             // finestra è coperta: dove il prompt nel terminale non si vedrebbe.
             "covered_projects": Array(coveredProjects),
             "covered_wait_seconds": Self.coveredWaitSeconds,
+            "question_wait_seconds": Self.questionWaitSeconds,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted]) else { return }
         try? data.write(to: Paths.hubConfigFile, options: .atomic)
@@ -258,6 +275,40 @@ final class ClaudeStatusStore: ObservableObject {
 
         // Drop it from the list at once: the hook will rewrite the status file a
         // moment later, and leaving a dead button on screen invites a second click.
+        waitingSessions.removeAll { $0.id == session.id }
+    }
+
+    /// Risponde a una domanda a scelta multipla dal pannello.
+    ///
+    /// Le chiavi sono i testi delle domande, che è come Claude Code le indirizza:
+    /// l'hook riscrive con queste il campo `answers` dell'input dello strumento,
+    /// quello che di norma riempie il terminale. Quindi la domanda risulta
+    /// risposta e non saltata — e una risposta scritta a mano, che non
+    /// corrisponde a nessuna opzione, arriva a Claude come tale.
+    func answer(_ session: ClaudeSessionStatus, answers: [String: String]) {
+        guard let requestID = session.requestID, !requestID.isEmpty else { return }
+        let filled = answers.filter { !$0.value.isEmpty }
+        guard !filled.isEmpty else { return }
+
+        try? FileManager.default.createDirectory(
+            at: Paths.decisionsDirectory, withIntermediateDirectories: true
+        )
+        guard let data = try? JSONSerialization.data(withJSONObject: ["answers": filled])
+        else { return }
+
+        let url = Paths.decisionsDirectory.appendingPathComponent("\(requestID).json")
+        do {
+            try data.write(to: url, options: .atomic)
+            Log.info(
+                "Risposta a «\(session.projectName)»: \(filled.values.joined(separator: " | "))",
+                category: .status
+            )
+        } catch {
+            Log.error("Risposta non scritta: \(error.localizedDescription)", category: .status)
+            return
+        }
+
+        clearAlert(forPath: session.projectPath)
         waitingSessions.removeAll { $0.id == session.id }
     }
 
@@ -436,6 +487,9 @@ final class ClaudeStatusStore: ObservableObject {
         // punto non è affidabile.
         let pending = Self.loadPending()
 
+        let questions = pending.compactMapValues { $0.questions.isEmpty ? nil : $0.questions }
+        if questions != pendingQuestions { pendingQuestions = questions }
+
         let normalized = sessions
             .map { $0.movedToProjectRoot(among: knownProjectPaths) }
             .map { session in
@@ -509,6 +563,14 @@ final class ClaudeStatusStore: ObservableObject {
         let sessionID: String
         let toolName: String?
         let toolSummary: String?
+
+        /// Le domande a scelta multipla, vuoto per una richiesta di permesso.
+        ///
+        /// Non finiscono in `ClaudeSessionStatus` di proposito: sono dati di
+        /// passaggio, vivono quanto l'attesa, e non sono stato della sessione.
+        /// Metterle là avrebbe voluto dire toccare la decodifica che usa anche
+        /// l'app per iPhone, per un dato che il telefono oggi non riceve.
+        let questions: [ClaudeQuestion]
     }
 
     /// Le richieste in attesa, scartando quelle la cui attesa è già scaduta.
@@ -536,10 +598,24 @@ final class ClaudeStatusStore: ObservableObject {
                 requestID: requestID,
                 sessionID: sessionID,
                 toolName: json["tool_name"] as? String,
-                toolSummary: json["tool_summary"] as? String
+                toolSummary: json["tool_summary"] as? String,
+                questions: decodeQuestions(json["questions"])
             )
         }
         return bySession
+    }
+
+    /// Le domande dentro il file della richiesta.
+    ///
+    /// Tollerante di proposito: se l'hook installato è più vecchio dell'app il
+    /// campo non c'è, e una richiesta di permesso non lo ha comunque. In tutti
+    /// questi casi la risposta giusta è «nessuna domanda», non un errore.
+    private static func decodeQuestions(_ raw: Any?) -> [ClaudeQuestion] {
+        guard let raw, !(raw is NSNull),
+              let data = try? JSONSerialization.data(withJSONObject: raw),
+              let decoded = try? JSONDecoder().decode([ClaudeQuestion].self, from: data)
+        else { return [] }
+        return decoded.filter { !$0.options.isEmpty }
     }
 
     private static func group(

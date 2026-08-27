@@ -259,7 +259,7 @@ def app_is_running():
     return True
 
 
-def wait_seconds(reason="away"):
+def wait_seconds(reason="away", question=False):
     """Quanto attendere una risposta, secondo il motivo per cui si trattiene.
 
     Da lontano l'attesa può essere lunga: la sessione sarebbe rimasta ferma
@@ -268,8 +268,18 @@ def wait_seconds(reason="away"):
     tace finché si aspetta: pochi secondi, quanto basta a vedere il pannello.
     """
     config = read_json(CONFIG, {})
-    key = "covered_wait_seconds" if reason == "covered" else "decision_wait_seconds"
-    default = 45 if reason == "covered" else DEFAULT_WAIT_SECONDS
+
+    # Una domanda a scelta multipla chiede più tempo di un permesso, e non per
+    # generosità: «Consenti» è un pulsante, una domanda sono tre opzioni con le
+    # loro descrizioni da leggere e a volte una risposta da scrivere. E qui il
+    # tempo lungo costa poco, perché l'attesa finisce da sé nell'istante in cui
+    # la finestra torna in vista.
+    if question and reason == "covered":
+        key, default = "question_wait_seconds", 180
+    elif reason == "covered":
+        key, default = "covered_wait_seconds", 45
+    else:
+        key, default = "decision_wait_seconds", DEFAULT_WAIT_SECONDS
     try:
         return max(0, min(600, float(config.get(key, default))))
     except Exception:
@@ -294,6 +304,59 @@ DEFAULT_GATED_TOOLS = ["Bash", "Write", "Edit", "NotebookEdit"]
 # have added a permissive one; a build too old to send the field at all needs the
 # old behaviour or the feature disappears.
 ASKING_MODES = ("default", "acceptEdits")
+
+
+# Lo strumento con cui Claude fa una domanda a scelta multipla.
+#
+# Non è un permesso, e la differenza è il motivo per cui esiste questo ramo: un
+# permesso può risolversi da sé — modalità automatica, una regola che lo
+# consente — e tutto il resto di questo file serve a non trattenere chiamate che
+# nessuno avrebbe visto. Una domanda invece viene *sempre* chiesta, in ogni
+# modalità. Anzi: in automatico è l'unica cosa che si ferma ad aspettare una
+# persona, quindi è proprio il caso in cui il pannello serve, ed era l'unico che
+# non arrivava (Stefano, 2026-08-27: «ormai facciamo tutto in modalità Auto e
+# quindi diventa abbastanza inutile»).
+QUESTION_TOOL = "AskUserQuestion"
+
+
+def questions_of(payload):
+    """Le domande di una `AskUserQuestion`, ridotte a ciò che il pannello mostra.
+
+    Ricostruite invece di passate intatte: l'input dello strumento porta anche
+    anteprime e annotazioni che al pannello non servono, e un file di richiesta
+    grosso è un file che il pannello legge a ogni giro.
+
+    Una domanda senza opzioni viene scartata: là non c'è niente da toccare, e
+    offrirla vorrebbe dire mostrare un titolo e nessuna risposta possibile.
+    """
+    data = payload.get("tool_input")
+    if not isinstance(data, dict):
+        return []
+    found = []
+    for question in data.get("questions") or []:
+        if not isinstance(question, dict):
+            continue
+        text = question.get("question")
+        if not isinstance(text, str) or not text:
+            continue
+        options = [
+            {
+                "label": option["label"],
+                "description": option.get("description") or "",
+            }
+            for option in question.get("options") or []
+            if isinstance(option, dict) and isinstance(option.get("label"), str)
+            and option["label"]
+        ]
+        if not options:
+            continue
+        found.append({
+            "question": text,
+            "header": question.get("header") or "",
+            "multi": bool(question.get("multiSelect")),
+            "options": options,
+        })
+    return found
 
 
 def permission_rules(path, kind):
@@ -425,11 +488,22 @@ def hold_reason(tool, payload, path):
     """
     if not tool:
         return None
-    tools = config_gated_tools()
-    if tool not in tools:
-        return None
-    if not would_be_asked(tool, payload, path):
-        return None
+
+    if tool == QUESTION_TOOL:
+        # Nessun controllo su `permission_mode` né sulle regole, e non è una
+        # dimenticanza: quelle dicono se Claude Code chiederebbe *il permesso*, e
+        # una domanda non è un permesso. In automatico `would_be_asked()`
+        # risponde no per qualunque strumento, quindi passando da là una domanda
+        # non sarebbe mai stata trattenuta — proprio nella modalità in cui è la
+        # sola cosa che si ferma ad aspettare una persona.
+        if not questions_of(payload):
+            return None
+    else:
+        tools = config_gated_tools()
+        if tool not in tools:
+            return None
+        if not would_be_asked(tool, payload, path):
+            return None
 
     config = read_json(CONFIG, {})
     if config.get("away"):
@@ -518,6 +592,35 @@ def emit_decision(behavior, event):
     sys.stdout.flush()
 
 
+def emit_answers(payload, answers):
+    """Consegna a Claude Code le risposte scelte dal pannello.
+
+    Non un permesso negato con la risposta scritta nel motivo — quella sarebbe
+    una risposta travestita da rifiuto, e Claude la leggerebbe come «non hai
+    potuto chiedere». Qui l'input dello strumento viene *riscritto*:
+    `updatedInput` è previsto per `PreToolUse` e viene validato contro lo schema
+    dello strumento, e `answers` è un campo di quell'input — quello che di norma
+    riempie il componente che mostra le opzioni nel terminale. Riempirlo dal
+    pannello significa che la domanda risulta risposta, non saltata.
+
+    Le scelte multiple arrivano già unite da «, »: lo schema vuole stringhe, e
+    Claude Code separa proprio su quello per riconoscere le etichette.
+    """
+    data = dict(payload.get("tool_input") or {})
+    existing = data.get("answers")
+    merged = dict(existing) if isinstance(existing, dict) else {}
+    merged.update(answers)
+    data["answers"] = merged
+    json.dump({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "updatedInput": data,
+        }
+    }, sys.stdout)
+    sys.stdout.flush()
+
+
 def await_decision(request_id, timeout, tool=None, path=None):
     """Polls for the app's answer. Returns (behavior, remember) or None.
 
@@ -544,6 +647,14 @@ def await_decision(request_id, timeout, tool=None, path=None):
             behavior = answer.get("behavior")
             if behavior in ("allow", "deny"):
                 return behavior, bool(answer.get("remember"))
+            # Le risposte a una domanda a scelta multipla: una mappa dal testo
+            # della domanda a ciò che è stato scelto. Chiave e non indice, perché
+            # è così che Claude Code se le aspetta nell'input dello strumento.
+            chosen = answer.get("answers")
+            if isinstance(chosen, dict) and chosen:
+                return "answer", {
+                    str(k): str(v) for k, v in chosen.items() if isinstance(v, str)
+                }
             return None
         time.sleep(POLL_INTERVAL)
     return None
@@ -580,9 +691,22 @@ def main():
     # built for and the one that never fires; `PreToolUse` while away is the one
     # that works. Everything downstream treats them the same.
     reason = hold_reason(tool, payload, path) if event == "PreToolUse" else None
-    is_permission = event == "PermissionRequest" or reason is not None
 
-    summary = tool_summary(payload) if is_permission else None
+    # Una domanda a scelta multipla e una richiesta di permesso vengono
+    # trattenute allo stesso modo, ma non sono la stessa cosa e da qui in giù si
+    # separano: la domanda non ha un «consenti sempre» (rispondere per sempre
+    # alla stessa domanda non vuol dire niente), e la sua risposta torna
+    # riscrivendo l'input dello strumento invece di decidere un permesso.
+    is_question = reason is not None and tool == QUESTION_TOOL
+    is_permission = (event == "PermissionRequest" or reason is not None) and not is_question
+    asking = is_permission or is_question
+    questions = questions_of(payload) if is_question else []
+
+    # Per una domanda il riassunto è la domanda stessa: è ciò che va scritto
+    # nella notifica, e nessun riassunto dell'input direbbe altrettanto.
+    summary = None
+    if asking:
+        summary = questions[0]["question"] if questions else tool_summary(payload)
     request_id = payload.get("tool_use_id") or ""
     fingerprint = request_fingerprint(path, tool, payload) if is_permission else None
 
@@ -592,27 +716,30 @@ def main():
         emit_decision("allow", event)
         state = "working"
         is_permission = False
+        asking = False
 
     # A held tool call is the session waiting on a person, whatever the event
     # that carried it was called.
-    if is_permission:
+    if asking:
         state = "waiting_input"
 
-    timeout = wait_seconds(reason or "away") if is_permission else 0
-    decidable = bool(is_permission and request_id and timeout > 0 and app_is_running())
+    timeout = wait_seconds(reason or "away", question=is_question) if asking else 0
+    decidable = bool(asking and request_id and timeout > 0 and app_is_running())
 
     # Un trattenimento che non offre pulsanti è il difetto più difficile di tutto
     # questo impianto: quattro condizioni concorrono e nessuna lasciava traccia,
-    # quindi una risposta mancante non era distinguibile da un'altra. Ci sono
-    # voluti quattro tentativi il 2026-08-21.
+    # quindi una risposta mancante non era distinguibile da un'altra.
     #
-    # Registrato solo quando succede: se il meccanismo funziona questo file non
-    # esiste, e la sua presenza è già metà della diagnosi.
-    # Il caso che vale la pena registrare non è quello che funziona, è quello in
-    # cui c'era una domanda da girare al pannello e non l'abbiamo girata. Scritto
-    # solo allora: un diario che registra tutto è un diario che nessuno legge, e
-    # per una settimana ha nascosto qui in mezzo la riga che serviva.
-    if is_permission and not decidable:
+    # Registrato solo nel caso anomalo — c'era qualcosa da girare al pannello e
+    # non l'abbiamo girato. Se il meccanismo funziona questo file non esiste, e
+    # la sua presenza è già metà della diagnosi. Nella versione che registrava
+    # ogni decisione, la riga che serviva era invisibile in mezzo alle altre.
+    # `PermissionRequest` non porta mai il `tool_use_id`, quindi non è mai
+    # rispondibile: registrarlo sarebbe una riga a ogni domanda per un limite
+    # noto e strutturale, e il diario deve contenere le sorprese. Il caso vero da
+    # registrare è un trattenimento deciso su `PreToolUse` che non ha potuto
+    # offrire nulla.
+    if asking and not decidable and (request_id or reason is not None):
         try:
             log = os.path.join(HUB, "gate.log")
             if not os.path.exists(log) or os.path.getsize(log) < 512 * 1024:
@@ -688,6 +815,11 @@ def main():
         "tool_name": tool or "",
         "tool_summary": summary,
         "reason": reason,
+        # Cosa sta chiedendo: un permesso da consentire o negare, o una domanda
+        # con delle opzioni fra cui scegliere. Il pannello mostra due cose
+        # diverse, e la differenza sta qui e non nel nome dello strumento.
+        "kind": "question" if is_question else "permission",
+        "questions": questions,
         "hold_until": time.time() + timeout,
         "at": time.time(),
     })
@@ -711,8 +843,22 @@ def main():
         write_atomic(target, record)
         return
 
-    behavior, should_remember = answer
-    if behavior == "allow" and should_remember and fingerprint:
+    # Il secondo valore dipende dal primo: per un permesso è «e ricordalo», per
+    # una domanda sono le risposte scelte. Un nome solo per due significati
+    # sarebbe un nome che mente in metà dei casi.
+    behavior, detail_of_answer = answer
+
+    if behavior == "answer":
+        emit_answers(payload, detail_of_answer)
+        record["state"] = "working"
+        record["decidable"] = False
+        record["hold_until"] = 0
+        record["request_id"] = ""
+        record["updated_at_epoch"] = time.time()
+        write_atomic(target, record)
+        return
+
+    if behavior == "allow" and detail_of_answer and fingerprint:
         remember(fingerprint, path, tool, summary or tool)
 
     emit_decision(behavior, event)

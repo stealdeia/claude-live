@@ -24,6 +24,16 @@ struct PendingRequestsView: View {
         status.waitingSessions.filter(\.isDecidable)
     }
 
+    /// Le domande a scelta multipla: in modalità automatica sono l'unica cosa che
+    /// si ferma ad aspettare, quindi vanno per prime.
+    private var questionsWaiting: [ClaudeSessionStatus] {
+        decidable.filter { !(status.pendingQuestions[$0.sessionID] ?? []).isEmpty }
+    }
+
+    private var permissionsWaiting: [ClaudeSessionStatus] {
+        decidable.filter { (status.pendingQuestions[$0.sessionID] ?? []).isEmpty }
+    }
+
     private var openQuestions: [ClaudeSessionStatus] {
         status.waitingSessions.filter(\.needsTerminal)
     }
@@ -31,13 +41,29 @@ struct PendingRequestsView: View {
     var body: some View {
         if !decidable.isEmpty || !openQuestions.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                if !decidable.isEmpty {
+                if !questionsWaiting.isEmpty {
                     section(
-                        title: "Da approvare",
-                        count: decidable.count,
+                        title: "Da rispondere",
+                        count: questionsWaiting.count,
                         tint: PanelTheme.color(for: .warning)
                     ) {
-                        ForEach(decidable) { request in
+                        ForEach(questionsWaiting) { request in
+                            QuestionRequestRow(
+                                request: request,
+                                questions: status.pendingQuestions[request.sessionID] ?? [],
+                                status: status
+                            )
+                        }
+                    }
+                }
+
+                if !permissionsWaiting.isEmpty {
+                    section(
+                        title: "Da approvare",
+                        count: permissionsWaiting.count,
+                        tint: PanelTheme.color(for: .warning)
+                    ) {
+                        ForEach(permissionsWaiting) { request in
                             DecidableRequestRow(request: request, status: status)
                         }
                     }
@@ -79,6 +105,239 @@ struct PendingRequestsView: View {
             }
             content()
         }
+    }
+}
+
+/// Una domanda a scelta multipla, con le sue opzioni e lo spazio per scriverne
+/// una propria.
+///
+/// Perché sta nel pannello: in modalità automatica i permessi non si chiedono
+/// più, e una domanda è l'unica cosa che ferma la sessione ad aspettare una
+/// persona. Rispondere qui vuol dire non dover cercare la finestra giusta.
+///
+/// Una chiamata può portare più domande: si mostra la prima senza risposta e le
+/// altre arrivano dopo, perché nel pannello non c'è spazio per quattro domande e
+/// affastellarle renderebbe illeggibili tutte.
+private struct QuestionRequestRow: View {
+    let request: ClaudeSessionStatus
+    let questions: [ClaudeQuestion]
+    @ObservedObject var status: ClaudeStatusStore
+
+    /// Le risposte già date, per testo della domanda — la chiave con cui Claude
+    /// Code le indirizza.
+    @State private var answers: [String: String] = [:]
+
+    /// Le opzioni spuntate della domanda in corso, quando ne ammette più di una.
+    @State private var chosen: Set<String> = []
+
+    @State private var writingOwn = false
+    @State private var ownAnswer = ""
+
+    private var current: ClaudeQuestion? {
+        questions.first { answers[$0.question] == nil }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            header
+            if let question = current {
+                Text(question.question)
+                    .font(.system(size: 11, weight: .medium))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(question.options) { option in
+                    optionRow(option, in: question)
+                }
+
+                actions(for: question)
+            } else {
+                // Tutte risposte: il file di stato tornerà «al lavoro» fra un
+                // istante, e nel frattempo è meglio dire che è partita.
+                Text("Risposta inviata.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(PanelTheme.secondaryText)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(PanelTheme.color(for: .warning).opacity(0.12))
+        )
+    }
+
+    private var header: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(PanelTheme.color(for: .warning))
+                .frame(width: 6, height: 6)
+
+            Text(request.projectName)
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+
+            if let question = current, !question.header.isEmpty {
+                Text(question.header)
+                    .font(.system(size: 8.5, weight: .medium))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1.5)
+                    .background(GlowRGB.waiting.color.opacity(0.22), in: Capsule())
+            }
+
+            Spacer(minLength: 2)
+
+            // Solo quando ce n'è più di una: «1 di 1» è rumore.
+            if questions.count > 1, let question = current,
+               let index = questions.firstIndex(of: question) {
+                Text("\(index + 1) di \(questions.count)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(PanelTheme.secondaryText)
+            }
+        }
+    }
+
+    private func optionRow(_ option: ClaudeQuestion.Option, in question: ClaudeQuestion) -> some View {
+        let isChosen = chosen.contains(option.label)
+        return Button {
+            if question.multi {
+                if isChosen { chosen.remove(option.label) } else { chosen.insert(option.label) }
+            } else {
+                record(option.label, for: question)
+            }
+        } label: {
+            HStack(alignment: .top, spacing: 6) {
+                if question.multi {
+                    Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 11))
+                        .foregroundStyle(isChosen ? GlowRGB.done.color : Color.primary.opacity(0.35))
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(option.label)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    // La descrizione è la differenza fra scegliere e indovinare,
+                    // quindi c'è. Tre righe: oltre, il pannello diventa un muro.
+                    if !option.description.isEmpty {
+                        Text(option.description)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(PanelTheme.secondaryText)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Spacer(minLength: 2)
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                // Rettangolo stondato e non capsula come i pulsanti dei permessi:
+                // qui il contenuto è su due o tre righe, e una capsula attorno a
+                // un paragrafo sembra un errore.
+                let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+                shape.fill(Color.primary.opacity(isChosen ? 0.14 : 0.07))
+                    .overlay {
+                        shape.strokeBorder(
+                            isChosen ? GlowRGB.done.color.opacity(0.55) : Color.primary.opacity(0.16),
+                            lineWidth: isChosen ? 1 : 0.5
+                        )
+                    }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func actions(for question: ClaudeQuestion) -> some View {
+        if writingOwn {
+            HStack(spacing: 6) {
+                // La casella prende il fuoco senza attivare l'app: le due
+                // finestre del pannello sono `becomesKeyOnlyIfNeeded`, quindi
+                // scrivere qui non porta via il primo piano a nessuno.
+                TextField("La tua risposta", text: $ownAnswer)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 10.5))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(.black.opacity(0.28), in: Capsule())
+                    .onSubmit { sendOwnAnswer(for: question) }
+
+                pill("Invia", tint: GlowRGB.done.color, enabled: !ownAnswerIsEmpty) {
+                    sendOwnAnswer(for: question)
+                }
+                pill("Annulla") {
+                    writingOwn = false
+                    ownAnswer = ""
+                }
+            }
+        } else {
+            HStack(spacing: 6) {
+                if question.multi {
+                    pill("Rispondi", tint: GlowRGB.done.color, enabled: !chosen.isEmpty) {
+                        // Nell'ordine in cui le opzioni sono scritte, non in
+                        // quello in cui sono state spuntate: è l'ordine che
+                        // Claude ha scelto per presentarle.
+                        record(
+                            ClaudeQuestion.joined(
+                                question.options.map(\.label).filter(chosen.contains)
+                            ),
+                            for: question
+                        )
+                    }
+                }
+
+                pill("Altro…") { writingOwn = true }
+                    .help("Scrivi una risposta tua invece di scegliere fra le opzioni")
+
+                Spacer(minLength: 2)
+            }
+        }
+    }
+
+    private var ownAnswerIsEmpty: Bool {
+        ownAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func sendOwnAnswer(for question: ClaudeQuestion) {
+        guard !ownAnswerIsEmpty else { return }
+        record(ownAnswer.trimmingCharacters(in: .whitespacesAndNewlines), for: question)
+    }
+
+    /// Registra una risposta e, se sono finite le domande, la manda.
+    ///
+    /// Mandate tutte insieme e non una per volta: l'hook trattiene *una*
+    /// chiamata, e quella chiamata vuole tutte le sue risposte in un colpo.
+    private func record(_ value: String, for question: ClaudeQuestion) {
+        answers[question.question] = value
+        chosen = []
+        ownAnswer = ""
+        writingOwn = false
+        if questions.allSatisfy({ answers[$0.question] != nil }) {
+            status.answer(request, answers: answers)
+        }
+    }
+
+    private func pill(
+        _ title: String,
+        tint: Color = Color.primary.opacity(0.6),
+        enabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(enabled ? tint : tint.opacity(0.35))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4.5)
+                .background(tint.opacity(enabled ? 0.16 : 0.06), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 }
 
