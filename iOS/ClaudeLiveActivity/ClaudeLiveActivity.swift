@@ -90,7 +90,7 @@ struct ClaudeLiveActivityWidget: Widget {
                     percent: state.fiveHourPercent,
                     resetsAt: state.fiveHourResetsAt,
                     showsReset: false,
-                    diameter: 40
+                    diameter: 34
                 )
             }
             DynamicIslandExpandedRegion(.trailing) {
@@ -99,7 +99,7 @@ struct ClaudeLiveActivityWidget: Widget {
                     percent: state.sevenDayPercent,
                     resetsAt: state.sevenDayResetsAt,
                     showsReset: false,
-                    diameter: 40
+                    diameter: 34
                 )
             }
             DynamicIslandExpandedRegion(.center) {
@@ -109,11 +109,18 @@ struct ClaudeLiveActivityWidget: Widget {
                     .lineLimit(1)
             }
             DynamicIslandExpandedRegion(.bottom) {
-                VStack(alignment: .leading, spacing: 7) {
-                    ForEach(state.projects) { project in
-                        // Ogni riga porta al *suo* progetto, non alla schermata
-                        // iniziale: se l'isola mostra tre nomi, toccarne uno deve
-                        // portare a quello che si è toccato.
+                // Poco, perché l'isola aperta ha un'altezza massima decisa da
+                // iOS e ciò che sfora viene **tagliato**, non compresso: con tre
+                // progetti, la richiesta su due righe e una scritta «tocca per
+                // aprire», il primo pallino veniva mozzato in cima. La cura è
+                // togliere, non chiedere più spazio.
+                //
+                // Due progetti e non tre: qui è l'anteprima, l'elenco intero sta
+                // nell'app e sulla schermata di blocco, che ha più aria. E niente
+                // scritta «tocca per aprire»: ogni riga è già un collegamento, e
+                // dirlo costava esattamente la riga che mancava.
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(state.projects.prefix(2)) { project in
                         Link(destination: Self.link(toProject: project)) {
                             ProjectLine(project: project, tint: tint(for: state))
                         }
@@ -126,20 +133,8 @@ struct ClaudeLiveActivityWidget: Widget {
                             Text(pending)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(2)
+                                .lineLimit(1)
                         }
-                    }
-
-                    // Nessun pulsante per rispondere, di proposito: la risposta si
-                    // dà nell'app, dove si vede anche la conversazione. Qui basta
-                    // una porta, e tutta l'isola è quella porta.
-                    if state.alert != nil {
-                        HStack(spacing: 4) {
-                            Text("Tocca per aprire")
-                            Image(systemName: "arrow.up.right")
-                        }
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(tint(for: state))
                     }
                 }
             }
@@ -181,9 +176,13 @@ private struct ProjectLine: View {
 
     var body: some View {
         HStack(spacing: 6) {
+            // Dentro una cornice più alta del cerchio: un cerchio che riempie
+            // esattamente la sua riga è il primo a perdere un pezzo quando
+            // qualcosa taglia dall'alto.
             Circle()
                 .fill(project.alerting ? tint : color)
                 .frame(width: 7, height: 7)
+                .frame(width: 10, height: 14)
             Text(project.name)
                 .font(.caption2.weight(project.alerting ? .semibold : .regular))
                 .lineLimit(1)
@@ -193,9 +192,7 @@ private struct ProjectLine: View {
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
-        // Il pallino veniva tagliato in cima: senza un'altezza dichiarata la riga
-        // si stringe su quella del testo, e il cerchio sporge.
-        .frame(minHeight: 16)
+        .frame(minHeight: 14)
     }
 
     private var color: Color {
