@@ -16,6 +16,7 @@ struct RootView: View {
     @State private var tab: AppTab = .home
     @State private var showingSettings = false
     @State private var showingPairing = false
+    @StateObject private var notifications = NotificationPreferences()
     @Environment(\.scenePhase) private var scenePhase
 
     enum AppTab: Hashable { case home, projects, usage }
@@ -46,7 +47,12 @@ struct RootView: View {
         // is no light version of it that would still meet the Dynamic Island.
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) {
-            SettingsSheet(probe: probe, themes: themes, store: store) {
+            SettingsSheet(
+                probe: probe,
+                themes: themes,
+                store: store,
+                notifications: notifications
+            ) {
                 showingSettings = false
                 showingPairing = true
             }
@@ -67,6 +73,15 @@ struct RootView: View {
             if store.isPaired {
                 Task { await store.requestPushPermission() }
             }
+            // Anche le scelte sulle notifiche vengono riaffermate, e per lo stesso
+            // motivo: una spedita mentre il telefono era senza rete non ha
+            // lasciato traccia, e il disallineamento non si vede — si vede solo
+            // come una notifica che arriva quando l'interruttore dice di no.
+            notifications.attach(to: store)
+        }
+        .onChange(of: store.isPaired) { _, paired in
+            // Appena accoppiato il relay non sa ancora niente di questo telefono.
+            if paired { notifications.attach(to: store) }
         }
     }
 
@@ -139,6 +154,7 @@ struct SettingsSheet: View {
     @ObservedObject var probe: RelayProbe
     @Bindable var themes: ThemeStore
     @ObservedObject var store: RemoteStore
+    @ObservedObject var notifications: NotificationPreferences
     let onPair: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -175,6 +191,37 @@ struct SettingsSheet: View {
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        // Solo da accoppiati: senza un Mac non c'è nessuno che
+                        // mandi notifiche, e tre interruttori inerti sembrano un
+                        // guasto invece di una conseguenza.
+                        if store.isPaired {
+                            GlassCard {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Notifiche")
+                                        .font(.subheadline.weight(.semibold))
+
+                                    Toggle("Quando Claude aspetta una risposta",
+                                           isOn: $notifications.waiting)
+                                    Toggle("Quando Claude ha finito",
+                                           isOn: $notifications.done)
+                                    Toggle("Quando Claude si interrompe",
+                                           isOn: $notifications.failed)
+
+                                    Text("Vale solo per questo telefono. Le notifiche sul Mac si scelgono nelle sue impostazioni.")
+                                        .font(.caption)
+                                        .foregroundStyle(.white.opacity(0.55))
+
+                                    if let problem = notifications.problem {
+                                        Label(problem, systemImage: "exclamationmark.triangle.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(GlowRGB.waiting.color)
+                                    }
+                                }
+                                .font(.footnote)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
 
                         GlassCard {

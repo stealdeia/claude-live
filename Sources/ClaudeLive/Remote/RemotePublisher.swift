@@ -151,7 +151,15 @@ final class RemotePublisher: ObservableObject {
         }
 
         var body: [String: Any] = ["payload": sealed]
-        if let notify = notificationText() { body["notify"] = notify }
+        if let notify = notificationText() {
+            body["notify"] = notify
+            // Il tipo viaggia accanto al testo perché è il relay a decidere se
+            // spingere: il telefono può spegnere una categoria, e il Mac non lo
+            // saprebbe mai in tempo — lo interroga solo mentre c'è qualcosa da
+            // rispondere. Il testo resta generico, il tipo è una parola sola:
+            // nessuno dei due nomina un progetto.
+            if let kind = status.topAlert?.kind { body["notifyKind"] = kind.rawValue }
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

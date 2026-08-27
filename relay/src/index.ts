@@ -87,6 +87,14 @@ function pemToDer(pem: string): Uint8Array {
   return der
 }
 
+/**
+ * I tipi di avviso che il telefono può accendere o spegnere.
+ *
+ * Sono i tre stati per cui il Mac chiama qui, e nient'altro: l'elenco è chiuso
+ * di proposito, così una chiave inventata non finisce nello spazio conservato.
+ */
+const NOTIFY_KINDS = ['waiting', 'done', 'failed'] as const
+
 async function apnsToken(env: Env): Promise<string> {
   const now = Date.now()
   if (cachedToken && now - cachedToken.mintedAt < TOKEN_MAX_AGE_MS) {
@@ -229,6 +237,23 @@ export class PairState {
     if (stale.length > 0) await this.ctx.storage.delete(stale)
   }
 
+  /**
+   * Se questo avviso va spinto al telefono.
+   *
+   * Due silenzi valgono «manda»: un Mac più vecchio che non dice di che tipo sia
+   * l'avviso, e un telefono che non ha mai espresso preferenze. Il valore
+   * predefinito deve essere il comportamento di prima, altrimenti un
+   * aggiornamento del relay spegnerebbe le notifiche a chi non ha chiesto
+   * niente — e una notifica che non arriva è un guasto che nessuno collega a un
+   * campo nuovo.
+   */
+  private async wantsPush(kind: string | undefined): Promise<boolean> {
+    if (!kind) return true
+    const prefs = await this.ctx.storage.get<Record<string, boolean>>('notifyPrefs')
+    if (!prefs) return true
+    return prefs[kind] !== false
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     await this.prune()
@@ -275,7 +300,11 @@ export class PairState {
     // Worker la tiene e la inoltra senza poterla leggere, che è la ragione per
     // cui può essere il computer di qualcun altro.
     if (url.pathname === '/publish' && request.method === 'POST') {
-      const body = (await request.json()) as { payload?: string; notify?: string }
+      const body = (await request.json()) as {
+        payload?: string
+        notify?: string
+        notifyKind?: string
+      }
       if (typeof body.payload !== 'string' || body.payload.length === 0) {
         return json({ error: 'payload mancante' }, 400)
       }
@@ -286,7 +315,7 @@ export class PairState {
       await this.ctx.storage.put({ snapshot: body.payload, snapshotAt: Date.now() })
 
       let pushed: unknown = null
-      if (body.notify) {
+      if (body.notify && (await this.wantsPush(body.notifyKind))) {
         const { token, environment } = await this.device()
         if (token) {
           // Testo volutamente generico. L'avviso è visibile ad Apple e a questo
@@ -302,6 +331,30 @@ export class PairState {
     }
 
     // Il telefono chiede l'ultima fotografia.
+    // Quali avvisi il telefono vuole ricevere.
+    //
+    // Deciso qui e non sul Mac perché il Mac interroga questo Worker *solo*
+    // mentre c'è qualcosa da rispondere: una preferenza cambiata a metà
+    // pomeriggio gli resterebbe non letta per ore. Questo Worker invece è chi
+    // decide se spingere, e lo decide ogni volta.
+    if (url.pathname === '/prefs' && request.method === 'POST') {
+      const body = (await request.json()) as Record<string, unknown>
+      const prefs: Record<string, boolean> = {}
+      for (const kind of NOTIFY_KINDS) {
+        if (typeof body[kind] === 'boolean') prefs[kind] = body[kind] as boolean
+      }
+      if (Object.keys(prefs).length === 0) {
+        return json({ error: 'nessuna preferenza riconosciuta' }, 400)
+      }
+      await this.ctx.storage.put('notifyPrefs', prefs)
+      return json({ ok: true, prefs })
+    }
+
+    if (url.pathname === '/prefs' && request.method === 'GET') {
+      const prefs = (await this.ctx.storage.get<Record<string, boolean>>('notifyPrefs')) ?? null
+      return json({ prefs })
+    }
+
     if (url.pathname === '/state' && request.method === 'GET') {
       const payload = await this.ctx.storage.get<string>('snapshot')
       if (!payload) return json({ error: 'nessuno snapshot' }, 404)

@@ -113,6 +113,40 @@ final class RemoteStore: ObservableObject {
         _ = try? await URLSession.shared.data(for: request)
     }
 
+    /// Dice al relay quali avvisi questo telefono vuole ricevere.
+    ///
+    /// Restituisce il motivo del fallimento, o `nil` se è andata: chi chiama
+    /// decide se vale la pena dirlo, e qui non c'è modo di saperlo.
+    ///
+    /// Non passa dal Mac di proposito. Il Mac interroga il relay solo mentre c'è
+    /// una risposta possibile, quindi una preferenza spedita a lui potrebbe
+    /// restare non letta per ore — e nel frattempo le notifiche continuerebbero
+    /// ad arrivare, che è esattamente il guasto che questo evita.
+    func sendNotificationPreferences(_ prefs: [String: Bool]) async -> String? {
+        guard isPaired else { return nil }
+        guard let url = URL(string: relayURL + "/prefs"),
+              let pairID = RemoteSecrets.read(.pairID)
+        else { return "Nessun Mac accoppiato." }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: prefs)
+        request.timeoutInterval = 15
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard code == 200 else {
+                return "Il relay ha risposto \(code): le notifiche potrebbero non seguire questa scelta."
+            }
+            return nil
+        } catch {
+            return "Scelta non arrivata al relay: riprovo alla prossima apertura."
+        }
+    }
+
     func unpair() {
         RemoteSecrets.reset()
         relayURL = ""
