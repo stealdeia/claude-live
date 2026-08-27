@@ -125,6 +125,12 @@ struct ChatDetailView: View {
         }
         .safeAreaInset(edge: .top) { stateStrip }
         .safeAreaInset(edge: .bottom) { requestBar }
+        // Nascosta la barra delle schede: dentro una chat si legge, e le tre
+        // schede non servono — c'è il pulsante indietro. Ma soprattutto la
+        // richiesta in fondo le finiva addosso, «pericolosamente vicino al menu
+        // centrale sottostante», e la cosa importante della schermata non può
+        // essere quella che si rischia di mancare.
+        .toolbar(.hidden, for: .tabBar)
         // Aprire la chat *è* la presa in carico: chiedere anche di premere
         // qualcosa per spegnere la luce sarebbe un secondo gesto per la stessa
         // decisione. Lo spegnimento è graduale, e lo decide chi disegna il
@@ -194,25 +200,44 @@ struct ChatDetailView: View {
         }
     }
 
+    /// La richiesta in fondo, chiusa.
+    ///
+    /// Rifatta perché era troppo piccola per quello che è: la cosa più importante
+    /// della schermata aveva il carattere più piccolo e l'area toccabile più
+    /// stretta. Ora la barra è alta abbastanza da prendersi senza mirare, il
+    /// testo è leggibile a colpo d'occhio, e il colore dell'avviso la distingue
+    /// dal resto dell'interfaccia invece di mimetizzarla.
     private func accordion<Content: View>(
         title: String,
         symbol: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Button {
-                withAnimation(.easeOut(duration: 0.2)) { showingRequest.toggle() }
+                withAnimation(.easeOut(duration: 0.22)) { showingRequest.toggle() }
             } label: {
-                HStack(spacing: 9) {
+                HStack(spacing: 11) {
                     Image(systemName: symbol)
+                        .font(.title3)
                         .foregroundStyle(GlowRGB.waiting.color)
-                    Text(title)
-                        .font(.footnote.weight(.semibold))
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(showingRequest ? "tocca per chiudere" : "tocca per rispondere")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+
                     Spacer(minLength: 4)
+
                     Image(systemName: showingRequest ? "chevron.down" : "chevron.up")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.75))
                 }
+                // Cinquantasei punti: più di quanto copra un dito, perché questa
+                // è la riga che non si deve mancare.
+                .frame(minHeight: 56)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -222,12 +247,20 @@ struct ChatDetailView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .padding(.top, 4)
+        .padding(.bottom, 10)
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                // Una velatura del colore dell'avviso: la barra deve sembrare
+                // parte dell'avviso, non parte dello sfondo.
+                Rectangle().fill(GlowRGB.waiting.color.opacity(0.10))
+            }
+        }
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(.white.opacity(0.10))
-                .frame(height: 0.5)
+                .fill(GlowRGB.waiting.color.opacity(0.45))
+                .frame(height: 1)
         }
     }
 

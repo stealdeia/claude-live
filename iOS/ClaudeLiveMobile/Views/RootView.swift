@@ -271,7 +271,7 @@ struct SettingsSheet: View {
                                        isOn: $glow.enabled)
                                     .font(.footnote)
 
-                                Text("Pulsa attorno allo schermo e sulla riga del progetto interessato, con lo stesso ritmo della striscia attorno al notch sul Mac. Si spegne entrando nella chat.")
+                                Text("Pulsa attorno allo schermo e sulla riga del progetto interessato, con lo stesso ritmo della striscia attorno al notch sul Mac. Si spegne entrando nella chat. Tocca un pallino colorato per vederlo in anteprima.")
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.55))
 
@@ -341,6 +341,18 @@ struct SettingsSheet: View {
         }
     }
 
+    /// Accende l'anteprima di un tipo di avviso e la spegne da sé.
+    ///
+    /// Lasciarla accesa mentre si scelgono i colori vorrebbe dire scegliere il
+    /// colore dentro la cosa che si sta giudicando.
+    private func preview(_ kind: ClaudeAlertKind) {
+        previewing = kind
+        Task {
+            try? await Task.sleep(for: .seconds(Self.previewSeconds))
+            if previewing == kind { previewing = nil }
+        }
+    }
+
     /// Un tipo di avviso: come si illumina e con quali colori.
     ///
     /// Le stesse tre modalità del Mac, con gli stessi nomi. Il pulsante
@@ -349,10 +361,29 @@ struct SettingsSheet: View {
     private func glowRow(_ kind: ClaudeAlertKind) -> some View {
         let style = glow.style(for: kind)
         return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(style.palette.color(atDistance: 0))
-                    .frame(width: 10, height: 10)
+            HStack(spacing: 9) {
+                // Il pallino *è* il pulsante di prova. Prima «Prova» era una
+                // voce in più in una riga che in modalità «Sfumatura» conteneva
+                // già due selettori di colore con le loro etichette: non ci
+                // stava, e l'etichetta si spezzava in verticale una lettera per
+                // riga. Mettere l'anteprima sul pallino accorcia la riga invece
+                // di allungarla, e il pallino è già il colore di cui si vuole
+                // vedere l'effetto.
+                Button {
+                    preview(kind)
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(style.palette.color(atDistance: 0))
+                            .frame(width: 22, height: 22)
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(.black.opacity(0.55))
+                    }
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+
                 Text(kind.label)
                     .font(.footnote.weight(.medium))
                 Spacer(minLength: 6)
@@ -409,27 +440,19 @@ struct SettingsSheet: View {
 
                 Spacer(minLength: 4)
 
-                Button {
-                    previewing = kind
-                    // Si spegne da sé: lasciarlo accesso mentre si sceglie il
-                    // colore vorrebbe dire scegliere il colore dentro la cosa
-                    // che si sta giudicando.
-                    Task {
-                        try? await Task.sleep(for: .seconds(Self.previewSeconds))
-                        if previewing == kind { previewing = nil }
-                    }
-                } label: {
-                    Label("Prova", systemImage: "play.circle")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .tint(.white)
-
+                // Un'icona e non una parola: in modalità «Sfumatura» questa riga
+                // porta già due selettori, e un'etichetta che si accorcia da sé
+                // è un'etichetta che diventa illeggibile.
                 if !glow.isDefault(kind) {
-                    Button("Ripristina") {
+                    Button {
                         glow.setStyle(.default(for: kind), for: kind)
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.footnote)
                     }
-                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .accessibilityLabel("Ripristina i colori predefiniti")
                 }
             }
         }
