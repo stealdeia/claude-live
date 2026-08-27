@@ -69,14 +69,23 @@ final class GlowSettings: ObservableObject {
 /// su disco vorrebbe dire ricordare per sempre avvisi che non esistono più.
 @MainActor
 final class GlowState: ObservableObject {
-    /// L'avviso già visto, riconosciuto per progetto e tipo.
-    ///
-    /// Non per oggetto intero: `raisedAt` cambia se il Mac lo ripubblica, e un
-    /// avviso identico con un istante diverso tornerebbe ad accendersi da solo.
+    /// Gli avvisi già visti.
     @Published private(set) var dismissed: Set<String> = []
 
+    /// Cosa rende due avvisi «lo stesso avviso».
+    ///
+    /// Tipo, progetto, chat **e l'istante in cui è nato**. L'istante sembrava di
+    /// troppo — una ripubblicazione con un momento diverso riaccenderebbe una
+    /// luce già spenta — ma sul Mac gli avvisi nascono solo sui *passaggi di
+    /// stato*, quindi finché un avviso vive il suo istante non cambia. Senza,
+    /// «Claude ha finito» su una chat già aperta una volta non si sarebbe
+    /// illuminato mai più: la seconda volta sarebbe stata scambiata per la prima.
+    ///
+    /// Ai secondi interi perché la codifica per il viaggio perde i decimali, e
+    /// una chiave che cambia da sola fra Mac e telefono non riconoscerebbe niente.
     func key(_ alert: ClaudeAlert) -> String {
-        "\(alert.kind.rawValue)#\(alert.projectPath)#\(alert.sessionID ?? "")"
+        let born = Int(alert.raisedAt.timeIntervalSince1970)
+        return "\(alert.kind.rawValue)#\(alert.projectPath)#\(alert.sessionID ?? "")#\(born)"
     }
 
     func isLit(_ alert: ClaudeAlert?) -> Bool {
