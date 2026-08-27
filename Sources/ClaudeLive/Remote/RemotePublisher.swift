@@ -240,6 +240,24 @@ final class RemotePublisher: ObservableObject {
     /// il risparmio non ci sarebbe.
     private func islandToSend() -> ClaudeIslandState? {
         let island = ClaudeIslandState(snapshot: makeSnapshot())
+
+        // Un'isola che non ha niente da dire non si manda.
+        //
+        // È il difetto per cui «i dati vanno via»: all'avvio dell'app questa
+        // pubblica subito, e in quell'istante l'utilizzo non è ancora stato letto
+        // e i progetti non sono ancora stati scanditi. Partiva un contenuto tutto
+        // vuoto, il telefono lo riceveva, e l'isola mostrava trattini — restando
+        // così fino al cambiamento successivo. Succedeva a ogni riavvio dell'app
+        // sul Mac, cioè decine di volte in una giornata come oggi.
+        //
+        // Meglio un dato vecchio di qualche secondo che nessun dato: il vecchio
+        // dice ancora qualcosa di vero, e comunque c'è la scadenza che dopo dieci
+        // minuti lo fa sbiadire da sé.
+        if island.projects.isEmpty && island.fiveHourPercent == nil
+            && island.sevenDayPercent == nil {
+            return nil
+        }
+
         guard let last = lastIsland else { return island }
 
         var a = island, b = last

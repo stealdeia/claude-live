@@ -94,6 +94,15 @@ final class LiveActivityController: ObservableObject {
         problem = nil
 
         var island = ClaudeIslandState(snapshot: snapshot)
+
+        // Come sul Mac, e per lo stesso motivo: se non c'è niente da dire non si
+        // sovrascrive quello che l'isola stava già mostrando. Una fotografia
+        // appena arrivata può non avere ancora l'utilizzo.
+        if island.projects.isEmpty && island.fiveHourPercent == nil
+            && island.sevenDayPercent == nil {
+            return
+        }
+
         if alertSeen {
             // Solo l'avviso, non la richiesta: che tu l'abbia letta non vuol dire
             // che sia stata risposta, e l'isola deve continuare a dire che c'è
