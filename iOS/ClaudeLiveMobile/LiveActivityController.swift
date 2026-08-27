@@ -38,6 +38,10 @@ final class LiveActivityController: ObservableObject {
     /// dell'app resterebbe acceso su una cosa che non compare.
     @Published private(set) var problem: String?
 
+    /// Il guasto della chiave condivisa, tenuto a parte perché ha una causa
+    /// diversa e una cura diversa da «le attività sono spente».
+    @Published private(set) var keyProblem: String?
+
     private var activity: Activity<ClaudeActivityAttributes>?
     private var tokenWatcher: Task<Void, Never>?
 
@@ -62,7 +66,14 @@ final class LiveActivityController: ObservableObject {
         // Rifatto a ogni avvio: se l'accoppiamento è stato rifatto, la copia
         // vecchia aprirebbe le scatole sbagliate — cioè nessuna.
         if let exported = RemoteSecrets.read(.encryptionKey) {
-            IslandKey.share(exported)
+            if IslandKey.share(exported) {
+                keyProblem = nil
+            } else {
+                // Detto, non ingoiato: senza la chiave condivisa l'isola non può
+                // aprire gli aggiornamenti che arrivano per notifica e mostra
+                // trattini. Per due giri di prove è successo in silenzio.
+                keyProblem = "L'isola non può leggere gli aggiornamenti: la chiave non è condivisa con l'estensione."
+            }
         }
         if let existing = activity { watchToken(of: existing) }
     }

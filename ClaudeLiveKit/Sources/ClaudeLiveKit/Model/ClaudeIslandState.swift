@@ -109,12 +109,12 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
     ///
     /// Poco, e scelto: nello spazio dell'isola una cosa in più è una cosa in meno
     /// leggibile. I due contatori perché sono il motivo per cui si guarda là, e
-    /// **tre** progetti perché tre righe è quanto ci sta — arrivano già ordinati
-    /// per urgenza, quindi i tre mostrati sono i tre che contano.
+    /// cinque progetti perché è quanto la schermata di blocco riesce a mostrare —
+    /// l'isola aperta ne prenderà due, che è quanto le sta.
     public init(snapshot: RemoteSnapshot) {
         let alertPath = snapshot.alert?.projectPath
 
-        let projects = snapshot.projects.prefix(3).map { project in
+        let projects = snapshot.projects.prefix(5).map { project in
             Project(
                 name: (project.projectPath as NSString).lastPathComponent,
                 path: project.projectPath,

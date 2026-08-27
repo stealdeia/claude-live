@@ -314,12 +314,15 @@ private struct LockScreenView: View {
                 resetsAt: state.sevenDayResetsAt
             )
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(state.headline)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(state.alert == nil ? .primary : tint)
                     .lineLimit(1)
 
+                // Tutti, non due: questa è una scheda a tutta larghezza sulla
+                // schermata di blocco, non i centoventi punti dell'isola aperta.
+                // È qui che l'elenco dei progetti ha senso di esistere.
                 ForEach(state.projects) { project in
                     // Anche qui, non solo nell'isola aperta: toccare un nome
                     // porta a quel progetto. Prima la schermata di blocco aveva

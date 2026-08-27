@@ -346,6 +346,12 @@ struct SettingsSheet: View {
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.55))
 
+                                if let problem = liveActivity.keyProblem {
+                                    Label(problem, systemImage: "key.slash.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(GlowRGB.failed.color)
+                                }
+
                                 if let problem = liveActivity.problem {
                                     Label(problem, systemImage: "exclamationmark.triangle.fill")
                                         .font(.caption)
