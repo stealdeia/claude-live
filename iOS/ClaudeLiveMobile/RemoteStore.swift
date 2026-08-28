@@ -17,18 +17,61 @@ final class RemoteStore: ObservableObject {
     @Published private(set) var problem: String?
     @Published private(set) var isPaired: Bool
 
-    /// The relay's address. Not secret; the password and key are in the Keychain.
+    /// The relay's address. Not secret, ma sta col resto dell'accoppiamento.
+    ///
+    /// Nel portachiavi e non più nelle preferenze. Le preferenze, dopo un riavvio
+    /// del telefono e prima del primo sblocco, rispondono «vuoto» invece di «non
+    /// lo so»: era il terzo pezzo che faceva concludere all'app di non essere
+    /// accoppiata. Chi aveva già l'app installata trova ancora il vecchio valore,
+    /// che viene travasato la prima volta che serve.
     private var relayURL: String {
-        get { UserDefaults.standard.string(forKey: "relayURL") ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: "relayURL") }
+        get {
+            if let stored = RemoteSecrets.read(.relayURL), !stored.isEmpty { return stored }
+            let legacy = UserDefaults.standard.string(forKey: "relayURL") ?? ""
+            if !legacy.isEmpty { RemoteSecrets.write(legacy, to: .relayURL) }
+            return legacy
+        }
+        set {
+            RemoteSecrets.write(newValue, to: .relayURL)
+            UserDefaults.standard.set(newValue, forKey: "relayURL")
+        }
     }
 
     private var refreshTask: Task<Void, Never>?
 
     init() {
-        isPaired = RemoteSecrets.read(.pairID) != nil
-            && RemoteSecrets.read(.encryptionKey) != nil
-            && !(UserDefaults.standard.string(forKey: "relayURL") ?? "").isEmpty
+        isPaired = Self.pairingLooksComplete() ?? false
+    }
+
+    /// Se l'accoppiamento c'è, per quanto si possa sapere adesso.
+    ///
+    /// `nil` significa «non lo so»: il portachiavi non è leggibile, di norma
+    /// perché il telefono è stato riavviato e non ancora sbloccato. È una risposta
+    /// diversa da «no», e confonderle era il difetto: l'app decideva una volta
+    /// all'avvio, e se in quell'istante era al buio restava convinta di non essere
+    /// accoppiata anche dopo che il telefono era stato sbloccato — con il codice
+    /// QR da rifare, mentre le chiavi erano lì intatte.
+    private static func pairingLooksComplete() -> Bool? {
+        RemoteSecrets.pairingIsComplete(
+            pairID: RemoteSecrets.look(.pairID),
+            encryptionKey: RemoteSecrets.look(.encryptionKey),
+            relayURL: RemoteSecrets.look(.relayURL),
+            legacyRelayURL: UserDefaults.standard.string(forKey: "relayURL")
+        )
+    }
+
+    /// Riesamina l'accoppiamento, chiamato quando l'app torna in primo piano.
+    ///
+    /// Perché esiste: quando si guarda l'app il telefono è per forza sbloccato,
+    /// quindi qui il portachiavi risponde. Un «non lo so» dell'avvio si risolve
+    /// adesso, senza che nessuno debba rifare niente.
+    ///
+    /// Non declassa mai su un «non lo so»: un accoppiamento che c'è non si perde
+    /// perché una lettura è arrivata nel momento sbagliato.
+    func recheckPairing() {
+        guard let complete = Self.pairingLooksComplete() else { return }
+        guard complete != isPaired else { return }
+        isPaired = complete
     }
 
     // MARK: - Accoppiamento

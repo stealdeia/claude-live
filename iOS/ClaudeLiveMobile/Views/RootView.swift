@@ -91,7 +91,16 @@ struct RootView: View {
         // Polls only while on screen: a phone asking from a pocket spends
         // battery to learn things nobody is reading.
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { store.startRefreshing() } else { store.stopRefreshing() }
+            if phase == .active {
+                // Prima di tutto: se all'avvio il portachiavi era al buio — telefono
+                // riavviato e non ancora sbloccato — l'app si era convinta di non
+                // essere accoppiata. Adesso lo schermo è davanti a te, quindi il
+                // telefono è sbloccato e la domanda ha una risposta vera.
+                store.recheckPairing()
+                store.startRefreshing()
+            } else {
+                store.stopRefreshing()
+            }
         }
         .onAppear {
             AppDelegate.store = store
