@@ -39,7 +39,7 @@ targets:
         # versione più bassa della precedente, e l'Info.plist scritto a mano
         # diceva 1.0 mentre qui stava 0.1.0.
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "18"
+        CURRENT_PROJECT_VERSION: "19"
         # The team the Apple Developer Program membership belongs to.
         DEVELOPMENT_TEAM: G7PDRQRC29
         CODE_SIGN_STYLE: Automatic
@@ -130,7 +130,7 @@ targets:
         # archivio in cui l'estensione e l'app che la contiene dichiarano
         # versioni diverse.
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "18"
+        CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: G7PDRQRC29
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
