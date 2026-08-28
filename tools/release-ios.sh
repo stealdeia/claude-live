@@ -85,12 +85,33 @@ ASC_AUTH=(
   -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
 )
 
+# Prima con la chiave, e se non basta con l'account di Xcode.
+#
+# Le due credenziali non sono intercambiabili e nessuna delle due è garantita:
+# la chiave funziona solo se ha il ruolo «Amministrazione» — quella di
+# caricamento è «Gestore dell'app» e non può creare certificati — mentre
+# l'account di Xcode funziona solo se qualcuno ci ha fatto il login, che è uno
+# stato che sparisce da sé (è successo fra la build 16 e la 17).
+#
+# Quindi si prova la strada che non chiede niente a nessuno, e se Apple risponde
+# di no si ripiega su quella interattiva. Chi rilascia non deve sapere quale
+# delle due è viva oggi.
+signing_attempt() {
+  local label="$1" log="$2"; shift 2
+  if xcodebuild "$@" "${ASC_AUTH[@]}" >"${log}" 2>&1; then return 0; fi
+  if grep -q "Cloud signing permission error\|No Accounts\|permission" "${log}"; then
+    echo "    la chiave API non basta per firmare; riprovo con l'account di Xcode"
+    xcodebuild "$@" >"${log}" 2>&1 && return 0
+  fi
+  tail -30 "${log}" >&2
+  fail "${label}"
+}
+
 echo "==> Archivio"
-xcodebuild -project ClaudeLiveMobile.xcodeproj -scheme ClaudeLiveMobile \
+signing_attempt "Archivio fallito." "${WORK}/archive.log" \
+  -project ClaudeLiveMobile.xcodeproj -scheme ClaudeLiveMobile \
   -configuration Release -destination 'generic/platform=iOS' \
-  -archivePath "${WORK}/app.xcarchive" -allowProvisioningUpdates "${ASC_AUTH[@]}" \
-  archive >"${WORK}/archive.log" 2>&1 \
-  || { tail -30 "${WORK}/archive.log" >&2; fail "Archivio fallito."; }
+  -archivePath "${WORK}/app.xcarchive" -allowProvisioningUpdates archive
 
 # L'ambiente delle notifiche è la cosa che sbaglia in silenzio: una build
 # firmata `development` che arriva da TestFlight non riceve nulla, e APNs
@@ -112,10 +133,10 @@ cat > "${WORK}/export.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-xcodebuild -exportArchive -archivePath "${WORK}/app.xcarchive" \
+signing_attempt "Esportazione fallita." "${WORK}/export.log" \
+  -exportArchive -archivePath "${WORK}/app.xcarchive" \
   -exportOptionsPlist "${WORK}/export.plist" -exportPath "${WORK}/export" \
-  -allowProvisioningUpdates "${ASC_AUTH[@]}" >"${WORK}/export.log" 2>&1 \
-  || { tail -30 "${WORK}/export.log" >&2; fail "Esportazione fallita."; }
+  -allowProvisioningUpdates
 
 IPA="${WORK}/export/ClaudeLiveMobile.ipa"
 [[ -f "${IPA}" ]] || fail "IPA non prodotto."
