@@ -170,14 +170,22 @@ final class LiveActivityController: ObservableObject {
     /// Passata questa data iOS la mostra sbiadita, cioè dice da sé «questi dati
     /// sono vecchi» invece di lasciar credere che siano di adesso.
     ///
-    /// Dieci minuti: il Mac pubblica almeno una volta al minuto quando è vivo,
-    /// quindi dieci minuti di silenzio significano che non lo è.
+    /// Venticinque minuti, non dieci.
+    ///
+    /// Dieci erano calcolati su una premessa sbagliata: «il Mac pubblica almeno
+    /// una volta al minuto quando è vivo». Pubblica la *fotografia* ogni minuto,
+    /// ma l'**isola** solo quando cambia — quindi dieci minuti di pausa la
+    /// facevano sbiadire pur essendo il Mac vivo e i numeri ancora veri.
+    ///
+    /// Ora il Mac la rimanda ogni dodici minuti anche identica. Venticinque è
+    /// poco più del doppio: sopravvive a una notifica persa senza arrivare a
+    /// dire «questi dati sono di adesso» quando il Mac è spento davvero.
     private static func content(
         _ island: ClaudeIslandState
     ) -> ActivityContent<ClaudeActivityAttributes.ContentState> {
         ActivityContent(
             state: ClaudeActivityAttributes.ContentState(island: island),
-            staleDate: island.updatedAt.addingTimeInterval(600)
+            staleDate: island.updatedAt.addingTimeInterval(25 * 60)
         )
     }
 }

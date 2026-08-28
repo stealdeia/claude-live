@@ -169,9 +169,11 @@ final class RemotePublisher: ObservableObject {
         // *inoltrare* dentro una notifica senza aprirlo, mentre la fotografia non
         // la tocca nessuno. Sigillato con la stessa chiave: da fuori si vede una
         // stringa, non i nomi dei tuoi progetti.
+        // Tenuto da parte, non ancora ricordato: quello che conta è se **arriva**.
+        var islandInFlight: ClaudeIslandState?
         if let island = islandToSend(), let box = try? RemoteCrypto.seal(island, with: key) {
             body["activity"] = box
-            lastIsland = island
+            islandInFlight = island
         }
         if let notify = notificationText() {
             body["notify"] = notify
@@ -197,6 +199,35 @@ final class RemotePublisher: ObservableObject {
                 connection = .publishing
                 lastPublishedAt = Date()
                 announcedAlert = status.topAlert
+                // Solo adesso, ed è il difetto per cui «ogni tanto vanno via i
+                // dati dall'isola».
+                //
+                // Prima questa riga stava accanto a `body["activity"] = box`,
+                // cioè *prima* di sapere se la pubblicazione fosse arrivata. Una
+                // pubblicazione che falliva — e nel diario ne fallisce circa una
+                // all'ora, «network connection was lost», «request timed out» —
+                // lasciava scritto che quel contenuto era stato mandato. Al giro
+                // dopo il confronto diceva «non è cambiato niente» e non lo
+                // rimandava **mai più**: l'isola restava indietro fino al
+                // cambiamento successivo, e se il contenuto perduto era il primo
+                // dopo un riavvio dell'app, restava a trattini.
+                //
+                // Il gemello di `announcedAlert`, che questa disciplina ce
+                // l'aveva già.
+                if let islandInFlight {
+                    lastIsland = islandInFlight
+                    lastIslandSentAt = Date()
+                    // L'unica traccia di cosa vede l'isola. Cercando la causa di
+                    // «ogni tanto vanno via i dati» il diario diceva tutto —
+                    // utilizzo, stati, progetti — tranne la sola cosa in
+                    // questione: cosa era stato spedito all'isola, e quando.
+                    Log.debug(
+                        "Isola: 5h \(percentText(islandInFlight.fiveHourPercent)), "
+                        + "7g \(percentText(islandInFlight.sevenDayPercent)), "
+                        + "\(islandInFlight.projects.count) progetti",
+                        category: .status
+                    )
+                }
             } else {
                 connection = .failed("Il relay ha risposto \(code)")
             }
@@ -233,6 +264,40 @@ final class RemotePublisher: ObservableObject {
     /// niente, e l'aggiornamento che conta arriverebbe quando non c'è più credito.
     private var lastIsland: ClaudeIslandState?
 
+    /// Quando l'ultimo contenuto dell'isola è **arrivato** davvero.
+    private var lastIslandSentAt: Date?
+
+    /// Ogni quanto rimandare l'isola anche se non è cambiato niente.
+    ///
+    /// Serve perché la scadenza sul contenuto — passata la quale iOS lo mostra
+    /// sbiadito — era stata calcolata su una premessa sbagliata: «il Mac pubblica
+    /// almeno una volta al minuto quando è vivo». Pubblica la *fotografia* una
+    /// volta al minuto; l'**isola** solo quando cambia. Quindi dieci minuti senza
+    /// che succeda niente — una pausa, la notte — bastavano a farla sbiadire pur
+    /// essendo il Mac vivo e i numeri veri.
+    ///
+    /// Otto minuti e non dodici, e la ragione è che le due correzioni possano
+    /// uscire separate: un telefono con la versione precedente ha ancora una
+    /// scadenza di dieci minuti, e un rinfresco più lento di quella lo lascerebbe
+    /// sbiadito nel mezzo — cioè peggio di adesso. Sotto i dieci, invece, il
+    /// telefono vecchio migliora e il nuovo ha margine per due notifiche perse.
+    ///
+    /// Costa otto notifiche l'ora nel caso peggiore, cioè quando non succede
+    /// niente e non ci sarebbe altro traffico. Poche abbastanza da non intaccare
+    /// il bilancio che iOS concede a un'attività.
+    private static let islandRefresh: TimeInterval = 8 * 60
+
+    /// Una percentuale per il diario, o un trattino.
+    ///
+    /// Non `Format.percent`: quella prende una frazione da zero a uno, mentre qui
+    /// il numero è già da zero a cento. Passarglielo avrebbe scritto «700%» dove
+    /// il valore era sette — un diario che mente proprio nel momento in cui lo si
+    /// legge per capire cosa è andato storto.
+    private func percentText(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return "\(Int(value.rounded()))%"
+    }
+
     /// Il contenuto dell'isola, se è cambiato da quello di prima.
     ///
     /// Il confronto ignora l'ora: quella cambia a ogni pubblicazione, quindi
@@ -259,6 +324,14 @@ final class RemotePublisher: ObservableObject {
         }
 
         guard let last = lastIsland else { return island }
+
+        // Prima del confronto: un contenuto identico va rimandato lo stesso se
+        // l'ultimo è arrivato troppo tempo fa, o la scadenza lo fa sbiadire
+        // mentre i numeri sono ancora veri.
+        if let sentAt = lastIslandSentAt,
+           Date().timeIntervalSince(sentAt) >= Self.islandRefresh {
+            return island
+        }
 
         var a = island, b = last
         let epoch = Date(timeIntervalSince1970: 0)
