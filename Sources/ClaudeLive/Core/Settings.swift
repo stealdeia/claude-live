@@ -29,6 +29,7 @@ private struct SettingsData: Codable {
     var notificationSound: String?
     var panelThemeID: String?
     var panelDecisions: Bool?
+    var remotePrompts: Bool?
     var notifyOnDone: Bool?
     var notifyOnFailure: Bool?
     var glowEnabled: Bool?
@@ -131,6 +132,19 @@ final class Settings: ObservableObject {
     /// coperta, cioè quando il prompt nel terminale non lo vedresti comunque: nel
     /// caso in cui costa qualcosa, non si attiva.
     @Published var panelDecisions: Bool = true { didSet { schedulePersist() } }
+
+    /// Se, stando lontano dal Mac, il turno finito resta aperto ad aspettare il
+    /// seguito dal telefono.
+    ///
+    /// Acceso di default: è ciò che permette di portare avanti una conversazione
+    /// da fuori, ed è l'unico modo per farlo senza staccare la chat da VS Code.
+    /// Ma è anche l'unica cosa qui dentro che cambia il comportamento di Claude
+    /// Code invece di limitarsi a guardarlo — la fine del turno viene trattenuta
+    /// — quindi deve poter essere spenta senza spegnere tutto il resto.
+    ///
+    /// Solo da lontano, e questo è ciò che lo rende innocuo da vicino: seduti al
+    /// Mac non trattiene mai niente.
+    @Published var remotePrompts: Bool = true { didSet { schedulePersist() } }
 
     /// Il tema del pannello, per identificativo.
     ///
@@ -410,6 +424,7 @@ final class Settings: ObservableObject {
         if let v = decoded.notificationSound { notificationSound = v }
         if let v = decoded.panelThemeID { panelThemeID = v }
         if let v = decoded.panelDecisions { panelDecisions = v }
+        if let v = decoded.remotePrompts { remotePrompts = v }
         if let v = decoded.notifyOnDone { notifyOnDone = v }
         if let v = decoded.notifyOnFailure { notifyOnFailure = v }
         if let v = decoded.glowEnabled { glowEnabled = v }
@@ -471,6 +486,7 @@ final class Settings: ObservableObject {
             notificationSound: notificationSound,
             panelThemeID: panelThemeID,
             panelDecisions: panelDecisions,
+            remotePrompts: remotePrompts,
             notifyOnDone: notifyOnDone,
             notifyOnFailure: notifyOnFailure,
             glowEnabled: glowEnabled,

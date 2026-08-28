@@ -282,7 +282,14 @@ def wait_seconds(reason="away", question=False):
     # loro descrizioni da leggere e a volte una risposta da scrivere. E qui il
     # tempo lungo costa poco, perché l'attesa finisce da sé nell'istante in cui
     # la finestra torna in vista.
-    if question and reason == "covered":
+    # Il turno è finito e non c'è nessuno al Mac: l'attesa non blocca niente —
+    # la sessione sarebbe rimasta ferma comunque — e serve tutto il tempo di
+    # accorgersi della notifica, leggere cosa ha fatto Claude e decidere come
+    # proseguire. Spento di default: trattenere la fine di ogni turno cambia il
+    # comportamento del Mac, e lo accende l'app quando l'utente lo vuole.
+    if reason == "prompt":
+        key, default = "prompt_wait_seconds", 0
+    elif question and reason == "covered":
         key, default = "question_wait_seconds", 180
     elif reason == "covered":
         key, default = "covered_wait_seconds", 45
@@ -325,6 +332,13 @@ ASKING_MODES = ("default", "acceptEdits")
 # non arrivava (Stefano, 2026-08-27: «ormai facciamo tutto in modalità Auto e
 # quindi diventa abbastanza inutile»).
 QUESTION_TOOL = "AskUserQuestion"
+
+# Quanto può essere lungo il seguito scritto dal telefono.
+#
+# Generoso perché è una frase pensata, non un tocco: dieci righe di istruzioni
+# ci stanno. Un limite c'è comunque, perché questo testo entra nella
+# conversazione e il file da cui arriva potrebbe essere corrotto.
+MAX_PROMPT_CHARACTERS = 4000
 
 
 def questions_of(payload):
@@ -600,6 +614,22 @@ def emit_decision(behavior, event):
     sys.stdout.flush()
 
 
+def emit_prompt(text):
+    """Fa ripartire il turno appena finito con quello che è stato scritto.
+
+    `decision: block` dice a Claude Code «non hai finito», e `reason` è ciò che
+    viene messo in bocca alla conversazione — verificato dentro il programma di
+    Claude Code, che lo registra come messaggio dell'utente col contrassegno
+    `isMeta` e il prefisso «Stop hook feedback:».
+
+    Niente ciclo infinito, ed è la ragione per cui questo è sicuro: si blocca
+    *solo* quando una persona ha scritto qualcosa. Un'attesa scaduta non stampa
+    niente e il turno finisce come sarebbe finito senza di noi.
+    """
+    json.dump({"decision": "block", "reason": text}, sys.stdout)
+    sys.stdout.flush()
+
+
 def emit_answers(payload, answers):
     """Consegna a Claude Code le risposte scelte dal pannello.
 
@@ -629,7 +659,7 @@ def emit_answers(payload, answers):
     sys.stdout.flush()
 
 
-def await_decision(request_id, timeout, tool=None, path=None):
+def await_decision(request_id, timeout, path=None, release_when_home=False):
     """Polls for the app's answer. Returns (behavior, remember) or None.
 
     Gives up early if the user comes back to the Mac. The app clears `away` the
@@ -645,7 +675,7 @@ def await_decision(request_id, timeout, tool=None, path=None):
     started = time.time()
     deadline = started + timeout
     while time.time() < deadline:
-        if tool is not None and path is not None and not still_holding(path):
+        if release_when_home and path is not None and not still_holding(path):
             return None
         if os.path.exists(decision_file):
             answer = read_json(decision_file, {})
@@ -664,6 +694,13 @@ def await_decision(request_id, timeout, tool=None, path=None):
                 return "answer", {
                     str(k): str(v) for k, v in chosen.items() if isinstance(v, str)
                 }
+            # Il seguito della conversazione, scritto dal telefono. Tagliato a
+            # una misura generosa: quello che arriva qui finisce dentro la
+            # conversazione, e un file corrotto o gonfiato non deve poterla
+            # riempire.
+            written = answer.get("prompt")
+            if isinstance(written, str) and written.strip():
+                return "prompt", written.strip()[:MAX_PROMPT_CHARACTERS]
             return None
         time.sleep(POLL_INTERVAL if time.time() - started < POLL_FAST_SECONDS else POLL_INTERVAL_SLOW)
     return None
@@ -768,6 +805,27 @@ def main():
         except Exception:
             pass
 
+    # Il turno è finito e al Mac non c'è nessuno.
+    #
+    # Invece di chiudere, si resta ad aspettare il seguito dal telefono. È
+    # l'unico momento in cui si può scrivere dentro una conversazione viva:
+    # `Stop` scatta a turno finito, e da lì `decision: block` la fa ripartire
+    # senza staccarla da VS Code e senza biforcarla.
+    #
+    # Solo da lontano, e non è una cautela: se si trattenesse sempre, seduti al
+    # Mac Claude sembrerebbe non finire mai e non si potrebbe scrivere finché
+    # l'attesa non scade. `await_decision` la chiude comunque nell'istante in
+    # cui si torna alla tastiera.
+    prompt_timeout = wait_seconds("prompt") if event == "Stop" else 0
+    holding_for_prompt = (
+        event == "Stop"
+        and not asking
+        and prompt_timeout > 0
+        and still_away()
+        and app_is_running()
+    )
+    prompt_id = "prompt-%s" % safe_session if holding_for_prompt else ""
+
     record = {
         "schema": SCHEMA,
         "state": state,
@@ -784,9 +842,18 @@ def main():
         "tool_name": tool,
         "tool_summary": summary,
         "decidable": decidable,
+        # L'identificativo con cui il telefono manda il seguito, vuoto quando
+        # non c'è nessuna attesa aperta. Un campo solo e non due: «accetta un
+        # messaggio» e «con quale nome» sono la stessa cosa detta due volte, e
+        # due campi possono smettere di concordare.
+        "prompt_request_id": prompt_id,
         # Fino a quando questa richiesta è rispondibile. Serve a difenderla da chi
         # scrive dopo.
-        "hold_until": (time.time() + timeout) if decidable else 0,
+        "hold_until": (
+            time.time() + timeout if decidable
+            else time.time() + prompt_timeout if holding_for_prompt
+            else 0
+        ),
         "updated_at_epoch": time.time(),
         "pid": os.getpid(),
     }
@@ -811,6 +878,43 @@ def main():
 
     write_atomic(target, record)
 
+    if holding_for_prompt:
+        # Lo stesso file che il pannello legge per i permessi, con un `kind` suo:
+        # quello che aspetta qui non è una domanda con delle opzioni, è una
+        # casella di testo.
+        pending_file = os.path.join(PENDING_DIR, "%s.json" % prompt_id)
+        write_atomic(pending_file, {
+            "request_id": prompt_id,
+            "project_path": path,
+            "project_name": record["project_name"],
+            "session_id": session,
+            "tool_name": "",
+            "tool_summary": None,
+            "reason": "prompt",
+            "kind": "prompt",
+            "questions": [],
+            "hold_until": time.time() + prompt_timeout,
+            "at": time.time(),
+        })
+        try:
+            written = await_decision(prompt_id, prompt_timeout, path, release_when_home=True)
+        finally:
+            try:
+                os.remove(pending_file)
+            except OSError:
+                pass
+
+        record["prompt_request_id"] = ""
+        record["hold_until"] = 0
+        record["updated_at_epoch"] = time.time()
+        if written is not None and written[0] == "prompt":
+            emit_prompt(written[1])
+            # Riparte davvero: dirlo subito evita che il telefono mostri «ha
+            # finito» nel mezzo secondo prima che il prossimo evento arrivi.
+            record["state"] = "working"
+        write_atomic(target, record)
+        return
+
     if not decidable:
         return
 
@@ -834,7 +938,7 @@ def main():
     })
     try:
         answer = await_decision(
-            request_id, timeout, tool if event == "PreToolUse" else None, path
+            request_id, timeout, path, release_when_home=(event == "PreToolUse")
         )
     finally:
         # In ogni caso: risposta data, attesa scaduta, o errore. Un file rimasto

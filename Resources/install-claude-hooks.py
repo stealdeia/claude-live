@@ -45,7 +45,8 @@ MARKER = HOOK_NAME
 #   PermissionRequest Claude needs a permission answer → waiting for input,
 #                     and the payload carries the tool name
 #   Notification      Claude is asking something / idle-nagging → waiting
-#   Stop              the turn finished → idle
+#   Stop              the turn finished → idle. Da lontano trattiene anche la
+#                     fine del turno, per farla proseguire da telefono.
 #   StopFailure       the turn died on an API error → error
 #   SessionEnd        session gone → delete its status file
 HOOK_EVENTS = [
@@ -169,7 +170,12 @@ def hook_timeout(event):
     # Costa poco tenerlo alto: l'attesa finisce da sé nell'istante in cui torni
     # alla tastiera o riporti in vista quella finestra, quindi il tempo lungo si
     # consuma solo quando davvero non c'è nessuno al Mac.
-    return 3600 if event in ("PermissionRequest", "PreToolUse") else 5
+    #
+    # `Stop` è nell'elenco per una ragione diversa dalle altre due: non trattiene
+    # una domanda, trattiene la *fine del turno*, ed è l'unico momento in cui si
+    # può far proseguire dal telefono una conversazione aperta in VS Code. Con
+    # cinque secondi quella funzione semplicemente non esisterebbe.
+    return 3600 if event in ("PermissionRequest", "PreToolUse", "Stop") else 5
 
 
 def add_our_hooks(settings):

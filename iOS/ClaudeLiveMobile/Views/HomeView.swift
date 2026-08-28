@@ -16,6 +16,8 @@ struct HomeView: View {
     let inFlight: Set<String>
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
     let onAnswer: (ClaudeSessionStatus, [String: String]) -> Void
+    /// Il seguito scritto dal telefono, quando la conversazione lo sta aspettando.
+    let onPrompt: (ClaudeSessionStatus, String) -> Void
     let onOpenProjects: () -> Void
     let onOpenUsage: () -> Void
 
@@ -59,7 +61,8 @@ struct HomeView: View {
                     messages: snapshot.messages ?? [:],
                     questions: snapshot.questions ?? [:],
                     onDecide: onDecide,
-                    onAnswer: onAnswer
+                    onAnswer: onAnswer,
+                    onPrompt: onPrompt
                 )
             }
         }
@@ -71,7 +74,8 @@ struct HomeView: View {
                     messages: snapshot.messages?[sessionID] ?? [],
                     questions: snapshot.questions?[sessionID] ?? [],
                     onDecide: onDecide,
-                    onAnswer: onAnswer
+                    onAnswer: onAnswer,
+                    onPrompt: onPrompt
                 )
             }
         }
@@ -191,7 +195,8 @@ struct HomeView: View {
                                     messages: snapshot.messages ?? [:],
                                     questions: snapshot.questions ?? [:],
                                     onDecide: onDecide,
-                                    onAnswer: onAnswer
+                                    onAnswer: onAnswer,
+                                    onPrompt: onPrompt
                                 )
                             } label: {
                                 projectRow(project, in: snapshot)
@@ -345,6 +350,7 @@ struct TrailingIconLabel: LabelStyle {
                 inFlight: [],
                 onDecide: { _, _, _ in },
                 onAnswer: { _, _ in },
+                onPrompt: { _, _ in },
                 onOpenProjects: {},
                 onOpenUsage: {}
             )

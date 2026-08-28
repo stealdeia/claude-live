@@ -58,7 +58,26 @@ public struct ClaudeMessage: Codable, Equatable, Sendable {
               let envelope = record["message"] as? [String: Any]
         else { return nil }
 
-        let cleaned = withoutNoise(readable(envelope["content"]))
+        let raw = readable(envelope["content"])
+
+        // Il seguito scritto dal telefono, che è l'unica eccezione alla regola
+        // qui sotto: arriva contrassegnato come inserito dal sistema — Claude
+        // Code non distingue fra un hook che gli passa un'istruzione e uno che
+        // gli passa le parole di una persona — ma è la sola cosa così
+        // contrassegnata che qualcuno ha davvero scritto. Nasconderla sarebbe il
+        // difetto del riassunto al contrario: là mostravamo come suo ciò che non
+        // aveva scritto, qui nasconderemmo ciò che ha scritto.
+        if let written = promptFromPhone(raw) {
+            return ClaudeMessage(
+                author: .user,
+                text: shortened(written, to: maxCharacters),
+                at: parsedDate(record["timestamp"] as? String)
+            )
+        }
+
+        guard !isInjected(record) else { return nil }
+
+        let cleaned = withoutNoise(raw)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleaned.isEmpty, !isOneElement(cleaned) else { return nil }
 
@@ -67,6 +86,46 @@ public struct ClaudeMessage: Codable, Equatable, Sendable {
             text: shortened(cleaned, to: maxCharacters),
             at: parsedDate(record["timestamp"] as? String)
         )
+    }
+
+    /// Il prefisso con cui Claude Code registra ciò che un hook `Stop` gli
+    /// consegna per far proseguire il turno.
+    ///
+    /// Verificato dentro il programma di Claude Code e non dedotto: la riga è
+    /// composta come «nome dell'evento» + « hook feedback:» + il testo. È il
+    /// modo in cui il seguito scritto dal telefono entra nella conversazione.
+    private static let promptMarker = "Stop hook feedback:"
+
+    /// Il testo di un seguito scritto dal telefono, senza l'involucro.
+    ///
+    /// Nil per qualunque altra riga: il confronto è sull'inizio esatto, perché
+    /// un messaggio vero che *parla* di questa cosa — e in questo progetto
+    /// capita — non deve essere scambiato per uno.
+    private static func promptFromPhone(_ text: String) -> String? {
+        guard text.hasPrefix(promptMarker) else { return nil }
+        let written = text.dropFirst(promptMarker.count)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return written.isEmpty ? nil : written
+    }
+
+    /// Se la riga è stata messa lì dal sistema invece che da una persona.
+    ///
+    /// Sono registrate come `user` — hanno il ruolo di chi parla — ma nessuno le
+    /// ha scritte: il riassunto che il sistema inserisce quando la conversazione
+    /// viene compattata è comparso nell'app come un messaggio lunghissimo
+    /// attribuito a chi stava solo guardando, e «Continue from where you left
+    /// off.» è la stessa cosa in piccolo.
+    ///
+    /// Tre contrassegni e non uno perché non descrivono la stessa cosa e non è
+    /// detto che viaggino insieme: `isCompactSummary` è il riassunto,
+    /// `isMeta` la riga di servizio, `isVisibleInTranscriptOnly` quello che si
+    /// vede nella trascrizione ma non è stato detto a nessuno. Ne basta uno.
+    private static func isInjected(_ record: [String: Any]) -> Bool {
+        for flag in ["isCompactSummary", "isMeta", "isVisibleInTranscriptOnly"]
+        where record[flag] as? Bool == true {
+            return true
+        }
+        return false
     }
 
     /// Il testo di un messaggio, qualunque forma abbia `content`.

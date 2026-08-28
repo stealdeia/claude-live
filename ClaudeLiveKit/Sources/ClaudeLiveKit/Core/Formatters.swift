@@ -60,7 +60,14 @@ public enum Format {
         let calendar = Calendar.current
         let time = clock.string(from: date)
         if calendar.isDate(date, inSameDayAs: now) { return time }
-        if calendar.isDateInYesterday(date) { return "ieri \(time)" }
+        // «Ieri» rispetto a `now`, non rispetto al calendario di sistema:
+        // `isDateInYesterday` guarda l'oggi vero e ignora l'adesso che ci è
+        // stato passato, quindi sarebbe giusta solo quando i due coincidono —
+        // cioè ovunque tranne che in una prova, che è dove serve saperlo.
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
+            return "ieri \(time)"
+        }
         return "\(dayMonth.string(from: date)), \(time)"
     }
 

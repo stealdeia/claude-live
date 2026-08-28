@@ -392,6 +392,62 @@ final class RemoteStore: ObservableObject {
         await refresh()
     }
 
+    /// Fa proseguire dal telefono una conversazione il cui turno è finito.
+    ///
+    /// Il terzo dei tre modi di rispondere, e il solo che non risponde a una
+    /// domanda: qui non c'è niente in sospeso: Claude ha finito, e sul Mac
+    /// l'hook sta tenendo aperta la fine del turno per ricevere il seguito.
+    ///
+    /// Indirizzato alla sessione e non a una richiesta: dal telefono si scrive
+    /// «a questa chat», e quale attesa lo raccoglierà lo decide il Mac, che è
+    /// l'unico a sapere se quella è ancora aperta.
+    func prompt(_ session: ClaudeSessionStatus, text: String) async -> Bool {
+        let written = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !written.isEmpty else { return false }
+
+        guard let url = URL(string: relayURL + "/command"),
+              let pairID = RemoteSecrets.read(.pairID),
+              let keyText = RemoteSecrets.read(.encryptionKey),
+              let key = try? RemoteCrypto.importKey(keyText)
+        else { return false }
+
+        let envelope = RemoteCommandEnvelope(
+            command: .prompt(sessionID: session.sessionID, text: written)
+        )
+        guard let sealed = try? RemoteCrypto.seal(envelope, with: key) else { return false }
+
+        sending.insert(session.id)
+        recomputeInFlight()
+        defer {
+            sending.remove(session.id)
+            recomputeInFlight()
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["id": envelope.id, "payload": sealed]
+        )
+        request.timeoutInterval = 15
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if code != 200 {
+                problem = "Il relay ha rifiutato il messaggio (\(code))."
+                return false
+            }
+        } catch {
+            problem = "Non sono riuscito a mandare il messaggio."
+            return false
+        }
+
+        await refresh()
+        return true
+    }
+
     /// Polls while the app is on screen. Stopped when it is not: a phone that
     /// keeps asking from a pocket spends battery to learn things nobody reads.
     func startRefreshing(every seconds: Duration = .seconds(5)) {

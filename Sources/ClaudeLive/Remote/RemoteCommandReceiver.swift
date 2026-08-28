@@ -45,10 +45,22 @@ final class RemoteCommandReceiver: ObservableObject {
         self.status = status
 
         // Anything that changes whether an answer is possible restarts the loop.
-        Publishers.CombineLatest(settings.$remoteEnabled, status.$waitingSessions)
-            .sink { [weak self] enabled, waiting in
+        //
+        // Due elenchi e non uno: un permesso trattenuto sta fra le sessioni in
+        // attesa, ma un turno finito che aspetta il seguito **no** — Claude ha
+        // finito, e non aspetta nessuna risposta. Guardando solo il primo elenco
+        // il Mac non avrebbe interrogato il relay proprio mentre c'era qualcosa
+        // da ricevere, e il seguito scritto dal telefono non sarebbe arrivato
+        // mai: un guasto silenzioso e completo.
+        Publishers.CombineLatest3(
+            settings.$remoteEnabled, status.$waitingSessions, status.$sessionsByPath
+        )
+            .sink { [weak self] enabled, waiting, byPath in
                 guard let self else { return }
-                let answerable = enabled && waiting.contains(where: \.isDecidable)
+                let answerable = enabled && (
+                    waiting.contains(where: \.isDecidable)
+                    || byPath.values.contains { $0.contains(where: \.acceptsPrompt) }
+                )
                 answerable ? self.start() : self.stop()
             }
             .store(in: &cancellables)
@@ -158,9 +170,31 @@ final class RemoteCommandReceiver: ObservableObject {
             )
             status.answer(session, answers: answers)
 
-        case .prompt:
-            // No supported way to inject input into a live session exists yet.
-            Log.info("Comando «prompt» ricevuto ma non ancora supportato", category: .status)
+        case .prompt(let sessionID, let text):
+            // Cercata fra tutte le sessioni e non fra quelle in attesa: un turno
+            // finito che aspetta il seguito non è «in attesa di una risposta» —
+            // Claude ha finito, ed è proprio per questo che si può scrivere.
+            let open = status.sessionsByPath.values.flatMap { $0 }
+            guard let session = open.first(where: { $0.sessionID == sessionID }),
+                  session.acceptsPrompt
+            else {
+                // L'attesa può essere scaduta mentre il messaggio viaggiava, o
+                // l'utente può essere tornato al Mac: in tutti e due i casi non
+                // c'è più nessuno a raccoglierlo, e consegnarlo alla prossima
+                // attesa lo infilerebbe in un punto della conversazione che non
+                // c'entra niente.
+                Log.important(
+                    "La sessione «\(sessionID)» non aspetta più un seguito",
+                    category: .status
+                )
+                forget(id: id, base: base, pairID: pairID)
+                return
+            }
+            Log.important(
+                "Dal telefono, seguito in \(session.projectName): \(text.prefix(80))",
+                category: .status
+            )
+            status.prompt(session, text: text)
         }
 
         forget(id: id, base: base, pairID: pairID)

@@ -17,7 +17,8 @@ func projectDestination(
     messages: [String: [ClaudeMessage]],
     questions: [String: [ClaudeQuestion]],
     onDecide: @escaping (ClaudeSessionStatus, Bool, Bool) -> Void,
-    onAnswer: @escaping (ClaudeSessionStatus, [String: String]) -> Void
+    onAnswer: @escaping (ClaudeSessionStatus, [String: String]) -> Void,
+    onPrompt: @escaping (ClaudeSessionStatus, String) -> Void
 ) -> some View {
     if sessions.count == 1, let only = sessions.first {
         ChatDetailView(
@@ -26,7 +27,8 @@ func projectDestination(
             messages: messages[only.sessionID] ?? [],
             questions: questions[only.sessionID] ?? [],
             onDecide: onDecide,
-            onAnswer: onAnswer
+            onAnswer: onAnswer,
+            onPrompt: onPrompt
         )
     } else {
         ProjectDetailView(
@@ -36,7 +38,8 @@ func projectDestination(
             messages: messages,
             questions: questions,
             onDecide: onDecide,
-            onAnswer: onAnswer
+            onAnswer: onAnswer,
+            onPrompt: onPrompt
         )
     }
 }

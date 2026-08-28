@@ -98,6 +98,16 @@ final class ClaudeStatusStore: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Idem per l'interruttore del seguito da telefono: spegnerlo deve avere
+        // effetto sul turno successivo, non al prossimo avvio.
+        settings.$remotePrompts
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.writeHubConfig() }
+            }
+            .store(in: &cancellables)
+
         watcher = DirectoryWatcher(url: Paths.statusDirectory) { [weak self] in
             Task { @MainActor in self?.scan() }
         }
@@ -219,6 +229,17 @@ final class ClaudeStatusStore: ObservableObject {
     /// solo quando davvero non c'è nessuno al Mac.
     private static let questionWaitSeconds: Double = 3300
 
+    /// Quanto lasciare aperto un turno finito in attesa del seguito dal telefono.
+    ///
+    /// Gli stessi cinquantacinque minuti di una domanda, e per la stessa ragione:
+    /// il tetto vero è il tempo massimo dell'hook (un'ora), e stare cinque minuti
+    /// sotto evita di farlo uccidere a metà attesa.
+    ///
+    /// Costa poco tenerlo alto perché l'attesa finisce da sé nell'istante in cui
+    /// torni alla tastiera. Costa qualcosa in richieste al relay — il Mac
+    /// interroga finché aspetta — ed è il motivo per cui si può spegnere.
+    private static let promptWaitSeconds: Double = 3300
+
     /// I progetti la cui finestra è coperta, per l'hook.
     private var coveredProjects: Set<String> = []
 
@@ -233,6 +254,7 @@ final class ClaudeStatusStore: ObservableObject {
 
     private func writeHubConfig() {
         try? FileManager.default.createDirectory(at: Paths.hubDirectory, withIntermediateDirectories: true)
+        let promptWait = (settings.remotePrompts && awayWaitSeconds != nil) ? Self.promptWaitSeconds : 0
         let config: [String: Any] = [
             "decision_wait_seconds": effectiveWaitSeconds,
             // The hook holds a tool call only while this is true. It is the same
@@ -245,6 +267,12 @@ final class ClaudeStatusStore: ObservableObject {
             "covered_projects": Array(coveredProjects),
             "covered_wait_seconds": Self.coveredWaitSeconds,
             "question_wait_seconds": Self.questionWaitSeconds,
+            // Zero significa «non trattenere»: l'hook lo legge come funzione
+            // spenta. Sempre zero stando al Mac, perché `away` da solo non
+            // basterebbe — l'hook userebbe questo numero anche per decidere
+            // quanto aspettare, e un'attesa lunga con l'utente seduto qui
+            // farebbe sembrare che Claude non finisca mai.
+            "prompt_wait_seconds": promptWait,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted]) else { return }
         try? data.write(to: Paths.hubConfigFile, options: .atomic)
@@ -318,6 +346,44 @@ final class ClaudeStatusStore: ObservableObject {
 
         clearAlert(forPath: session.projectPath)
         waitingSessions.removeAll { $0.id == session.id }
+    }
+
+    /// Fa proseguire dal telefono una conversazione il cui turno è finito.
+    ///
+    /// Lo stesso meccanismo di un permesso — un file che l'hook sta aspettando —
+    /// ma quello che l'hook ne fa è diverso: invece di decidere una chiamata,
+    /// dice a Claude Code «non hai finito» e consegna questo testo come seguito.
+    /// La conversazione riparte dov'era, dentro VS Code, senza essere staccata e
+    /// senza biforcarsi.
+    ///
+    /// Indirizzato con `promptRequestID` e non con la sessione: quel nome esiste
+    /// solo finché l'hook sta davvero aspettando, quindi scrivere a un turno già
+    /// chiuso non trova nessuno invece di lasciare un file che verrà raccolto
+    /// dall'attesa successiva — cioè un messaggio consegnato molto dopo, in un
+    /// punto della conversazione che non c'entra più niente.
+    func prompt(_ session: ClaudeSessionStatus, text: String) {
+        guard let requestID = session.promptRequestID, !requestID.isEmpty else { return }
+        let written = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !written.isEmpty else { return }
+
+        try? FileManager.default.createDirectory(
+            at: Paths.decisionsDirectory, withIntermediateDirectories: true
+        )
+        guard let data = try? JSONSerialization.data(withJSONObject: ["prompt": written])
+        else { return }
+
+        let url = Paths.decisionsDirectory.appendingPathComponent("\(requestID).json")
+        do {
+            try data.write(to: url, options: .atomic)
+            Log.important(
+                "Seguito in «\(session.projectName)»: \(written.prefix(80))",
+                category: .status
+            )
+        } catch {
+            Log.error("Seguito non scritto: \(error.localizedDescription)", category: .status)
+            return
+        }
+        clearAlert(forPath: session.projectPath)
     }
 
     // MARK: - Lookup

@@ -166,6 +166,9 @@ struct RootView: View {
                         onAnswer: { session, answers in
                             Task { await store.answer(session, answers: answers) }
                         },
+                        onPrompt: { session, text in
+                            Task { _ = await store.prompt(session, text: text) }
+                        },
                         onOpenProjects: { tab = .projects },
                         onOpenUsage: { tab = .usage }
                     )
@@ -182,6 +185,9 @@ struct RootView: View {
                         },
                         onAnswer: { session, answers in
                             Task { await store.answer(session, answers: answers) }
+                        },
+                        onPrompt: { session, text in
+                            Task { _ = await store.prompt(session, text: text) }
                         }
                     )
                 }

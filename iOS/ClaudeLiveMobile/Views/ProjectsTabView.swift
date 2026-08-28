@@ -11,6 +11,8 @@ struct ProjectsTabView: View {
     let inFlight: Set<String>
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
     let onAnswer: (ClaudeSessionStatus, [String: String]) -> Void
+    /// Il seguito scritto dal telefono, quando la conversazione lo sta aspettando.
+    let onPrompt: (ClaudeSessionStatus, String) -> Void
 
     var body: some View {
         ScrollView {
@@ -67,7 +69,8 @@ struct ProjectsTabView: View {
                                         messages: snapshot.messages ?? [:],
                                         questions: snapshot.questions ?? [:],
                                         onDecide: onDecide,
-                                        onAnswer: onAnswer
+                                        onAnswer: onAnswer,
+                                        onPrompt: onPrompt
                                     )
                                 } label: {
                                     GlassCard {
@@ -133,7 +136,8 @@ struct ProjectsTabView: View {
                 snapshot: RemoteSnapshot.sample(now: Date()),
                 inFlight: [],
                 onDecide: { _, _, _ in },
-                onAnswer: { _, _ in }
+                onAnswer: { _, _ in },
+                onPrompt: { _, _ in }
             )
         }
         .navigationTitle("Progetti")

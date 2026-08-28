@@ -419,6 +419,13 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Toggle("Rispondi in chat dal telefono", isOn: $settings.remotePrompts)
+
+            Text("Quando sei lontano dal Mac e Claude finisce di rispondere, la conversazione resta aperta fino a 55 minuti in attesa di un tuo messaggio dal telefono: se ne mandi uno, riparte da dove era — nella stessa chat di VS Code, senza staccarla. Seduto al Mac non trattiene mai niente, e l'attesa finisce nell'istante in cui torni alla tastiera. È l'unica opzione qui dentro che modifica il comportamento di Claude Code invece di limitarsi a osservarlo.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             HStack {
                 Button(status.hooksInstalled ? "Reinstalla hook…" : "Installa hook…",
                        action: onInstallHooks)

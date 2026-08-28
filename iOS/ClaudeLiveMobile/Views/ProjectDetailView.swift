@@ -16,6 +16,8 @@ struct ProjectDetailView: View {
 
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
     let onAnswer: (ClaudeSessionStatus, [String: String]) -> Void
+    /// Il seguito scritto dal telefono, quando la conversazione lo sta aspettando.
+    let onPrompt: (ClaudeSessionStatus, String) -> Void
 
     var body: some View {
         ZStack {
@@ -60,7 +62,8 @@ struct ProjectDetailView: View {
             messages: messages[session.sessionID] ?? [],
             questions: questions[session.sessionID] ?? [],
             onDecide: onDecide,
-            onAnswer: onAnswer
+            onAnswer: onAnswer,
+            onPrompt: onPrompt
         )
     }
 
@@ -106,6 +109,8 @@ struct ChatDetailView: View {
 
     let onDecide: (ClaudeSessionStatus, Bool, Bool) -> Void
     let onAnswer: (ClaudeSessionStatus, [String: String]) -> Void
+    /// Il seguito scritto da qui, per far proseguire la conversazione sul Mac.
+    let onPrompt: (ClaudeSessionStatus, String) -> Void
 
     /// Chiuso all'apertura: chi entra qui viene a leggere. Si apre dopo.
     @State private var showingRequest = false
@@ -201,6 +206,12 @@ struct ChatDetailView: View {
                     onDecide: onDecide
                 )
             }
+        } else if session.acceptsPrompt {
+            // Aperta e non dentro un accordion, al contrario delle altre due: là
+            // si legge prima e si decide dopo, qui non c'è niente da decidere —
+            // c'è da scrivere, e una casella da aprire prima di poterci scrivere
+            // sarebbe un gesto in più per niente.
+            PromptComposer(session: session, isInFlight: isInFlight, onSend: onPrompt)
         }
     }
 
@@ -287,7 +298,8 @@ struct ChatDetailView: View {
             messages: snapshot.messages ?? [:],
             questions: snapshot.questions ?? [:],
             onDecide: { _, _, _ in },
-            onAnswer: { _, _ in }
+            onAnswer: { _, _ in },
+            onPrompt: { _, _ in }
         )
     }
     .preferredColorScheme(.dark)
@@ -328,7 +340,8 @@ struct ChatDetailView: View {
                 ),
             ],
             onDecide: { _, _, _ in },
-            onAnswer: { _, _ in }
+            onAnswer: { _, _ in },
+            onPrompt: { _, _ in }
         )
     }
     .preferredColorScheme(.dark)

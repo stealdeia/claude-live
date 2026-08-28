@@ -154,6 +154,100 @@ final class ClaudeMessageTests: XCTestCase {
         XCTAssertNil(ClaudeMessage.from(record: record))
     }
 
+    // MARK: - Il seguito scritto dal telefono
+
+    /// L'eccezione che vale la pena avere: Claude Code registra ciò che l'hook
+    /// gli consegna col contrassegno `isMeta`, perché non distingue fra
+    /// un'istruzione di servizio e le parole di una persona. Qui la distinzione
+    /// c'è, e nasconderlo sarebbe il difetto del riassunto al contrario.
+    func testPromptSentFromThePhoneIsShownAsTheUsersOwn() {
+        let record: [String: Any] = [
+            "type": "user",
+            "isMeta": true,
+            "message": ["content": [["type": "text", "text":
+                "Stop hook feedback:\nBene, ora aggiungi il footer con i contatti."]]],
+        ]
+        let message = ClaudeMessage.from(record: record)
+        XCTAssertEqual(message?.author, .user)
+        XCTAssertEqual(message?.text, "Bene, ora aggiungi il footer con i contatti.")
+    }
+
+    /// L'involucro non si vede: chi legge la chat ha scritto quella frase, non
+    /// «Stop hook feedback».
+    func testTheWrapperIsNotShown() {
+        let record: [String: Any] = [
+            "type": "user",
+            "isMeta": true,
+            "message": ["content": "Stop hook feedback:\nRifallo in blu."],
+        ]
+        XCTAssertEqual(ClaudeMessage.from(record: record)?.text, "Rifallo in blu.")
+    }
+
+    /// Il confronto è sull'inizio esatto: in questo progetto si *parla* di questa
+    /// cosa, e un messaggio che la nomina resta un messaggio normale.
+    func testAMessageMentioningTheHookIsNotUnwrapped() {
+        let text = "Ho letto che Stop hook feedback: serve per far ripartire il turno."
+        let record: [String: Any] = [
+            "type": "user",
+            "message": ["content": text],
+        ]
+        XCTAssertEqual(ClaudeMessage.from(record: record)?.text, text)
+    }
+
+    /// Un involucro vuoto non è un messaggio: nessuno ha scritto niente.
+    func testAnEmptyPromptIsNotAMessage() {
+        let record: [String: Any] = [
+            "type": "user",
+            "isMeta": true,
+            "message": ["content": "Stop hook feedback:\n   "],
+        ]
+        XCTAssertNil(ClaudeMessage.from(record: record))
+    }
+
+    // MARK: - Il riassunto che sembrava un messaggio
+
+    /// Il difetto del 2026-08-28: compattando la conversazione, nell'app è
+    /// comparso un messaggio lunghissimo attribuito a Stefano. Era il riassunto
+    /// che il sistema inserisce da sé, registrato col ruolo di chi parla.
+    ///
+    /// Il testo è prosa vera — non un'etichetta, non rumore — quindi nessuna
+    /// delle regole già in piedi poteva riconoscerlo. Solo il contrassegno lo
+    /// distingue.
+    func testCompactSummaryIsNotAMessage() {
+        let record: [String: Any] = [
+            "type": "user",
+            "isCompactSummary": true,
+            "isVisibleInTranscriptOnly": true,
+            "message": ["content": "This session is being continued from a previous conversation "
+                + "that ran out of context. The summary below covers the earlier portion."],
+        ]
+        XCTAssertNil(ClaudeMessage.from(record: record))
+    }
+
+    /// La stessa cosa in piccolo, e con un contrassegno diverso: la riga di
+    /// servizio che riavvia il lavoro dopo un riassunto.
+    func testMetaRecordIsNotAMessage() {
+        let record: [String: Any] = [
+            "type": "user",
+            "isMeta": true,
+            "message": ["content": [["type": "text", "text": "Continue from where you left off."]]],
+        ]
+        XCTAssertNil(ClaudeMessage.from(record: record))
+    }
+
+    /// E il contrario, che è ciò che rende la regola sicura: un messaggio vero
+    /// senza contrassegni resta, anche se lungo e anche se parla di riassunti.
+    func testAnOrdinaryMessageSurvives() {
+        let record: [String: Any] = [
+            "type": "user",
+            "message": ["content": "Ho compattato la conversazione e mi è uscito un messaggio strano."],
+        ]
+        XCTAssertEqual(
+            ClaudeMessage.from(record: record)?.text,
+            "Ho compattato la conversazione e mi è uscito un messaggio strano."
+        )
+    }
+
     /// La regola generale, che non ha bisogno di conoscere il nome: un elenco di
     /// nomi noti è sempre in ritardo di un difetto.
     func testAnyMessageThatIsOneWholeElementIsDropped() {

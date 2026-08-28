@@ -69,6 +69,14 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
     /// showing Allow/Deny buttons can lead somewhere.
     public let decidable: Bool
 
+    /// Con quale nome mandare il seguito della conversazione, quando l'hook sta
+    /// trattenendo la fine del turno per riceverlo.
+    ///
+    /// Un campo solo invece di «accetta un seguito» più «con quale nome»: sono
+    /// la stessa cosa detta due volte, e due campi possono smettere di
+    /// concordare. Nil vuol dire che non c'è nessuna attesa aperta.
+    public let promptRequestID: String?
+
     /// The tail of what Claude last said, when the hook was able to read it.
     ///
     /// Optional and often nil: the hook receives `transcript_path` on every
@@ -136,6 +144,11 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         decidable && state == .waitingInput && !(requestID ?? "").isEmpty
     }
 
+    /// Il turno è finito e l'hook è lì che aspetta il seguito: si può scrivere.
+    public var acceptsPrompt: Bool {
+        !(promptRequestID ?? "").isEmpty
+    }
+
     /// Waiting on the user, but not something we can answer — an open question,
     /// so the only useful action is to bring its window forward.
     public var needsTerminal: Bool {
@@ -182,6 +195,9 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         toolSummary = (rawSummary?.isEmpty == false) ? rawSummary : nil
         decidable = (json["decidable"] as? Bool) ?? false
 
+        let rawPromptID = (json["prompt_request_id"] as? String) ?? ""
+        promptRequestID = rawPromptID.isEmpty ? nil : rawPromptID
+
         let rawMessage = (json["last_message"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         lastMessage = (rawMessage?.isEmpty == false) ? rawMessage : nil
@@ -214,6 +230,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         toolSummary: String?,
         lastMessage: String?,
         decidable: Bool,
+        promptRequestID: String? = nil,
         chatTitle: String? = nil
     ) {
         self.projectPath = projectPath
@@ -232,6 +249,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
         self.toolSummary = toolSummary
         self.lastMessage = lastMessage
         self.decidable = decidable
+        self.promptRequestID = promptRequestID
         self.chatTitle = chatTitle
     }
 
@@ -266,6 +284,7 @@ public struct ClaudeSessionStatus: Identifiable, Equatable, Sendable {
             toolSummary: toolSummary,
             lastMessage: lastMessage,
             decidable: decidable,
+            promptRequestID: promptRequestID,
             chatTitle: chatTitle
         )
     }
@@ -300,6 +319,7 @@ extension ClaudeSessionStatus {
             toolSummary: toolSummary ?? self.toolSummary,
             lastMessage: lastMessage,
             decidable: true,
+            promptRequestID: promptRequestID,
             chatTitle: chatTitle
         )
     }
@@ -328,6 +348,7 @@ extension ClaudeSessionStatus {
             toolSummary: toolSummary,
             lastMessage: lastMessage,
             decidable: decidable,
+            promptRequestID: promptRequestID,
             chatTitle: title
         )
     }
@@ -353,6 +374,7 @@ extension ClaudeSessionStatus {
             toolSummary: toolSummary,
             lastMessage: lastMessage,
             decidable: decidable,
+            promptRequestID: promptRequestID,
             chatTitle: chatTitle
         )
     }
