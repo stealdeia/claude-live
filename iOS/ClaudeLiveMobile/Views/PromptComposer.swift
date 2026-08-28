@@ -37,6 +37,9 @@ struct PromptComposer: View {
     /// visibile: il gesto più facile da ripetere per sbaglio.
     @State private var justSent: String?
 
+    /// Il raggio degli angoli del campo di testo.
+    private static let corner: CGFloat = 20
+
     private var canSend: Bool {
         session.acceptsPrompt && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !isInFlight
@@ -63,14 +66,22 @@ struct PromptComposer: View {
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
                     .focused($writing)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 9)
+                    // Raggio fisso, non una capsula.
+                    //
+                    // Una capsula ha il raggio pari a metà della propria altezza:
+                    // finché la riga è una sola sembra giusta, ma questo campo
+                    // cresce fino a cinque righe, e a quel punto i fianchi
+                    // rientrano di una cinquantina di punti e si mangiano il testo
+                    // della prima e dell'ultima riga. Venti punti restano tondi
+                    // quanto serve a una riga e non cambiano niente a cinque.
                     .background(
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
                             .fill(.white.opacity(0.09))
                     )
                     .overlay(
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
                             .stroke(.white.opacity(writing ? 0.22 : 0.10), lineWidth: 1)
                     )
                     .disabled(!session.acceptsPrompt)

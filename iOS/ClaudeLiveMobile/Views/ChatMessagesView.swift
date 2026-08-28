@@ -86,8 +86,28 @@ struct ChatMessagesView: View {
             // `onAppear` funzionava a volte e a volte no — su una lista pigra
             // l'ultimo messaggio può non essere ancora disegnato nel momento in
             // cui glielo si chiede, e allora la richiesta cade nel vuoto.
-            .defaultScrollAnchor(.bottom)
-            .onAppear { proxy.scrollTo(Anchor.bottom, anchor: .bottom) }
+            // Due ruoli su tre, e quello che manca è il difetto.
+            //
+            // `.defaultScrollAnchor(.bottom)` senza specificare per cosa vale
+            // chiede tre cose insieme: apriti in fondo, allinea in fondo, **e
+            // torna in fondo ogni volta che la dimensione cambia**. È la terza a
+            // far rimbalzare: la riga «cosa sta facendo Claude» che compare e
+            // sparisce, un fumetto che si apre, e soprattutto la tastiera —
+            // aprendola l'area utile si accorcia, il che *è* un cambio di
+            // dimensione, e la vista scattava in fondo mentre stavi scorrendo.
+            // Da lì l'ultimo messaggio che scappa in alto e lo schermo vuoto.
+            //
+            // Aprirsi in fondo e allinearsi in fondo restano: sono ciò che si
+            // vuole da una chat. Inseguire ogni cambio di dimensione no.
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .defaultScrollAnchor(.bottom, for: .alignment)
+            // Scorrere la conversazione chiude la tastiera, seguendo il dito.
+            //
+            // È il gesto che tutte le app di messaggi hanno, e qui serve due
+            // volte: chi scorre con la tastiera aperta sta cercando di *leggere*,
+            // non di scrivere — e metà dello schermo occupato da una tastiera è
+            // la ragione per cui non ci riusciva.
+            .scrollDismissesKeyboard(.interactively)
             // Nessuno scorrimento quando cambia soltanto *cosa sta facendo*
             // Claude. Quella riga cambia a ogni strumento — Bash, Read, Bash —
             // cioè più volte al minuto mentre lavora, e ogni volta strappava la
