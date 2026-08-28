@@ -27,7 +27,7 @@ struct ClaudeLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
             let state = Self.resolve(context.state)
-            LockScreenView(state: state)
+            LockScreenView(state: state, trouble: Self.trouble(context.state))
                 .widgetURL(Self.homeLink)
         } dynamicIsland: { context in
             let state = Self.resolve(context.state)
@@ -46,12 +46,41 @@ struct ClaudeLiveActivityWidget: Widget {
     static func resolve(
         _ state: ClaudeActivityAttributes.ContentState
     ) -> ClaudeIslandState {
+        // In chiaro: l'app sta parlando a se stessa, non c'è niente da aprire.
         if let island = state.island { return island }
-        guard let sealed = state.sealed,
-              let key = IslandKey.read(),
-              let opened = try? RemoteCrypto.open(ClaudeIslandState.self, from: sealed, with: key)
-        else { return ClaudeIslandState() }
-        return opened
+
+        // Sigillato: è arrivato per notifica, e va aperto con la chiave che l'app
+        // ha copiato nel gruppo condiviso.
+        if let sealed = state.sealed,
+           let key = IslandKey.read(),
+           let opened = try? RemoteCrypto.open(ClaudeIslandState.self, from: sealed, with: key) {
+            return opened
+        }
+
+        // Non si è aperta. Prima qui c'era `ClaudeIslandState()` — un'isola
+        // vuota, cioè i trattini, senza alcun modo di sapere perché: la chiave
+        // assente, la chiave sbagliata e una notifica senza contenuto finivano
+        // tutte e tre nello stesso schermo muto.
+        //
+        // Meglio l'ultimo numero letto: dice ancora qualcosa di vero, e la
+        // scadenza lo fa sbiadire da sé se invecchia troppo.
+        if let remembered = IslandKey.lastGood() { return remembered }
+        return ClaudeIslandState()
+    }
+
+    /// Perché l'isola non sta mostrando dati freschi, se non li sta mostrando.
+    ///
+    /// Una parola sola, disegnata piccola al posto dei numeri. Non è rifinitura:
+    /// i trattini sono comparsi quattro volte e ogni volta abbiamo tirato a
+    /// indovinare, perché tre guasti diversi producevano lo stesso schermo. Alla
+    /// prossima volta basterà guardare.
+    static func trouble(
+        _ state: ClaudeActivityAttributes.ContentState
+    ) -> String? {
+        if state.island != nil { return nil }
+        guard state.sealed != nil else { return "vuoto" }
+        guard IslandKey.read() != nil else { return "chiave" }
+        return nil
     }
 
     /// Dove porta il tocco su una riga: quel progetto.
@@ -301,6 +330,9 @@ private struct ActivityRing: View {
 private struct LockScreenView: View {
     let state: ClaudeIslandState
 
+    /// Perché i numeri non sono freschi, quando non lo sono. Vedi `trouble`.
+    var trouble: String?
+
     var body: some View {
         HStack(spacing: 14) {
             ActivityRing(
@@ -315,10 +347,20 @@ private struct LockScreenView: View {
             )
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(state.headline)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(state.alert == nil ? .primary : tint)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(state.headline)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(state.alert == nil ? .primary : tint)
+                        .lineLimit(1)
+                    if let trouble {
+                        // Piccola e grigia: non è un avviso per l'utente, è una
+                        // traccia per capire. Compare solo quando qualcosa non
+                        // ha funzionato, e allora vale più di uno schermo muto.
+                        Text(trouble)
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 // Tutti, non due: questa è una scheda a tutta larghezza sulla
                 // schermata di blocco, non i centoventi punti dell'isola aperta.

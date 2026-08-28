@@ -97,6 +97,13 @@ struct RootView: View {
                 // essere accoppiata. Adesso lo schermo è davanti a te, quindi il
                 // telefono è sbloccato e la domanda ha una risposta vera.
                 store.recheckPairing()
+                // La chiave ricopiata a ogni ritorno in primo piano, non solo
+                // all'apertura a freddo. Era il motivo per cui «riaprendo l'app i
+                // valori ricompaiono»: se la copia condivisa non è più buona,
+                // l'estensione non apre più niente e resta a trattini finché
+                // qualcuno non riavvia l'app. Ricopiarla costa una scrittura ogni
+                // volta che torni sull'app, e chiude quella finestra.
+                liveActivity.attach(to: store)
                 store.startRefreshing()
             } else {
                 store.stopRefreshing()

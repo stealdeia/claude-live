@@ -114,6 +114,12 @@ final class LiveActivityController: ObservableObject {
                 return p
             }
         }
+        // Messo da parte per l'estensione, che quando non riesce ad aprire una
+        // scatola sigillata mostrava trattini. Scritto qui e non là perché qui il
+        // contenuto è in chiaro e si sa quando cambia: nell'estensione ogni
+        // scrittura cade sul percorso del disegno, che è quello da tenere sgombro.
+        IslandKey.rememberLastGood(island)
+
         let content = Self.content(island)
 
         if let activity {

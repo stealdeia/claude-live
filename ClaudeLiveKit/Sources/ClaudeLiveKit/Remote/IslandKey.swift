@@ -122,6 +122,26 @@ public enum IslandKey {
     /// gruppo autorizzato *è* quello condiviso, quindi il predefinito coincide.
     /// L'app invece lo dichiara, perché il suo predefinito è un altro.
     public static func read() -> SymmetricKey? {
+        // Senza dichiarare il gruppo, prima.
+        //
+        // In una ricerca il gruppo si può omettere, e allora il sistema guarda in
+        // *tutti* quelli a cui il chiamante ha diritto — che è esattamente quello
+        // che serve, sia all'app sia all'estensione. Dichiararlo costringeva a
+        // chiamare `accessGroup()`, che per scoprire il prefisso **scrive** una
+        // voce di prova, la rilegge e la cancella: tre operazioni sul portachiavi
+        // a ogni singolo disegno dell'isola, dentro un'estensione che il sistema
+        // fa girare con poco tempo e poca memoria. Una scrittura sul percorso di
+        // lettura è lavoro che può fallire, e quando falliva l'isola restava a
+        // trattini senza dire niente a nessuno.
+        //
+        // Il giro col gruppo resta come riserva, per il caso in cui la ricerca
+        // larga non trovi niente.
+        if let key = readKey(inGroup: nil) { return key }
+        guard let group = accessGroup() else { return nil }
+        return readKey(inGroup: group)
+    }
+
+    private static func readKey(inGroup group: String?) -> SymmetricKey? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -129,13 +149,61 @@ public enum IslandKey {
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
-        if let group = accessGroup() { query[kSecAttrAccessGroup as String] = group }
+        if let group { query[kSecAttrAccessGroup as String] = group }
         var result: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let data = result as? Data,
               let text = String(data: data, encoding: .utf8)
         else { return nil }
         return try? RemoteCrypto.importKey(text)
+    }
+
+    // MARK: - L'ultimo contenuto buono
+
+    private static let lastGoodAccount = "lastGoodIsland"
+
+    /// Mette da parte l'ultimo contenuto che si è riusciti a leggere.
+    ///
+    /// Perché esiste: quando l'estensione non riesce ad aprire la scatola
+    /// sigillata che arriva per notifica, prima mostrava un'isola **vuota** —
+    /// cioè trattini al posto dei numeri, e nessun modo di sapere perché. Un dato
+    /// di qualche minuto fa dice ancora qualcosa di vero, e comunque c'è la
+    /// scadenza che lo fa sbiadire da sé: è meglio di niente in ogni caso.
+    ///
+    /// Lo scrive l'app, che il contenuto ce l'ha in chiaro e sa quando cambia.
+    /// L'estensione soltanto lo legge: scrivere mentre si disegna è il lavoro che
+    /// abbiamo appena tolto da quel percorso.
+    public static func rememberLastGood(_ island: ClaudeIslandState) {
+        guard let data = try? JSONEncoder().encode(island),
+              let accessGroup = accessGroup()
+        else { return }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: lastGoodAccount,
+            kSecAttrAccessGroup as String: accessGroup,
+        ]
+        SecItemDelete(query as CFDictionary)
+        var insert = query
+        insert[kSecValueData as String] = data
+        insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(insert as CFDictionary, nil)
+    }
+
+    /// L'ultimo contenuto buono, per quando la scatola non si apre.
+    public static func lastGood() -> ClaudeIslandState? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: lastGoodAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data
+        else { return nil }
+        return try? JSONDecoder().decode(ClaudeIslandState.self, from: data)
     }
 
     public static func forget() {
@@ -146,6 +214,14 @@ public enum IslandKey {
         ]
         if let group = accessGroup() { query[kSecAttrAccessGroup as String] = group }
         SecItemDelete(query as CFDictionary)
+
+        var stored: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: lastGoodAccount,
+        ]
+        if let group = accessGroup() { stored[kSecAttrAccessGroup as String] = group }
+        SecItemDelete(stored as CFDictionary)
     }
 }
 #endif
