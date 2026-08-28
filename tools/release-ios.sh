@@ -99,10 +99,15 @@ ASC_AUTH=(
 signing_attempt() {
   local label="$1" log="$2"; shift 2
   if xcodebuild "$@" "${ASC_AUTH[@]}" >"${log}" 2>&1; then return 0; fi
-  if grep -q "Cloud signing permission error\|No Accounts\|permission" "${log}"; then
-    echo "    la chiave API non basta per firmare; riprovo con l'account di Xcode"
-    xcodebuild "$@" >"${log}" 2>&1 && return 0
-  fi
+  # Sempre, non solo su certi messaggi.
+  #
+  # La prima versione riprovava solo riconoscendo «Cloud signing permission
+  # error» o «No Accounts». Ma lo stesso guasto si presenta anche come «No
+  # signing certificate "iOS Distribution" found», e allora il ripiego non
+  # scattava: un elenco di messaggi noti è sempre in ritardo di un guasto.
+  # Riprovare costa qualche secondo e solo quando si stava per fallire.
+  echo "    la chiave API non è bastata; riprovo con l'account di Xcode"
+  xcodebuild "$@" >"${log}" 2>&1 && return 0
   tail -30 "${log}" >&2
   fail "${label}"
 }
