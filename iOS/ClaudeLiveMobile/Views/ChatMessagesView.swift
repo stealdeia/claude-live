@@ -46,7 +46,13 @@ struct ChatMessagesView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 20)
                     } else {
-                        ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
+                        // Per identità e non per posizione: quando la finestra
+                        // dei venti scorre, le posizioni si spostano tutte di
+                        // uno e ogni fumetto risultava «cambiato». Venti blocchi
+                        // di testo formattato buttati e rifatti a ogni messaggio
+                        // nuovo — la chat che rimbalza, i scatti, il telefono
+                        // che scalda.
+                        ForEach(messages) { message in
                             bubble(message)
                         }
                     }
@@ -82,11 +88,12 @@ struct ChatMessagesView: View {
             // cui glielo si chiede, e allora la richiesta cade nel vuoto.
             .defaultScrollAnchor(.bottom)
             .onAppear { proxy.scrollTo(Anchor.bottom, anchor: .bottom) }
-            .onChange(of: activity?.label) { _, _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(Anchor.bottom, anchor: .bottom)
-                }
-            }
+            // Nessuno scorrimento quando cambia soltanto *cosa sta facendo*
+            // Claude. Quella riga cambia a ogni strumento — Bash, Read, Bash —
+            // cioè più volte al minuto mentre lavora, e ogni volta strappava la
+            // vista in fondo a chi stava leggendo più su. La riga dell'attività è
+            // alta poco: chi è in fondo la vede comunque, e chi non lo è non
+            // voleva andarci.
             .onChange(of: messages.count) { _, _ in
                 // Un messaggio nuovo mentre si guarda: si scende, come farebbe
                 // qualsiasi app di messaggi.

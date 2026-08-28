@@ -567,7 +567,13 @@ final class ClaudeStatusStore: ObservableObject {
         let normalized = sessions
             .map { $0.movedToProjectRoot(among: knownProjectPaths) }
             .map { session in
-                guard let request = pending[session.sessionID] else { return session }
+                let request = pending[session.sessionID]
+                // Applicata sempre: se non c'è nessuna attesa di seguito, questa
+                // la chiude anche quando il file di stato la dichiarava aperta.
+                let session = session.awaitingPrompt(
+                    request?.kind == "prompt" ? request?.requestID : nil
+                )
+                guard let request, request.kind != "prompt" else { return session }
                 return session.answering(
                     requestID: request.requestID,
                     toolName: request.toolName,
@@ -638,6 +644,17 @@ final class ClaudeStatusStore: ObservableObject {
         let toolName: String?
         let toolSummary: String?
 
+        /// Cosa sta aspettando l'hook: `permission`, `question` o `prompt`.
+        ///
+        /// Va guardato, e non guardarlo è stato un difetto vero: un'attesa di
+        /// tipo `prompt` passata per `answering()` diventava una richiesta di
+        /// permesso — `requestKind` forzato a «permission», `decidable` a vero —
+        /// e sul telefono compariva «Claude chiede un permesso» con la riga del
+        /// comando vuota, perché un'attesa di seguito non ha nessun comando.
+        /// Premere «Consenti» scriveva un file che l'hook, aspettando tutt'altro,
+        /// ignorava: il turno finiva e basta.
+        let kind: String
+
         /// Le domande a scelta multipla, vuoto per una richiesta di permesso.
         ///
         /// Non finiscono in `ClaudeSessionStatus` di proposito: sono dati di
@@ -673,6 +690,9 @@ final class ClaudeStatusStore: ObservableObject {
                 sessionID: sessionID,
                 toolName: json["tool_name"] as? String,
                 toolSummary: json["tool_summary"] as? String,
+                // Assente in un hook più vecchio dell'app: là esistevano solo i
+                // permessi, ed è la risposta giusta per quel caso.
+                kind: (json["kind"] as? String) ?? "permission",
                 questions: decodeQuestions(json["questions"])
             )
         }

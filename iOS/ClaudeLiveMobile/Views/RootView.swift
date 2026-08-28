@@ -68,14 +68,7 @@ struct RootView: View {
         // Sopra tutto e senza intercettare i tocchi: è un segnale, non un
         // pulsante. Sfuma invece di sparire, perché entrare nella chat è già la
         // risposta e un taglio secco sembrerebbe un guasto.
-        .overlay {
-            if glow.enabled, let alert = snapshot?.alert, glowState.isLit(alert) {
-                AppGlow(style: glow.style(for: alert.kind))
-                    .transition(.opacity)
-            }
-        }
-        .animation(.easeOut(duration: 0.55), value: glowState.dismissed)
-        .animation(.easeOut(duration: 0.55), value: snapshot?.alert)
+        .overlay { glowOverlay }
         // Forced dark: the whole look is a black-to-colour gradient, and there
         // is no light version of it that would still meet the Dynamic Island.
         .preferredColorScheme(.dark)
@@ -150,6 +143,30 @@ struct RootView: View {
     private var alertAlreadySeen: Bool {
         guard let alert = snapshot?.alert else { return false }
         return !glowState.isLit(alert)
+    }
+
+    /// Il segnale luminoso, con la sua animazione **tenuta dentro**.
+    ///
+    /// Le due righe `.animation(value:)` stavano attaccate alla radice, cioè
+    /// sopra l'intera app. Un'animazione dichiarata là non riguarda solo il
+    /// bagliore: dice a chi disegna di animare *qualunque* cambiamento in tutto
+    /// ciò che sta sotto, ogni volta che cambia l'avviso. Compresa la chat, che
+    /// si ritrovava a interpolare la propria altezza mentre l'elenco cambiava e
+    /// lo scorrimento era ancorato in fondo — cioè il rimbalzo che si vede nel
+    /// video, e una buona parte del calore.
+    ///
+    /// Qui dentro la dissolvenza in entrata e in uscita funziona uguale, perché
+    /// lo `ZStack` che contiene la condizione è dentro l'ambito animato. Ma
+    /// l'ambito finisce qui.
+    private var glowOverlay: some View {
+        ZStack {
+            if glow.enabled, let alert = snapshot?.alert, glowState.isLit(alert) {
+                AppGlow(style: glow.style(for: alert.kind))
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.55), value: glowState.dismissed)
+        .animation(.easeOut(duration: 0.55), value: snapshot?.alert)
     }
 
     private var tabs: some View {

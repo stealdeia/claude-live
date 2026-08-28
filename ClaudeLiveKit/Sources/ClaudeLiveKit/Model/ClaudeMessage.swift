@@ -7,7 +7,7 @@ import Foundation
 /// chiamate agli strumenti e i loro risultati, che sono la maggior parte delle
 /// righe e non sono la conversazione. Quello che resta è ciò che si leggerebbe
 /// guardando la chat.
-public struct ClaudeMessage: Codable, Equatable, Sendable {
+public struct ClaudeMessage: Codable, Equatable, Sendable, Identifiable {
     public enum Author: String, Codable, Sendable {
         case user
         case assistant
@@ -24,6 +24,24 @@ public struct ClaudeMessage: Codable, Equatable, Sendable {
         self.author = author
         self.text = text
         self.at = at
+    }
+
+    /// Un'identità che non cambia quando la finestra dei venti messaggi scorre.
+    ///
+    /// Serve perché la chat li elencava per **posizione**. Quando arriva un
+    /// messaggio nuovo la finestra scorre — il più vecchio esce, l'ultimo entra —
+    /// e tutte le posizioni si spostano di uno: chi disegna vede venti righe
+    /// diverse invece di una aggiunta, butta via tutti i fumetti e li rifà,
+    /// rimisurando venti blocchi di testo formattato. Il risultato era la chat
+    /// che rimbalza, il telefono che scalda e l'app che va a scatti.
+    ///
+    /// Chi, quando e quanto è lungo: due messaggi diversi dovrebbero avere lo
+    /// stesso autore, lo stesso millesimo di secondo e la stessa lunghezza per
+    /// confondersi. La lunghezza al posto del testo perché questa identità viene
+    /// ricalcolata a ogni disegno, e confrontare venti stringhe intere per
+    /// riconoscere venti righe è il lavoro che stiamo cercando di evitare.
+    public var id: String {
+        "\(author.rawValue)#\(at?.timeIntervalSince1970 ?? 0)#\(text.count)"
     }
 
     // MARK: - Dalla trascrizione

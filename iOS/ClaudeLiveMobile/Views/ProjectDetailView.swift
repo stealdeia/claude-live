@@ -144,15 +144,29 @@ struct ChatDetailView: View {
         // qualcosa per spegnere la luce sarebbe un secondo gesto per la stessa
         // decisione. Lo spegnimento è graduale, e lo decide chi disegna il
         // segnale.
-        .onAppear {
-            glowState.seen(
-                sessionID: session.sessionID,
-                projectPath: session.projectPath,
-                alert: alerts.alert
-            )
-        }
+        .onAppear { takeIn(alerts.alert) }
+        // E a ogni avviso nuovo finché si resta qui.
+        //
+        // Solo all'apertura non bastava, ed è il difetto per cui «il bagliore
+        // rimane»: la chiave di un avviso contiene l'istante in cui è nato, quindi
+        // ogni passaggio di stato — Claude finisce, riparte, chiede un permesso —
+        // ne fabbrica uno nuovo, che nessuno aveva ancora visto. Lo schermo si
+        // riaccendeva mentre l'utente stava guardando proprio quella chat.
+        //
+        // Restare qui *è* guardare: finché questa vista è aperta, un avviso di
+        // questa chat non ha niente da annunciare.
+        .onChange(of: alerts.alert) { _, now in takeIn(now) }
         .navigationTitle(session.chatLabel)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Segna come visto un avviso di *questa* chat.
+    private func takeIn(_ alert: ClaudeAlert?) {
+        glowState.seen(
+            sessionID: session.sessionID,
+            projectPath: session.projectPath,
+            alert: alert
+        )
     }
 
     /// Una riga, non una scheda: lo stato serve a inquadrare quello che si legge,

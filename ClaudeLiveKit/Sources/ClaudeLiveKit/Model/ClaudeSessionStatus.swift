@@ -324,6 +324,37 @@ extension ClaudeSessionStatus {
         )
     }
 
+    /// La stessa sessione, con l'attesa di un seguito aperta o chiusa.
+    ///
+    /// Applicata sempre, anche con `nil`: la cartella delle richieste è la fonte
+    /// affidabile su *se* l'hook stia ancora aspettando, mentre il file di stato
+    /// potrebbe averlo scritto e poi essere stato ucciso senza correggerlo. Una
+    /// casella di testo offerta a un'attesa finita raccoglierebbe parole che non
+    /// arrivano da nessuna parte.
+    public func awaitingPrompt(_ requestID: String?) -> ClaudeSessionStatus {
+        guard requestID != promptRequestID else { return self }
+        return ClaudeSessionStatus(
+            projectPath: projectPath,
+            projectName: projectName,
+            sessionID: sessionID,
+            state: state,
+            cwd: cwd,
+            isStale: isStale,
+            detail: detail,
+            requestKind: requestKind,
+            event: event,
+            permissionMode: permissionMode,
+            updatedAt: updatedAt,
+            requestID: self.requestID,
+            toolName: toolName,
+            toolSummary: toolSummary,
+            lastMessage: lastMessage,
+            decidable: decidable,
+            promptRequestID: requestID,
+            chatTitle: chatTitle
+        )
+    }
+
     /// La stessa sessione con il titolo che Claude Code le ha dato.
     ///
     /// Applicato dopo il caricamento e non decodificato: il titolo vive nella

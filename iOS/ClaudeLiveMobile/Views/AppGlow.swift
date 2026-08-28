@@ -33,11 +33,24 @@ struct AppGlow: View {
     /// Fase fissa, per mostrarne un fotogramma fermo. `nil` significa «animala».
     var fixedPhase: Double?
 
+    /// Trenta fotogrammi al secondo, non centoventi.
+    ///
+    /// Senza un limite il disegno segue lo schermo, che su questi telefoni arriva
+    /// a centoventi hertz. Ogni fotogramma qui costa quarantanove fermate di
+    /// gradiente ricalcolate e **tre sfocature a tutto schermo**: è il conto che
+    /// scaldava il telefono e faceva andare a scatti tutto il resto.
+    ///
+    /// Trenta bastano perché questa non è un movimento rapido: la banda compie un
+    /// giro in due secondi e sei decimi, sfocata di sette punti. A quella velocità
+    /// e con quei contorni, la differenza fra trenta e centoventi non si vede —
+    /// il costo sì.
+    static let frameInterval: Double = 1.0 / 30.0
+
     var body: some View {
         if let fixedPhase {
             ring(phase: fixedPhase)
         } else {
-            TimelineView(.animation) { timeline in
+            TimelineView(.animation(minimumInterval: Self.frameInterval)) { timeline in
                 ring(phase: GlowBand.phase(at: timeline.date))
             }
         }
@@ -94,7 +107,7 @@ struct GlowingRow: ViewModifier {
 
     func body(content: Content) -> some View {
         if active {
-            TimelineView(.animation) { timeline in
+            TimelineView(.animation(minimumInterval: AppGlow.frameInterval)) { timeline in
                 let phase = GlowBand.phase(at: timeline.date)
                 content
                     .background(
