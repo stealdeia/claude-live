@@ -48,6 +48,10 @@ struct RootView: View {
         }
         .tint(themes.theme.accent)
         .environment(\.theme, themes.theme)
+        // Anche lo store: la chat deve poter sapere se un messaggio mandato da
+        // qui è ancora in viaggio, e quell'informazione deve sopravvivere
+        // all'uscita e al rientro nella schermata.
+        .environmentObject(store)
         .environmentObject(glowState)
         .environmentObject(glow)
         .environmentObject(currentAlert)

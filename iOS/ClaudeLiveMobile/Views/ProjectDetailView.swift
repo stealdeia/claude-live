@@ -115,9 +115,12 @@ struct ChatDetailView: View {
     /// Chiuso all'apertura: chi entra qui viene a leggere. Si apre dopo.
     @State private var showingRequest = false
 
-    /// Quello che è stato mandato da qui e non si è ancora visto tornare nella
-    /// conversazione. Vive qui e non dentro la casella perché lo disegna la chat.
-    @State private var pendingPrompt: String?
+    /// Chi sa quali messaggi sono ancora in viaggio.
+    ///
+    /// Nell'ambiente e non in uno stato di questa vista: uscire dalla chat e
+    /// rientrare distrugge lo stato, e il messaggio appena mandato spariva —
+    /// visto nel video del 28 agosto. Lo store sopravvive alla navigazione.
+    @EnvironmentObject private var store: RemoteStore
 
     /// Una volta comparsa, la casella di scrittura resta.
     ///
@@ -145,7 +148,7 @@ struct ChatDetailView: View {
                 messages: messages,
                 emptyExplanation: emptyExplanation,
                 activity: (session.state, session.activityLabel),
-                pending: pendingPrompt
+                pending: store.pendingPrompts[session.sessionID]
             )
         }
         .safeAreaInset(edge: .top) { stateStrip }
@@ -176,15 +179,7 @@ struct ChatDetailView: View {
         .onChange(of: session.acceptsPrompt) { _, can in
             if can { composerShown = true }
         }
-        // Il messaggio mandato da qui è tornato dentro la conversazione: il
-        // fumetto spento lascia il posto a quello vero. Confrontato sul testo,
-        // che è l'unica cosa che i due lati condividono.
-        .onChange(of: messages) { _, now in
-            guard let pendingPrompt else { return }
-            if now.contains(where: { $0.author == .user && $0.text == pendingPrompt }) {
-                self.pendingPrompt = nil
-            }
-        }
+
         .navigationTitle(session.chatLabel)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -254,10 +249,7 @@ struct ChatDetailView: View {
             // si legge prima e si decide dopo, qui non c'è niente da decidere —
             // c'è da scrivere, e una casella da aprire prima di poterci scrivere
             // sarebbe un gesto in più per niente.
-            PromptComposer(session: session, isInFlight: isInFlight) { session, text in
-                pendingPrompt = text
-                onPrompt(session, text)
-            }
+            PromptComposer(session: session, isInFlight: isInFlight, onSend: onPrompt)
         }
     }
 

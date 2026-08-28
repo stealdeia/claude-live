@@ -17,6 +17,15 @@ final class RemoteStore: ObservableObject {
     @Published private(set) var problem: String?
     @Published private(set) var isPaired: Bool
 
+    /// Quello che è stato mandato da questo telefono e non si è ancora rivisto
+    /// nella conversazione, per sessione.
+    ///
+    /// Qui e non dentro la vista della chat, ed è il difetto che si vede nel
+    /// video: era uno stato della vista, quindi uscire dalla chat e rientrare lo
+    /// distruggeva — il messaggio appena mandato **spariva**, per ricomparire
+    /// solo quando tornava dal Mac. Lo store invece sopravvive alla navigazione.
+    @Published private(set) var pendingPrompts: [String: String] = [:]
+
     /// The relay's address. Not secret, ma sta col resto dell'accoppiamento.
     ///
     /// Nel portachiavi e non più nelle preferenze. Le preferenze, dopo un riavvio
@@ -279,6 +288,7 @@ final class RemoteStore: ObservableObject {
 
             snapshot = fresh
             problem = nil
+            clearArrivedPrompts(in: fresh)
 
         } catch let failure as RemoteCrypto.Failure {
             // Not a network problem, and saying so matters: it means this phone
@@ -459,6 +469,8 @@ final class RemoteStore: ObservableObject {
         )
         guard let sealed = try? RemoteCrypto.seal(envelope, with: key) else { return false }
 
+        pendingPrompts[session.sessionID] = written
+
         sending.insert(session.id)
         recomputeInFlight()
         defer {
@@ -480,15 +492,33 @@ final class RemoteStore: ObservableObject {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             if code != 200 {
                 problem = "Il relay ha rifiutato il messaggio (\(code))."
+                pendingPrompts[session.sessionID] = nil
                 return false
             }
         } catch {
             problem = "Non sono riuscito a mandare il messaggio."
+            pendingPrompts[session.sessionID] = nil
             return false
         }
 
         await refresh()
         return true
+    }
+
+    /// Toglie dall'attesa i messaggi che sono tornati dentro la conversazione.
+    ///
+    /// Confrontati sul testo, che è l'unica cosa che i due lati condividono:
+    /// l'identificativo del messaggio nella trascrizione lo assegna Claude Code,
+    /// e da qui non si può prevedere. Il testo invece parte da qui e torna
+    /// identico — l'hook lo consegna così com'è.
+    private func clearArrivedPrompts(in snapshot: RemoteSnapshot) {
+        guard !pendingPrompts.isEmpty else { return }
+        for (sessionID, written) in pendingPrompts {
+            let arrived = snapshot.messages?[sessionID]?.contains {
+                $0.author == .user && $0.text == written
+            }
+            if arrived == true { pendingPrompts[sessionID] = nil }
+        }
     }
 
     /// Polls while the app is on screen. Stopped when it is not: a phone that

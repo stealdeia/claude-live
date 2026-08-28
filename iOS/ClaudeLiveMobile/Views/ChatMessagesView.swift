@@ -75,10 +75,32 @@ struct ChatMessagesView: View {
                     }
 
                     if let pending, !pending.isEmpty {
-                        MessageBubble(
-                            message: ClaudeMessage(author: .user, text: pending, at: nil)
-                        )
-                        .opacity(0.5)
+                        // Il fumetto e, sotto, il segno che sta andando.
+                        //
+                        // Solo sbiadito non bastava: al cinquanta per cento su
+                        // sfondo scuro si legge come un fantasma, non come «sto
+                        // mandando», e chi ha premuto invio resta convinto che non
+                        // sia successo niente. Il pallino che gira è la parte che
+                        // dice *cosa sta facendo*, ed è la stessa cosa che
+                        // qualunque app di messaggi mette accanto a un messaggio
+                        // non ancora consegnato.
+                        VStack(alignment: .trailing, spacing: 3) {
+                            MessageBubble(
+                                message: ClaudeMessage(author: .user, text: pending, at: nil)
+                            )
+                            .opacity(0.8)
+
+                            HStack(spacing: 5) {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .tint(.white.opacity(0.45))
+                                Text("invio…")
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.45))
+                            }
+                            .padding(.trailing, 4)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
 
                     if let activity, activity.state == .working || activity.state == .waitingInput {
