@@ -130,13 +130,24 @@ final class LiveActivityController: ObservableObject {
         let content = Self.content(island)
 
         if let activity {
-            await activity.update(content)
-            return
+            // Gli attributi di un'attività non si possono cambiare: se quella in
+            // corso è nata senza la chiave — o con una diversa, dopo un nuovo
+            // accoppiamento — continuerà a non saper aprire niente per tutta la
+            // sua vita. In quel caso si chiude e se ne apre una nuova, che è
+            // l'unico modo di consegnarle la chiave giusta.
+            if activity.attributes.key == RemoteSecrets.read(.encryptionKey) {
+                await activity.update(content)
+                return
+            }
+            await stop()
         }
 
         do {
             let started = try Activity.request(
-                attributes: ClaudeActivityAttributes(),
+                // La chiave viaggia con l'attività: dall'estensione il
+                // portachiavi non si raggiunge (risponde -25291), e senza chiave
+                // le scatole sigillate che arrivano per notifica restano chiuse.
+                attributes: ClaudeActivityAttributes(key: RemoteSecrets.read(.encryptionKey)),
                 content: content,
                 // Con il token: è quello che permette al relay di aggiornare
                 // l'isola quando l'app non gira. Senza, l'isola resterebbe ferma

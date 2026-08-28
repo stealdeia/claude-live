@@ -1,3 +1,4 @@
+import CryptoKit
 import ActivityKit
 import SwiftUI
 import WidgetKit
@@ -26,11 +27,11 @@ struct ClaudeLiveActivityBundle: WidgetBundle {
 struct ClaudeLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClaudeActivityAttributes.self) { context in
-            let state = Self.resolve(context.state)
-            LockScreenView(state: state, trouble: Self.trouble(context.state))
+            let state = Self.resolve(context.state, context.attributes)
+            LockScreenView(state: state, trouble: Self.trouble(context.state, context.attributes))
                 .widgetURL(Self.homeLink)
         } dynamicIsland: { context in
-            let state = Self.resolve(context.state)
+            let state = Self.resolve(context.state, context.attributes)
             return island(for: state)
                 .widgetURL(Self.homeLink)
         }
@@ -44,15 +45,15 @@ struct ClaudeLiveActivityWidget: Widget {
     /// versione, o l'accoppiamento è stato rifatto — si mostra un'isola spoglia,
     /// che è meglio di una che mente.
     static func resolve(
-        _ state: ClaudeActivityAttributes.ContentState
+        _ state: ClaudeActivityAttributes.ContentState,
+        _ attributes: ClaudeActivityAttributes
     ) -> ClaudeIslandState {
         // In chiaro: l'app sta parlando a se stessa, non c'è niente da aprire.
         if let island = state.island { return island }
 
         // Sigillato: è arrivato per notifica, e va aperto con la chiave che l'app
         // ha copiato nel gruppo condiviso.
-        if let sealed = state.sealed,
-           let key = IslandKey.read(),
+        if let sealed = state.sealed, let key = key(from: attributes),
            let opened = try? RemoteCrypto.open(ClaudeIslandState.self, from: sealed, with: key) {
             return opened
         }
@@ -75,15 +76,28 @@ struct ClaudeLiveActivityWidget: Widget {
     /// indovinare, perché tre guasti diversi producevano lo stesso schermo. Alla
     /// prossima volta basterà guardare.
     static func trouble(
-        _ state: ClaudeActivityAttributes.ContentState
+        _ state: ClaudeActivityAttributes.ContentState,
+        _ attributes: ClaudeActivityAttributes
     ) -> String? {
         if state.island != nil { return nil }
         guard state.sealed != nil else { return "vuoto" }
-        // Col numero: «chiave» da sola non distingue «non ho il diritto di
-        // leggerla» da «non c'è» da «telefono non ancora sbloccato», e sono tre
-        // guasti con tre cure diverse.
-        guard IslandKey.read() != nil else { return "chiave \(IslandKey.lookupStatus())" }
+        // Col numero: «chiave» da sola non distingue i modi in cui può mancare,
+        // e sono guasti con cure diverse. È così che abbiamo scoperto il -25291.
+        guard key(from: attributes) != nil else { return "chiave \(IslandKey.lookupStatus())" }
         return nil
+    }
+
+    /// La chiave per aprire le scatole: prima il portachiavi, poi l'attività.
+    ///
+    /// In quest'ordine perché il portachiavi è il posto giusto per un segreto, e
+    /// se un giorno tornasse raggiungibile da qui va usato lui. Ma da questa
+    /// estensione oggi risponde «nessun portachiavi disponibile», quindi la
+    /// chiave viaggia anche dentro l'attività — dove il sistema la consegna
+    /// insieme al resto, senza che nessun processo debba andarsela a prendere.
+    static func key(from attributes: ClaudeActivityAttributes) -> SymmetricKey? {
+        if let stored = IslandKey.read() { return stored }
+        guard let text = attributes.key else { return nil }
+        return try? RemoteCrypto.importKey(text)
     }
 
     /// Dove porta il tocco su una riga: quel progetto.

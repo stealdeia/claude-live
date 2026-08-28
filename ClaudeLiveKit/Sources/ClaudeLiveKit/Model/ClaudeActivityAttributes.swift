@@ -49,8 +49,34 @@ public struct ClaudeActivityAttributes: ActivityAttributes {
     /// sessione dell'attività dalla successiva.
     public var startedAt: Date
 
-    public init(startedAt: Date = Date()) {
+    /// La chiave con cui aprire le scatole sigillate, consegnata all'estensione
+    /// insieme all'attività.
+    ///
+    /// ## Perché non basta il portachiavi
+    ///
+    /// Era là, in un gruppo condiviso fra app ed estensione, ed è il modo giusto
+    /// di condividere un segreto. Solo che dall'estensione non si raggiunge: il
+    /// portachiavi risponde **-25291**, «nessun portachiavi disponibile» —
+    /// misurato sul telefono, non dedotto. Non «non hai il diritto» e non «la
+    /// voce non c'è»: proprio irraggiungibile da quel processo. Per questo
+    /// l'isola mostrava trattini e riaprire l'app li faceva tornare: l'app usa
+    /// l'altra strada, quella in chiaro, che non ha bisogno di aprire niente.
+    ///
+    /// ## Cosa cambia, onestamente
+    ///
+    /// La chiave passa dal portachiavi al deposito che iOS tiene per le Live
+    /// Activity. È un posto meno protetto — questo va detto — ma resta **sul
+    /// telefono**: non viaggia in rete, non finisce al relay, e la proprietà che
+    /// conta non si tocca. Chi trasporta le notifiche continua a non poter
+    /// leggere né i nomi dei progetti né cosa Claude sta chiedendo.
+    ///
+    /// Facoltativa: se un giorno il portachiavi tornasse raggiungibile,
+    /// l'estensione prova prima quello.
+    public var key: String?
+
+    public init(startedAt: Date = Date(), key: String? = nil) {
         self.startedAt = startedAt
+        self.key = key
     }
 }
 #endif

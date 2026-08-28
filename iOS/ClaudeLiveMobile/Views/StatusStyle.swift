@@ -54,9 +54,25 @@ struct StatusDot: View {
             // della sua dimensione e a muoversi è la luce attorno — come la
             // striscia sul Mac, che pulsa senza cambiare spessore.
             if breathes {
+                // Ingrandito, non ridimensionato. La differenza non è di stile.
+                //
+                // Prima l'alone animava la propria `frame`, che è una proprietà
+                // di **impaginazione**: cambiarla sessanta volte al secondo
+                // costringe chi disegna a rifare i conti dello spazio a ogni
+                // fotogramma. La cornice fissa qui sotto impediva al pallino di
+                // spostare i vicini, ma non impediva il ricalcolo — e dentro una
+                // lista in uno scorrimento quel ricalcolo arrivava fino alla
+                // posizione della vista.
+                //
+                // È il rimbalzo della chat, misurato: un'onda pulita di periodo
+                // 1,3 secondi, cioè esattamente questa animazione, e una ventina
+                // di punti di ampiezza. Con `scaleEffect` l'aspetto è identico ma
+                // l'ingrandimento avviene al disegno, dopo che lo spazio è già
+                // stato deciso: zero impaginazione, zero rimbalzo.
                 Circle()
                     .fill(state.tint.opacity(phase ? 0.05 : 0.30))
-                    .frame(width: size * (phase ? 2.6 : 1.6), height: size * (phase ? 2.6 : 1.6))
+                    .frame(width: size * 2.6, height: size * 2.6)
+                    .scaleEffect(phase ? 1 : 1.6 / 2.6)
             }
 
             Circle()
