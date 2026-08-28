@@ -63,17 +63,24 @@ final class LiveActivityController: ObservableObject {
     func attach(to store: RemoteStore) {
         self.store = store
         // La chiave dell'accoppiamento, copiata dove l'estensione può leggerla.
-        // Rifatto a ogni avvio: se l'accoppiamento è stato rifatto, la copia
-        // vecchia aprirebbe le scatole sbagliate — cioè nessuna.
+        // Rifatta a ogni avvio e a ogni ritorno in primo piano: se
+        // l'accoppiamento è stato rifatto, la copia vecchia aprirebbe le scatole
+        // sbagliate — cioè nessuna.
+        //
+        // Tre esiti e tre frasi, perché fino a ieri due di questi erano muti e la
+        // diagnosi dei trattini nell'isola è durata cinque tentativi. Il peggiore
+        // era il ramo che manca: un `if let` senza `else`, cioè chiave illeggibile
+        // → nessuna copia, nessun avviso, e l'app che dice che va tutto bene.
         if let exported = RemoteSecrets.read(.encryptionKey) {
             if IslandKey.share(exported) {
                 keyProblem = nil
             } else {
-                // Detto, non ingoiato: senza la chiave condivisa l'isola non può
-                // aprire gli aggiornamenti che arrivano per notifica e mostra
-                // trattini. Per due giri di prove è successo in silenzio.
-                keyProblem = "L'isola non può leggere gli aggiornamenti: la chiave non è condivisa con l'estensione."
+                keyProblem = "L'isola non può leggere gli aggiornamenti: la chiave non è condivisa"
+                    + " con l'estensione (portachiavi: \(IslandKey.lookupStatus()))."
             }
+        } else {
+            keyProblem = "La chiave dell'accoppiamento non è leggibile: l'isola non potrà aprire"
+                + " gli aggiornamenti."
         }
         if let existing = activity { watchToken(of: existing) }
     }

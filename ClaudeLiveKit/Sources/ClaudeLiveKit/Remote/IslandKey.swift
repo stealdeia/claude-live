@@ -141,6 +141,33 @@ public enum IslandKey {
         return readKey(inGroup: group)
     }
 
+    /// Cosa risponde il portachiavi quando si chiede la chiave, come numero.
+    ///
+    /// Serve perché «non riesco a leggere la chiave» sono ancora tre guasti
+    /// diversi con tre cure diverse, e da fuori si vedono uguali:
+    ///
+    /// - `-34018` (`errSecMissingEntitlement`): l'estensione non ha il diritto di
+    ///   guardare in quel gruppo. Problema di autorizzazioni o di profilo.
+    /// - `-25300` (`errSecItemNotFound`): il diritto c'è, la voce no. L'app non
+    ///   l'ha mai scritta, o l'ha scritta altrove.
+    /// - `-25308` (`errSecInteractionNotAllowed`): il telefono non è ancora stato
+    ///   sbloccato dopo un riavvio.
+    ///
+    /// Disegnato accanto alla parola «chiave» sulla schermata di blocco. Un
+    /// numero in più costa niente e chiude una domanda che ci portiamo dietro da
+    /// cinque tentativi.
+    public static func lookupStatus() -> OSStatus {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: CFTypeRef?
+        return SecItemCopyMatching(query as CFDictionary, &result)
+    }
+
     private static func readKey(inGroup group: String?) -> SymmetricKey? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

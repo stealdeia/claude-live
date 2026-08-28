@@ -79,7 +79,10 @@ struct ClaudeLiveActivityWidget: Widget {
     ) -> String? {
         if state.island != nil { return nil }
         guard state.sealed != nil else { return "vuoto" }
-        guard IslandKey.read() != nil else { return "chiave" }
+        // Col numero: «chiave» da sola non distingue «non ho il diritto di
+        // leggerla» da «non c'è» da «telefono non ancora sbloccato», e sono tre
+        // guasti con tre cure diverse.
+        guard IslandKey.read() != nil else { return "chiave \(IslandKey.lookupStatus())" }
         return nil
     }
 
