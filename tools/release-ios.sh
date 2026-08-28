@@ -65,10 +65,31 @@ fi
 
 cd iOS
 xcodegen generate >/dev/null
+
+# Firmare con la chiave App Store Connect invece che con l'account di Xcode.
+#
+# `-allowProvisioningUpdates` da solo chiede a Xcode chi sei, e Xcode lo sa solo
+# se qualcuno ci ha fatto il login a mano. Quel login è sparito fra la build 16 e
+# la 17 — «No Accounts», e subito dopo «No signing certificate "iOS
+# Distribution" found», perché senza account non può nemmeno creare il
+# certificato che gli serve. Un rilascio che dipende da uno stato interattivo si
+# rompe il giorno in cui quello stato cambia, senza che nessuno abbia toccato il
+# codice.
+#
+# La chiave ce l'abbiamo già: è la stessa con cui si carica su TestFlight, e con
+# questi tre argomenti xcodebuild la usa anche per creare certificato e profilo
+# da sé. Il percorso, mai il contenuto.
+ASC_AUTH=(
+  -authenticationKeyPath "${HOME}/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+  -authenticationKeyID "${ASC_KEY_ID}"
+  -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
+)
+
 echo "==> Archivio"
 xcodebuild -project ClaudeLiveMobile.xcodeproj -scheme ClaudeLiveMobile \
   -configuration Release -destination 'generic/platform=iOS' \
-  -archivePath "${WORK}/app.xcarchive" -allowProvisioningUpdates archive >"${WORK}/archive.log" 2>&1 \
+  -archivePath "${WORK}/app.xcarchive" -allowProvisioningUpdates "${ASC_AUTH[@]}" \
+  archive >"${WORK}/archive.log" 2>&1 \
   || { tail -30 "${WORK}/archive.log" >&2; fail "Archivio fallito."; }
 
 # L'ambiente delle notifiche è la cosa che sbaglia in silenzio: una build
@@ -93,7 +114,7 @@ cat > "${WORK}/export.plist" <<PLIST
 PLIST
 xcodebuild -exportArchive -archivePath "${WORK}/app.xcarchive" \
   -exportOptionsPlist "${WORK}/export.plist" -exportPath "${WORK}/export" \
-  -allowProvisioningUpdates >"${WORK}/export.log" 2>&1 \
+  -allowProvisioningUpdates "${ASC_AUTH[@]}" >"${WORK}/export.log" 2>&1 \
   || { tail -30 "${WORK}/export.log" >&2; fail "Esportazione fallita."; }
 
 IPA="${WORK}/export/ClaudeLiveMobile.ipa"
