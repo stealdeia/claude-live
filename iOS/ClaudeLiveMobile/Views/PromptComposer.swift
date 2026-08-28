@@ -29,14 +29,6 @@ struct PromptComposer: View {
     @State private var text = ""
     @FocusState private var writing: Bool
 
-    /// Quello che è stato mandato e non si è ancora visto tornare indietro.
-    ///
-    /// Il seguito compare nella chat solo quando il Mac rimanda la fotografia, e
-    /// nel mezzo — che può essere qualche secondo — non ci sarebbe traccia di
-    /// averlo mandato. Senza questo, si preme invio e non succede niente
-    /// visibile: il gesto più facile da ripetere per sbaglio.
-    @State private var justSent: String?
-
     /// Il raggio degli angoli del campo di testo.
     private static let corner: CGFloat = 20
 
@@ -47,17 +39,10 @@ struct PromptComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let justSent {
-                sentRow(justSent)
-            }
-
-            if !session.acceptsPrompt {
-                Label(
-                    "La conversazione non aspetta più: questo messaggio non arriverebbe.",
-                    systemImage: "exclamationmark.circle"
-                )
-                .font(.caption2)
-                .foregroundStyle(.orange.opacity(0.9))
+            if let waiting = whyNotNow {
+                Label(waiting.text, systemImage: waiting.symbol)
+                    .font(.caption2)
+                    .foregroundStyle(waiting.tint)
             }
 
             HStack(alignment: .bottom, spacing: 8) {
@@ -104,34 +89,29 @@ struct PromptComposer: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
-        // Il messaggio è tornato indietro dentro la conversazione: la riga di
-        // attesa ha finito il suo lavoro. Confrontato sul testo perché è l'unica
-        // cosa che i due lati condividono — l'identificativo lo assegna il Mac.
-        .onChange(of: session.updatedAt) { _, _ in
-            if justSent != nil, session.state == .working { justSent = nil }
+    }
+
+    /// Perché non si può scrivere adesso, quando non si può.
+    ///
+    /// Due casi diversi che meritano due frasi diverse. Se Claude sta lavorando
+    /// non c'è niente di rotto: sta rispondendo, e fra poco si potrà scrivere di
+    /// nuovo. Se invece l'attesa è scaduta o sei tornato al Mac, quel messaggio
+    /// non lo raccoglierebbe nessuno, e va detto.
+    private var whyNotNow: (text: String, symbol: String, tint: Color)? {
+        guard !session.acceptsPrompt else { return nil }
+        if session.state == .working {
+            return ("Claude sta rispondendo: potrai scrivere quando ha finito.",
+                    "ellipsis.bubble", .white.opacity(0.5))
         }
+        return ("La conversazione non aspetta più: questo messaggio non arriverebbe.",
+                "exclamationmark.circle", .orange.opacity(0.9))
     }
 
     private func send() {
         let written = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !written.isEmpty else { return }
         onSend(session, written)
-        justSent = written
         text = ""
         writing = false
-    }
-
-    /// Quello che si è appena mandato, in attesa di rivederlo nella chat.
-    private func sentRow(_ written: String) -> some View {
-        HStack(alignment: .top, spacing: 7) {
-            ProgressView()
-                .controlSize(.mini)
-                .tint(.white.opacity(0.5))
-            Text(written)
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.55))
-                .lineLimit(2)
-            Spacer(minLength: 0)
-        }
     }
 }

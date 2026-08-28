@@ -115,6 +115,21 @@ struct ChatDetailView: View {
     /// Chiuso all'apertura: chi entra qui viene a leggere. Si apre dopo.
     @State private var showingRequest = false
 
+    /// Quello che è stato mandato da qui e non si è ancora visto tornare nella
+    /// conversazione. Vive qui e non dentro la casella perché lo disegna la chat.
+    @State private var pendingPrompt: String?
+
+    /// Una volta comparsa, la casella di scrittura resta.
+    ///
+    /// Sparire era un difetto con due facce. La prima: appena Claude riparte
+    /// l'attesa si chiude, la casella spariva, e con lei una settantina di punti
+    /// più la tastiera — un salto di altezza che lasciava la conversazione
+    /// scorrata nel vuoto, «è sparita tutta la chat». La seconda: dentro la
+    /// casella c'era già l'avviso «la conversazione non aspetta più», scritto
+    /// apposta per non far sparire le parole sotto le dita, e non si è mai potuto
+    /// vedere — la casella spariva prima, portandoselo via.
+    @State private var composerShown = false
+
     /// L'avviso che sta illuminando l'app, per poterlo spegnere entrando.
     @EnvironmentObject private var glowState: GlowState
 
@@ -129,7 +144,8 @@ struct ChatDetailView: View {
             ChatMessagesView(
                 messages: messages,
                 emptyExplanation: emptyExplanation,
-                activity: (session.state, session.activityLabel)
+                activity: (session.state, session.activityLabel),
+                pending: pendingPrompt
             )
         }
         .safeAreaInset(edge: .top) { stateStrip }
@@ -156,6 +172,19 @@ struct ChatDetailView: View {
         // Restare qui *è* guardare: finché questa vista è aperta, un avviso di
         // questa chat non ha niente da annunciare.
         .onChange(of: alerts.alert) { _, now in takeIn(now) }
+        .onAppear { composerShown = session.acceptsPrompt }
+        .onChange(of: session.acceptsPrompt) { _, can in
+            if can { composerShown = true }
+        }
+        // Il messaggio mandato da qui è tornato dentro la conversazione: il
+        // fumetto spento lascia il posto a quello vero. Confrontato sul testo,
+        // che è l'unica cosa che i due lati condividono.
+        .onChange(of: messages) { _, now in
+            guard let pendingPrompt else { return }
+            if now.contains(where: { $0.author == .user && $0.text == pendingPrompt }) {
+                self.pendingPrompt = nil
+            }
+        }
         .navigationTitle(session.chatLabel)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -220,12 +249,15 @@ struct ChatDetailView: View {
                     onDecide: onDecide
                 )
             }
-        } else if session.acceptsPrompt {
+        } else if session.acceptsPrompt || composerShown {
             // Aperta e non dentro un accordion, al contrario delle altre due: là
             // si legge prima e si decide dopo, qui non c'è niente da decidere —
             // c'è da scrivere, e una casella da aprire prima di poterci scrivere
             // sarebbe un gesto in più per niente.
-            PromptComposer(session: session, isInFlight: isInFlight, onSend: onPrompt)
+            PromptComposer(session: session, isInFlight: isInFlight) { session, text in
+                pendingPrompt = text
+                onPrompt(session, text)
+            }
         }
     }
 

@@ -33,7 +33,24 @@ struct ChatMessagesView: View {
     var activity: (state: ClaudeActivity, label: String)?
 
     /// Ancora dell'ultimo messaggio, per portarci la vista all'apertura.
+    /// Quello che è stato mandato dall'app e non si è ancora visto tornare.
+    ///
+    /// Disegnato come un fumetto vero, in fondo, un po' spento. Prima compariva
+    /// solo una riguccia grigia dentro la casella di scrittura, e non si leggeva
+    /// come «mandato»: si premeva invio e la conversazione non cambiava, che è il
+    /// modo più sicuro di far premere invio due volte.
+    var pending: String?
+
     private enum Anchor: Hashable { case bottom }
+
+    /// Se l'ultimo messaggio è sotto gli occhi in questo momento.
+    ///
+    /// Decide se seguire la conversazione quando arriva qualcosa di nuovo. Senza
+    /// questa distinzione ci sono solo due comportamenti, ed entrambi sbagliano:
+    /// seguire sempre strappa la vista a chi sta leggendo più su, non seguire mai
+    /// lascia la vista dov'era mentre il contenuto le cresce sotto — ed è così
+    /// che «è sparita tutta la chat e ho dovuto scrollare in su».
+    @State private var atBottom = true
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -57,6 +74,13 @@ struct ChatMessagesView: View {
                         }
                     }
 
+                    if let pending, !pending.isEmpty {
+                        MessageBubble(
+                            message: ClaudeMessage(author: .user, text: pending, at: nil)
+                        )
+                        .opacity(0.5)
+                    }
+
                     if let activity, activity.state == .working || activity.state == .waitingInput {
                         HStack(spacing: 7) {
                             StatusDot(state: activity.state, size: 7)
@@ -77,6 +101,7 @@ struct ChatMessagesView: View {
                     Color.clear
                         .frame(height: 1)
                         .id(Anchor.bottom)
+                        .onScrollVisibilityChange { atBottom = $0 }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -115,12 +140,22 @@ struct ChatMessagesView: View {
             // alta poco: chi è in fondo la vede comunque, e chi non lo è non
             // voleva andarci.
             .onChange(of: messages.count) { _, _ in
-                // Un messaggio nuovo mentre si guarda: si scende, come farebbe
-                // qualsiasi app di messaggi.
-                withAnimation(.easeOut(duration: 0.25)) {
-                    proxy.scrollTo(Anchor.bottom, anchor: .bottom)
-                }
+                follow(proxy)
             }
+            // Anche quando il messaggio in attesa compare o sparisce: sono le due
+            // volte in cui la conversazione cresce di un fumetto senza che il
+            // conto dei messaggi cambi.
+            .onChange(of: pending) { _, _ in
+                follow(proxy)
+            }
+        }
+    }
+
+    /// Scende in fondo, ma solo per chi ci era già.
+    private func follow(_ proxy: ScrollViewProxy) {
+        guard atBottom else { return }
+        withAnimation(.easeOut(duration: 0.25)) {
+            proxy.scrollTo(Anchor.bottom, anchor: .bottom)
         }
     }
 
