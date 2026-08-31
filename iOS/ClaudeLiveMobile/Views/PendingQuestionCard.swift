@@ -100,14 +100,25 @@ struct PendingQuestionCard: View {
             if question.multi {
                 if isChosen { chosen.remove(option.label) } else { chosen.insert(option.label) }
             } else {
-                record(option.label, for: question)
+                // Sceglie e basta: la risposta parte col pulsante qui sotto.
+                //
+                // Prima toccare *era* rispondere, e su un telefono un tocco non è
+                // sempre un tocco: scorrendo per leggere le altre opzioni il dito
+                // ne sfiora una e la risposta partiva, irreversibile. Su una
+                // domanda a scelta singola quel gesto costa la decisione intera.
+                chosen = [option.label]
             }
         } label: {
             HStack(alignment: .top, spacing: 9) {
-                if question.multi {
-                    Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isChosen ? GlowRGB.done.color : .white.opacity(0.35))
-                }
+                // Il segno della scelta c'è anche per la singola: da quando
+                // toccare non risponde più, deve vedersi *cosa* si è scelto.
+                // Tondo pieno per la singola, spunta per la multipla — la stessa
+                // distinzione che fa il sistema fra scegliere uno e scegliere
+                // quanti si vuole.
+                Image(systemName: question.multi
+                      ? (isChosen ? "checkmark.circle.fill" : "circle")
+                      : (isChosen ? "largecircle.fill.circle" : "circle"))
+                    .foregroundStyle(isChosen ? GlowRGB.done.color : .white.opacity(0.35))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(option.label)
                         .font(.footnote.weight(.semibold))
@@ -165,24 +176,26 @@ struct PendingQuestionCard: View {
             }
 
             HStack(spacing: 10) {
-                if question.multi {
-                    Button {
-                        // Nell'ordine in cui le opzioni sono scritte, non in
-                        // quello in cui sono state toccate: è l'ordine che Claude
-                        // ha scelto per presentarle.
-                        record(
-                            ClaudeQuestion.joined(
-                                question.options.map(\.label).filter(chosen.contains)
-                            ),
-                            for: question
-                        )
-                    } label: {
-                        Text("Rispondi").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(GlowRGB.done.color)
-                    .disabled(chosen.isEmpty)
+                Button {
+                    // Nell'ordine in cui le opzioni sono scritte, non in quello
+                    // in cui sono state toccate: è l'ordine che Claude ha scelto
+                    // per presentarle.
+                    record(
+                        ClaudeQuestion.joined(
+                            question.options.map(\.label).filter(chosen.contains)
+                        ),
+                        for: question
+                    )
+                } label: {
+                    // Quello che il pulsante fa davvero. Con più domande in fila,
+                    // rispondere a una non manda niente: le risposte partono
+                    // insieme, perché l'hook trattiene una chiamata sola.
+                    Text(isLastUnanswered ? "Invia risposta" : "Avanti")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(GlowRGB.done.color)
+                .disabled(chosen.isEmpty)
 
                 if !writingOwn {
                     Button {
@@ -210,6 +223,12 @@ struct PendingQuestionCard: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+
+    /// Se questa è l'ultima domanda senza risposta, cioè se confermare qui manda
+    /// davvero qualcosa.
+    private var isLastUnanswered: Bool {
+        questions.filter { answers[$0.question] == nil }.count <= 1
     }
 
     private var ownAnswerIsEmpty: Bool {

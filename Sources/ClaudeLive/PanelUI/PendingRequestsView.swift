@@ -202,15 +202,19 @@ private struct QuestionRequestRow: View {
             if question.multi {
                 if isChosen { chosen.remove(option.label) } else { chosen.insert(option.label) }
             } else {
-                record(option.label, for: question)
+                // Sceglie e basta, come sul telefono e come nel terminale: la
+                // risposta parte con «Invia risposta». Un clic solo per una
+                // decisione irreversibile è un clic di troppo, e tenere i due
+                // pannelli con due gesti diversi sarebbe peggio di entrambi.
+                chosen = [option.label]
             }
         } label: {
             HStack(alignment: .top, spacing: 6) {
-                if question.multi {
-                    Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 11))
-                        .foregroundStyle(isChosen ? GlowRGB.done.color : Color.primary.opacity(0.35))
-                }
+                Image(systemName: question.multi
+                      ? (isChosen ? "checkmark.circle.fill" : "circle")
+                      : (isChosen ? "largecircle.fill.circle" : "circle"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(isChosen ? GlowRGB.done.color : Color.primary.opacity(0.35))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(option.label)
@@ -276,18 +280,20 @@ private struct QuestionRequestRow: View {
             }
         } else {
             HStack(spacing: 6) {
-                if question.multi {
-                    pill("Rispondi", tint: GlowRGB.done.color, enabled: !chosen.isEmpty) {
-                        // Nell'ordine in cui le opzioni sono scritte, non in
-                        // quello in cui sono state spuntate: è l'ordine che
-                        // Claude ha scelto per presentarle.
-                        record(
-                            ClaudeQuestion.joined(
-                                question.options.map(\.label).filter(chosen.contains)
-                            ),
-                            for: question
-                        )
-                    }
+                pill(
+                    isLastUnanswered ? "Invia risposta" : "Avanti",
+                    tint: GlowRGB.done.color,
+                    enabled: !chosen.isEmpty
+                ) {
+                    // Nell'ordine in cui le opzioni sono scritte, non in
+                    // quello in cui sono state spuntate: è l'ordine che
+                    // Claude ha scelto per presentarle.
+                    record(
+                        ClaudeQuestion.joined(
+                            question.options.map(\.label).filter(chosen.contains)
+                        ),
+                        for: question
+                    )
                 }
 
                 pill("Altro…") { writingOwn = true }
@@ -296,6 +302,11 @@ private struct QuestionRequestRow: View {
                 Spacer(minLength: 2)
             }
         }
+    }
+
+    /// Se confermare qui manda davvero qualcosa, o solo passa alla prossima.
+    private var isLastUnanswered: Bool {
+        questions.filter { answers[$0.question] == nil }.count <= 1
     }
 
     private var ownAnswerIsEmpty: Bool {
