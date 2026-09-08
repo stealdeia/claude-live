@@ -231,11 +231,20 @@ const COMMAND_LIFE_MS = 300_000
  *
  * ## Perché due e non uno
  *
- * Era uno, novanta secondi per qualunque cambiamento. Sbagliato, e il difetto
- * si vedeva come «i dati si aggiornano un po' lentamente»: il Mac pubblica ogni
- * cinque-venticinque secondi, e le percentuali d'utilizzo salgono di continuo,
- * quindi il pavimento veniva colpito **sempre** — un risveglio ogni novanta
- * secondi per dire «14 invece di 13». Quaranta risvegli all'ora spesi in rumore.
+ * Era uno, novanta secondi per qualunque cambiamento.
+ *
+ * Cosa è **misurato**, in `wrangler tail`: il Mac pubblica ogni
+ * cinque-venticinque secondi — non ogni minuto come dice `heartbeatInterval`,
+ * perché `publishSoon` scatta su ogni cambiamento con due secondi di attesa. E
+ * a riposo, con nessuno stato che si muove, l'isola **non viene spedita affatto**
+ * e nessun risveglio parte: il gate di `islandToSend()` fa il suo lavoro.
+ *
+ * Cosa è **dedotto**, e va detto che lo è: mentre si usa Claude Code le
+ * percentuali d'utilizzo salgono, quindi il contenuto dell'isola cambia a quasi
+ * ogni pubblicazione e il pavimento diventa l'unico limite — fino a quaranta
+ * risvegli all'ora, spesi per dire «14 invece di 13». Non l'ho contato per
+ * un'ora; l'ho ricavato dalla cadenza misurata. Ma è l'ordine di grandezza, e
+ * cade proprio nei momenti in cui i risvegli servono.
  *
  * E i risvegli in sottofondo hanno un bilancio che iOS gestisce da sé e non
  * pubblica: chi ne chiede troppi non ne ottiene di più, ne ottiene **meno** — il
