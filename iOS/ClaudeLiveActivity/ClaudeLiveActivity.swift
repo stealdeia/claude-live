@@ -514,16 +514,24 @@ private struct LockScreenView: View {
             )
         }
         .overlay {
-            if state.alert != nil {
-                // Il raggio segue la scala. Non è la soluzione migliore —
-                // `ContainerRelativeShape` prenderebbe la curva vera del
-                // contenitore — ma quella l'ho provata insieme a un'altra
-                // modifica e la Live Activity è sparita: due variabili nuove
-                // nella stessa build sono due variabili che non si possono
-                // separare. La causa era l'altra (vedi sotto), e questa torna
-                // qui in attesa di essere provata da sola.
-                RoundedRectangle(cornerRadius: fullscreen ? 34 : 22, style: .continuous)
-                    .strokeBorder(tint.opacity(0.75), lineWidth: fullscreen ? 3 : 2)
+            // Solo sulla schermata di blocco, dove la scheda **è** la mia vista
+            // e il filo ne segna il bordo.
+            //
+            // A schermo pieno no, e non per gusto: là il sistema aggiunge un
+            // margine proprio attorno alla vista, quindi il filo segnava i
+            // confini del *contenuto* e galleggiava dentro la scheda, staccato
+            // dai bordi su tutti i lati — si leggeva come un rettangolo verde
+            // disegnato dentro, non come il bordo di qualcosa. Quei margini non
+            // li decidiamo noi e non c'è modo di combaciarci: `ContainerRelativeShape`
+            // l'ho provata e la Live Activity è sparita, perché nella stessa
+            // build c'era anche lo `Spacer` che l'ha rotta — ma provarla di
+            // nuovo non risolverebbe comunque il margine del sistema.
+            //
+            // Non si perde l'avviso: là il titolo è già del colore dell'avviso,
+            // e il progetto che lo riguarda ha il pallino colorato.
+            if state.alert != nil, !fullscreen {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(tint.opacity(0.75), lineWidth: 2)
             }
         }
     }
@@ -537,9 +545,10 @@ private struct LockScreenView: View {
         // Schermata di blocco: invariata. Là il tetto è 160 e questa ne usa 96.
         fullscreen
             ? layout(ring: 62, headlineSize: 17, troubleSize: 11,
-                     rowScale: 1.3, padding: 12, rowLimit: Self.fullscreenRowLimit)
+                     rowScale: 1.3, padding: 12,
+                     rowLimit: Self.fullscreenRowLimit, showsState: false)
             : layout(ring: 44, headlineSize: 13, troubleSize: 9,
-                     rowScale: 1, padding: 14, rowLimit: nil)
+                     rowScale: 1, padding: 14, rowLimit: nil, showsState: true)
     }
 
     /// ## Una forma, due tarature
@@ -561,13 +570,28 @@ private struct LockScreenView: View {
     /// Quei 136 sono il vero motivo per cui «facciamola più grande» ha un
     /// limite, e il pezzo che mancava a tutte le stime: a 144 la scheda veniva
     /// tagliata sopra e sotto.
+    ///
+    /// ## E la larghezza è più stretta di quanto sembri
+    ///
+    /// Dei 365 punti, alla colonna del testo ne arrivano **179**: gli anelli ne
+    /// prendono 124 e le due spaziature dell'`HStack` altri 36 — una delle due
+    /// me l'ero persa, contandone 199. In 179 punti «trasferimento» *più* «in
+    /// attesa» non ci stanno, e il nome si troncava.
+    ///
+    /// La cura non è rimpicciolire gli anelli: anche a 54 punti la somma non
+    /// torna. È che `showsState` a schermo pieno è **spento**. Lo stato in
+    /// parole costa ~68 punti dei 179 — più di un terzo — per ripetere «in
+    /// attesa» su ogni riga, mentre il pallino lo dice già col colore. Da
+    /// lontano il nome è il segnale e lo stato è il colore; un nome troncato non
+    /// è né l'uno né l'altro.
     private func layout(
         ring: CGFloat,
         headlineSize: CGFloat,
         troubleSize: CGFloat,
         rowScale: CGFloat,
         padding: CGFloat,
-        rowLimit: Int?
+        rowLimit: Int?,
+        showsState: Bool
     ) -> some View {
         HStack(spacing: 14 * rowScale) {
             ActivityRing(
@@ -602,7 +626,7 @@ private struct LockScreenView: View {
                 ForEach(rows(limit: rowLimit)) { project in
                     // Toccare un nome porta a quel progetto. Prima la schermata
                     // di blocco aveva un solo collegamento per tutto.
-                    projectRow(project, scale: rowScale)
+                    projectRow(project, scale: rowScale, showsState: showsState)
                 }
 
                 if let hidden = hiddenCount(limit: rowLimit), hidden > 0 {
@@ -691,9 +715,13 @@ private struct LockScreenView: View {
         }
     }
 
-    private func projectRow(_ project: ClaudeIslandState.Project, scale: CGFloat) -> some View {
+    private func projectRow(
+        _ project: ClaudeIslandState.Project,
+        scale: CGFloat,
+        showsState: Bool
+    ) -> some View {
         Link(destination: ClaudeLiveActivityWidget.link(toProject: project)) {
-            ProjectLine(project: project, tint: tint, scale: scale)
+            ProjectLine(project: project, tint: tint, scale: scale, showsState: showsState)
         }
     }
 
