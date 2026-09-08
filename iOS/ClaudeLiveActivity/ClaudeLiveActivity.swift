@@ -17,10 +17,28 @@ import ClaudeLiveKit
 ///
 /// Quello che il sistema *sì* anima è il filo attorno all'isola —
 /// `keylineTint` — e quello lo coloriamo con il colore dell'avviso.
+/// ## Perché i widget stanno in questo bersaglio e non in uno nuovo
+///
+/// Questo è già un `WidgetBundle` sotto `com.apple.widgetkit-extension`: è
+/// esattamente il punto d'estensione che vogliono anche i widget della schermata
+/// Home e di StandBy. Un bersaglio nuovo avrebbe voluto un terzo identificativo
+/// di pacchetto, un terzo file di autorizzazioni, un terzo profilo di firma e una
+/// terza coppia di numeri di versione — che `tools/release-ios.sh` **pretende**
+/// concordi con le altre due, e che è già andata di traverso una volta. Più la
+/// riga `embed: true`, la cui assenza il 2026-08-27 mandò su TestFlight una build
+/// senza l'isola dentro.
+///
+/// Tre superfici, tre `Widget` distinti e non uno che si adatta: in StandBy iOS
+/// accetta **solo** `systemSmall`, e due slot affiancati possono mostrare due
+/// widget diversi. Un widget unico avrebbe potuto occupare un solo slot, e là
+/// dentro i due contatori e l'elenco dei progetti non ci stanno insieme.
 @main
 struct ClaudeLiveActivityBundle: WidgetBundle {
     var body: some Widget {
         ClaudeLiveActivityWidget()
+        UsageWidget()
+        ProjectsWidget()
+        OverviewWidget()
     }
 }
 
@@ -191,11 +209,23 @@ struct ClaudeLiveActivityWidget: Widget {
         } compactTrailing: {
             CompactUsage(percent: state.sevenDayPercent, label: "7g")
         } minimal: {
-            // Quando l'isola è divisa con un'altra attività resta un pallino: il
-            // più urgente dei due numeri, o il colore dell'avviso se ce n'è uno.
-            Text(percentLabel(state.fiveHourPercent) ?? "CL")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(tint(for: state))
+            // Un pallino solo, e conta più di quanto sembri: è la presentazione
+            // che l'isola usa quando è divisa con un'altra attività, **ed è anche
+            // l'unica cosa che iOS mostra in StandBy** — un piccolo indicatore in
+            // cima allo schermo che, toccato, apre la vista della schermata di
+            // blocco ingrandita di 2×. Cioè è la porta per la Live Activity a
+            // schermo pieno, non una scoria.
+            //
+            // Lo stato e non la percentuale, cambiato il 2026-09-08 dopo averlo
+            // visto sul telefono. Qui c'era il numero delle 5 ore, che dentro
+            // l'isola divisa ha un senso — sta accanto al resto — ma da solo in
+            // mezzo a uno schermo in StandBy è «11», e nessuno può indovinare
+            // undici di cosa. Un simbolo invece dice la cosa per cui ci si
+            // alzerebbe dalla sedia: campanella se qualcuno aspetta, ingranaggio
+            // se sta lavorando, spunta se è tutto fermo.
+            Image(systemName: Self.urgentState(state).symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(minimalTint(for: state))
         }
         // Il filo che il sistema disegna attorno all'isola: è l'unica cosa che
         // possiamo far brillare là fuori, e prende il colore dell'avviso.
@@ -206,48 +236,86 @@ struct ClaudeLiveActivityWidget: Widget {
         state.alert?.defaultColor.color ?? .white
     }
 
-    private func percentLabel(_ percent: Double?) -> String? {
-        guard let percent else { return nil }
-        return "\(Int(percent.rounded()))"
+    /// Lo stato più urgente fra i progetti, per il pallino che li riassume tutti.
+    ///
+    /// `max()` e non un confronto scritto a mano: `ClaudeActivity` è già
+    /// `Comparable` per urgenza — attende input, poi errore, poi al lavoro, poi
+    /// in attesa — ed è la stessa graduatoria con cui il Mac ordina il pannello.
+    /// Senza progetti è «fermo», che è la verità.
+    static func urgentState(_ state: ClaudeIslandState) -> ClaudeActivity {
+        state.projects.map(\.state).max() ?? .idle
+    }
+
+    /// Il colore del pallino: quello dell'avviso se ce n'è uno in corso, quello
+    /// dello stato altrimenti.
+    ///
+    /// In quest'ordine perché un avviso è un fatto appena accaduto — «ha finito»,
+    /// «si è interrotto» — mentre lo stato è una condizione che dura, e quando
+    /// c'è il primo è lui la notizia.
+    private func minimalTint(for state: ClaudeIslandState) -> Color {
+        state.alert?.defaultColor.color ?? Self.urgentState(state).tint
     }
 }
 
 /// Un progetto: il pallino del suo stato, il nome, e cosa sta facendo.
 ///
-/// Il pallino usa i colori del pannello sul Mac, mappati qui a mano: la vista
-/// che li tiene vive nell'app, e un widget non può dipendere dall'app.
-private struct ProjectLine: View {
+/// Interna e non privata: la usano l'isola, la schermata di blocco **e** i
+/// widget. Il colore lo dà `ClaudeActivity.tint` dal pacchetto condiviso — prima
+/// era mappato qui a mano, con la giustificazione che «la vista che li tiene vive
+/// nell'app e un widget non può dipendere dall'app». Vera la premessa, sbagliata
+/// la conclusione: la mappatura è salita nel pacchetto, che entrambi possono
+/// leggere, invece di essere copiata una terza volta.
+struct ProjectLine: View {
     let project: ClaudeIslandState.Project
     let tint: Color
 
+    /// Quanto ingrandire, per le superfici guardate da lontano — StandBy, e i
+    /// widget grandi. A 1 la riga è identica a com'era nell'isola.
+    var scale: CGFloat = 1
+
+    /// Se mettere anche il simbolo dello stato accanto al pallino.
+    ///
+    /// Serve dove il colore non arriva: in StandBy notturno iOS disegna i widget
+    /// in modalità `vibrant`, che riduce tutto a un'unica tinta. Là il pallino
+    /// verde e quello ambra diventano lo stesso pallino, e senza simbolo la riga
+    /// dice il nome di un progetto e nient'altro.
+    var showsSymbol: Bool = false
+
+    /// Se dire anche *cosa* sta facendo, oltre a chi è.
+    ///
+    /// Spento nel quadrato piccolo dei widget: là «progetto-molto-lungo» e «al
+    /// lavoro» si contendono la stessa riga, e il risultato è che si tronca il
+    /// nome — cioè l'unica delle due cose che non si può indovinare dal colore.
+    var showsState: Bool = true
+
     var body: some View {
-        HStack(spacing: 6) {
-            // Dentro una cornice più alta del cerchio: un cerchio che riempie
-            // esattamente la sua riga è il primo a perdere un pezzo quando
-            // qualcosa taglia dall'alto.
-            Circle()
-                .fill(project.alerting ? tint : color)
-                .frame(width: 7, height: 7)
-                .frame(width: 10, height: 14)
+        HStack(spacing: 6 * scale) {
+            if showsSymbol {
+                Image(systemName: project.state.symbol)
+                    .font(.system(size: 9 * scale, weight: .semibold))
+                    .foregroundStyle(project.alerting ? tint : project.state.tint)
+                    .frame(width: 12 * scale)
+            } else {
+                // Dentro una cornice più alta del cerchio: un cerchio che riempie
+                // esattamente la sua riga è il primo a perdere un pezzo quando
+                // qualcosa taglia dall'alto.
+                Circle()
+                    .fill(project.alerting ? tint : project.state.tint)
+                    .frame(width: 7 * scale, height: 7 * scale)
+                    .frame(width: 10 * scale, height: 14 * scale)
+            }
             Text(project.name)
-                .font(.caption2.weight(project.alerting ? .semibold : .regular))
+                .font(.system(size: 11 * scale, weight: project.alerting ? .semibold : .regular))
                 .lineLimit(1)
-            Text(project.state.label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            if showsState {
+                Text(project.state.label)
+                    .font(.system(size: 11 * scale))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
         }
-        .frame(minHeight: 14)
-    }
-
-    private var color: Color {
-        switch project.state {
-        case .waitingInput: return GlowRGB.waiting.color
-        case .error: return GlowRGB.failed.color
-        case .working: return GlowRGB.done.color
-        case .idle, .unknown: return .secondary
-        }
+        .frame(minHeight: 14 * scale)
     }
 }
 
@@ -294,7 +362,18 @@ private struct CompactUsage: View {
 /// Disegnato qui e non riusato dall'app: la vista dell'app ha animazioni e
 /// gradienti che in un widget non vengono eseguiti, e una copia semplice che
 /// funziona è meglio di una ricca disegnata a metà.
-private struct ActivityRing: View {
+///
+/// ## Tutto discende dal diametro
+///
+/// Le misure erano fisse — tratto 4, diciture 12, 11 e 9 — perché servivano a un
+/// solo posto. Ora servono a quattro, di cui due guardati **da lontano**: lo slot
+/// StandBy e la Live Activity a schermo pieno, che iOS disegna in una cornice
+/// molto più larga. Un anello grande con la dicitura di prima non è un anello
+/// grande, è un anello con dentro una scritta minuscola.
+///
+/// I fattori sono scelti perché a `diameter = 44` restituiscano esattamente i
+/// numeri di prima: l'isola non cambia di un pixel.
+struct ActivityRing: View {
     /// «5h» o «7g»: la finestra, non il suo nome per esteso.
     let label: String
     let percent: Double?
@@ -306,28 +385,30 @@ private struct ActivityRing: View {
 
     var diameter: CGFloat = 44
 
+    private var lineWidth: CGFloat { diameter * 0.0909 }
+
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: diameter * 0.045) {
             ZStack {
                 Circle()
-                    .stroke(.white.opacity(0.16), lineWidth: 4)
+                    .stroke(.white.opacity(0.16), lineWidth: lineWidth)
                 Circle()
                     .trim(from: 0, to: (percent ?? 0) / 100)
-                    .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: diameter * 0.273, weight: .semibold))
             }
             .frame(width: diameter, height: diameter)
 
             Text(percent.map { "\(Int($0.rounded()))%" } ?? "–")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: diameter * 0.25, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(color)
 
             if showsReset, let resetsAt {
                 Text(Format.resetDelay(until: resetsAt))
-                    .font(.system(size: 9))
+                    .font(.system(size: diameter * 0.205))
                     .foregroundStyle(.secondary)
             }
         }
@@ -344,83 +425,263 @@ private struct ActivityRing: View {
 /// Qui il bordo luminoso possiamo disegnarlo noi, perché questa vista è nostra e
 /// non un pezzo dell'isola di sistema. Fermo, non pulsante — resta il limite di
 /// prima — ma del colore giusto.
+/// ## Due presentazioni, una vista
+///
+/// Questa vista compare in due posti molto diversi. Sulla schermata di blocco è
+/// una scheda larga circa 340 punti, **con un tetto di 160 punti d'altezza** —
+/// oltre quello il sistema taglia. In StandBy, telefono in carica e in
+/// orizzontale, iOS la mette nella presentazione `minimal` in cima allo schermo e
+/// quando la si tocca la porta a schermo pieno: là il tetto non c'è.
+///
+/// A distinguerle è `isActivityFullscreen`, da iOS 18. Senza quella chiave le due
+/// presentazioni sono indistinguibili dall'interno, e l'unica scelta possibile
+/// sarebbe una misura sola buona per entrambe — che vuol dire una scheda
+/// sproporzionata sulla schermata di blocco, o metà schermo nero in StandBy.
+///
+/// ## Come si comporta lo scaling, misurato
+///
+/// iOS ingrandisce **2×** questa vista nella presentazione a schermo pieno, e la
+/// larghezza la impone lui mentre l'altezza segue il contenuto. Contato sul
+/// telefono il 2026-09-08: 96 punti di contenuto diventavano una scheda alta 186
+/// su 393 di schermo, cioè metà schermo nero. Quindi per riempirlo non si tocca
+/// una scala — si fa crescere l'altezza **intrinseca**, e il 2× fa il resto.
+///
+/// ## Cosa ho sbagliato prima, lo stesso giorno
+///
+/// Il primo tentativo era un `GeometryReader` che ricavava la scala dalla
+/// larghezza disponibile. Sbagliato due volte: inutile, perché il 2× lo applica
+/// già il sistema, e dannoso, perché un `GeometryReader` **non ha dimensione
+/// propria** — si prende lo spazio proposto senza dichiararne nessuno. Il
+/// sistema, che a questa vista deve *chiedere* quanto è alta, non riceveva più
+/// risposta e le dava il minimo: la scheda sulla schermata di blocco si è
+/// ristretta e i conti alla rovescia finivano tagliati.
+///
+/// Poi l'ho rifatto, lo stesso giorno e con un altro vestito: un `Spacer` dentro
+/// la colonna verticale, per appoggiare l'elenco in alto invece di lasciarlo
+/// galleggiare. Un `Spacer` è **infinitamente elastico** lungo l'asse del suo
+/// contenitore, quindi quella colonna ha smesso di dichiarare un'altezza e ha
+/// cominciato a dire «alta quanto vuoi». Stavolta non si è ristretta: l'attività
+/// **non è più comparsa affatto**, isola dinamica compresa.
+///
+/// ## La regola, visto che è servita due volte
+///
+/// In una Live Activity ogni cosa nella gerarchia deve avere una dimensione
+/// intrinseca, perché è il sistema a chiederla per dimensionare la scheda.
+/// Niente `GeometryReader`, niente `Spacer` sull'asse verticale, niente
+/// `maxHeight: .infinity`. La scala qui sotto è un **numero** e non una misura
+/// letta da una cornice: è per questo che è ammessa.
+///
+/// Lo `Spacer(minLength: 0)` orizzontale in fondo all'`HStack` invece resta, e
+/// non è un'incoerenza: la larghezza la impone il sistema, quindi su quell'asse
+/// non c'è niente da dichiarare.
 private struct LockScreenView: View {
     let state: ClaudeIslandState
 
     /// Perché i numeri non sono freschi, quando non lo sono. Vedi `trouble`.
     var trouble: String?
 
+    /// StandBy notturno: iOS abbassa la luminanza e vira tutto al rosso scuro.
+    /// Là dentro un elenco completo di progetti con le date di azzeramento è
+    /// rumore illeggibile; restano i due numeri e chi sta aspettando.
+    @Environment(\.isLuminanceReduced) private var dimmed
+
+    /// Se siamo nella presentazione a schermo pieno — in pratica: StandBy, dopo
+    /// che si è toccato l'indicatore in cima.
+    @Environment(\.isActivityFullscreen) private var fullscreen
+
+    /// Quante righe di progetto stanno a schermo pieno.
+    ///
+    /// Tre, e il numero viene da un conto non da un gusto: il budget è ~196 punti
+    /// intrinsechi, la fila degli anelli ne prende 66 e i margini 28, quindi
+    /// all'elenco ne restano un centinaio — cioè tre righe a questa dimensione,
+    /// più l'intestazione. Con la quarta la scheda sfora lo schermo e il sistema
+    /// taglia in fondo, che è il modo peggiore di perdere un progetto: senza
+    /// dirlo. Quelli che restano fuori sono contati in una riga.
+    private static let fullscreenRowLimit = 3
+
     var body: some View {
-        HStack(spacing: 14) {
-            ActivityRing(
-                label: "5h",
-                percent: state.fiveHourPercent,
-                resetsAt: state.fiveHourResetsAt
-            )
-            ActivityRing(
-                label: "7g",
-                percent: state.sevenDayPercent,
-                resetsAt: state.sevenDayResetsAt
-            )
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text(state.headline)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(state.alert == nil ? .primary : tint)
-                        .lineLimit(1)
-                    if let trouble {
-                        // Piccola e grigia: non è un avviso per l'utente, è una
-                        // traccia per capire. Compare solo quando qualcosa non
-                        // ha funzionato, e allora vale più di uno schermo muto.
-                        Text(trouble)
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                // Tutti, non due: questa è una scheda a tutta larghezza sulla
-                // schermata di blocco, non i centoventi punti dell'isola aperta.
-                // È qui che l'elenco dei progetti ha senso di esistere.
-                ForEach(state.projects) { project in
-                    // Anche qui, non solo nell'isola aperta: toccare un nome
-                    // porta a quel progetto. Prima la schermata di blocco aveva
-                    // un solo collegamento per tutto.
-                    Link(destination: ClaudeLiveActivityWidget.link(toProject: project)) {
-                        ProjectLine(project: project, tint: tint)
-                    }
-                }
-
-                if let pending = state.pending {
-                    Link(destination: ClaudeLiveActivityWidget.link(toWaitingChat: state)) {
-                        Text(pending)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(14)
+        content
         .background {
-            // Lo sfondo sfumato del tema, come sul Mac. Il tema scelto nell'app
-            // non arriva fin qui — l'estensione è un altro processo e leggerlo
-            // vorrebbe dire condividere le preferenze — quindi per ora è quello
-            // predefinito, che è anche quello che quasi tutti tengono.
+            // Lo sfondo sfumato del tema scelto nell'app. Prima era `.midnight`
+            // scritto a mano, con la ragione giusta — «l'estensione è un altro
+            // processo e leggere le preferenze vorrebbe dire condividerle» — e
+            // ora che il deposito condiviso esiste, condividerle è quello che
+            // facciamo.
             LinearGradient(
-                colors: [ColorTheme.midnight.top, ColorTheme.midnight.deep],
+                colors: [SharedStore.theme.top, SharedStore.theme.deep],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
         }
         .overlay {
             if state.alert != nil {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(tint.opacity(0.75), lineWidth: 2)
+                // Il raggio segue la scala. Non è la soluzione migliore —
+                // `ContainerRelativeShape` prenderebbe la curva vera del
+                // contenitore — ma quella l'ho provata insieme a un'altra
+                // modifica e la Live Activity è sparita: due variabili nuove
+                // nella stessa build sono due variabili che non si possono
+                // separare. La causa era l'altra (vedi sotto), e questa torna
+                // qui in attesa di essere provata da sola.
+                RoundedRectangle(cornerRadius: fullscreen ? 34 : 22, style: .continuous)
+                    .strokeBorder(tint.opacity(0.75), lineWidth: fullscreen ? 3 : 2)
             }
         }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if fullscreen { fullscreenContent } else { compactContent }
+    }
+
+    /// La schermata di blocco: gli anelli a sinistra, l'elenco a destra.
+    ///
+    /// Invariata, e deliberatamente non toccata dalla presentazione a schermo
+    /// pieno: qui il tetto è 160 punti e questa impaginazione ne usa 96. Ogni
+    /// modifica fatta «per StandBy» che passasse da qui rischierebbe di far
+    /// tagliare questa, che è quella che si guarda cento volte al giorno.
+    private var compactContent: some View {
+        HStack(spacing: 14) {
+            ActivityRing(
+                label: "5h",
+                percent: state.fiveHourPercent,
+                resetsAt: state.fiveHourResetsAt,
+                showsReset: !dimmed
+            )
+            ActivityRing(
+                label: "7g",
+                percent: state.sevenDayPercent,
+                resetsAt: state.sevenDayResetsAt,
+                showsReset: !dimmed
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                headline(size: 13, troubleSize: 9)
+
+                // Tutti, non due: questa è una scheda a tutta larghezza sulla
+                // schermata di blocco, non i centoventi punti dell'isola aperta.
+                // È qui che l'elenco dei progetti ha senso di esistere.
+                //
+                // A luminanza ridotta solo quelli che stanno aspettando: in
+                // StandBy notturno lo schermo è appena acceso, e un elenco intero
+                // di righe grigie non si legge comunque.
+                ForEach(visibleProjects) { project in
+                    // Anche qui, non solo nell'isola aperta: toccare un nome
+                    // porta a quel progetto. Prima la schermata di blocco aveva
+                    // un solo collegamento per tutto.
+                    projectRow(project, scale: 1)
+                }
+
+                pendingLine(size: 11)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+    }
+
+    /// StandBy a schermo pieno: gli anelli sopra, l'elenco sotto a tutta
+    /// larghezza.
+    ///
+    /// ## Perché impilata e non semplicemente più grande
+    ///
+    /// Il primo tentativo era la stessa impaginazione con tutto moltiplicato per
+    /// 1,8. Ha prodotto «Vibin…» al posto del titolo e due file di puntini al
+    /// posto dei progetti, e la ragione è che avevo capito male cosa concede il
+    /// sistema: il 2× è un **ingrandimento visivo**, non spazio in più. La
+    /// cornice proposta resta larga come sulla schermata di blocco, quindi degli
+    /// anelli da 79 punti si mangiano la colonna del testo e al testo non resta
+    /// niente.
+    ///
+    /// Ciò che cresce davvero è solo l'altezza: ~196 punti intrinsechi contro i
+    /// 96 usati. Quindi gli anelli restano della loro dimensione — a schermo
+    /// diventano comunque 88 punti, come nella presentazione che funzionava — e
+    /// l'altezza guadagnata va all'elenco, che passando sotto invece che di
+    /// fianco prende **tutta** la larghezza: molto più di quella che aveva prima.
+    private var fullscreenContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 18) {
+                ActivityRing(
+                    label: "5h",
+                    percent: state.fiveHourPercent,
+                    resetsAt: state.fiveHourResetsAt,
+                    showsReset: !dimmed
+                )
+                ActivityRing(
+                    label: "7g",
+                    percent: state.sevenDayPercent,
+                    resetsAt: state.sevenDayResetsAt,
+                    showsReset: !dimmed
+                )
+                Spacer(minLength: 0)
+                headline(size: 15, troubleSize: 10)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(fullscreenProjects) { project in
+                    projectRow(project, scale: 1.45)
+                }
+                if hiddenProjectCount > 0 {
+                    Text("+\(hiddenProjectCount) altri")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                pendingLine(size: 14)
+            }
+        }
+        .padding(14)
+    }
+
+    // MARK: - Pezzi comuni alle due impaginazioni
+
+    private func headline(size: CGFloat, troubleSize: CGFloat) -> some View {
+        HStack(spacing: 5) {
+            Text(state.headline)
+                .font(.system(size: size, weight: .semibold))
+                .foregroundStyle(state.alert == nil ? .primary : tint)
+                .lineLimit(1)
+            if let trouble {
+                // Piccola e grigia: non è un avviso per l'utente, è una traccia
+                // per capire. Compare solo quando qualcosa non ha funzionato, e
+                // allora vale più di uno schermo muto.
+                Text(trouble)
+                    .font(.system(size: troubleSize))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func projectRow(_ project: ClaudeIslandState.Project, scale: CGFloat) -> some View {
+        Link(destination: ClaudeLiveActivityWidget.link(toProject: project)) {
+            ProjectLine(project: project, tint: tint, scale: scale)
+        }
+    }
+
+    @ViewBuilder
+    private func pendingLine(size: CGFloat) -> some View {
+        if let pending = state.pending {
+            Link(destination: ClaudeLiveActivityWidget.link(toWaitingChat: state)) {
+                Text(pending)
+                    .font(.system(size: size))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    private var fullscreenProjects: [ClaudeIslandState.Project] {
+        Array(visibleProjects.prefix(Self.fullscreenRowLimit))
+    }
+
+    private var hiddenProjectCount: Int {
+        max(0, visibleProjects.count - Self.fullscreenRowLimit)
+    }
+
+    private var visibleProjects: [ClaudeIslandState.Project] {
+        guard dimmed else { return state.projects }
+        let waiting = state.projects.filter { $0.state == .waitingInput || $0.alerting }
+        // Se non c'è nessuno in attesa restano i due primi, che sono i più
+        // urgenti: la fotografia arriva già ordinata per urgenza dal Mac.
+        return waiting.isEmpty ? Array(state.projects.prefix(2)) : waiting
     }
 
     private var tint: Color {
@@ -429,8 +690,11 @@ private struct LockScreenView: View {
 
 }
 
-private extension UsageLevel {
+extension UsageLevel {
     /// Il colore di questo livello, negli stessi valori del pannello sul Mac.
+    ///
+    /// Interna e non privata da quando la leggono anche i widget: era `private`
+    /// perché la usava solo questo file.
     var activityColor: Color {
         switch self {
         case .normal: return GlowRGB.done.color

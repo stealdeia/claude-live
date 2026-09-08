@@ -333,18 +333,19 @@ final class RemotePublisher: ObservableObject {
             return island
         }
 
-        var a = island, b = last
-        let epoch = Date(timeIntervalSince1970: 0)
-        a.updatedAt = epoch
-        b.updatedAt = epoch
-        return a == b ? nil : island
+        // La regola sta nel pacchetto, non qui: la pone anche il telefono, per
+        // decidere se ricaricare i widget, ed era la stessa riga scritta due
+        // volte. Due copie di un confronto di uguaglianza divergono nel modo
+        // peggiore — il Mac deciderebbe che una cosa è cambiata e il telefono
+        // che non lo è, senza che nessuno dei due abbia torto sul proprio codice.
+        return island.describesSameContent(as: last) ? nil : island
     }
 
     private func makeSnapshot() -> RemoteSnapshot {
         let sessions = status.sessionsByPath.values.flatMap { $0 }
         return RemoteSnapshot(
             usage: usage.snapshot,
-            projects: Array(status.statusesByPath.values).sorted { $0.state > $1.state },
+            projects: ClaudeProjectStatus.sortedByUrgency(Array(status.statusesByPath.values)),
             sessions: sessions,
             alert: status.topAlert,
             generatedAt: Date(),

@@ -1,37 +1,11 @@
 import SwiftUI
 import ClaudeLiveKit
 
-/// How a state looks, in one place.
-///
-/// The colours are the notch's own — `GlowRGB.waiting`, `.done`, `.failed` — so
-/// a project that is amber on the Mac is the same amber here. Two devices
-/// reporting one event have to agree on its colour, or they read as two
-/// unrelated things happening at once.
-extension ClaudeActivity {
-    var tint: Color {
-        switch self {
-        case .waitingInput: return GlowRGB.waiting.color
-        // Verde e non il colore d'accento: «sta lavorando» è la stessa cosa che
-        // sul Mac è verde, e l'azzurro del sistema la faceva leggere come una
-        // voce selezionata invece che come uno stato.
-        case .working: return GlowRGB.done.color
-        case .error: return GlowRGB.failed.color
-        case .idle: return .secondary
-        case .unknown: return .secondary
-        }
-    }
-
-    /// SF Symbol for the state, for the places a dot is not enough.
-    var symbol: String {
-        switch self {
-        case .waitingInput: return "bell.badge.fill"
-        case .working: return "gearshape.fill"
-        case .error: return "exclamationmark.triangle.fill"
-        case .idle: return "checkmark.circle.fill"
-        case .unknown: return "questionmark.circle.fill"
-        }
-    }
-}
+// `ClaudeActivity.tint` e `.symbol` stavano qui, come estensione privata
+// dell'app. Sono saliti in `ClaudeLiveKit` — `Model/ClaudeActivityStyle.swift` —
+// quando i widget sarebbero diventati il terzo posto a chiederli: l'isola se li
+// era già riscritti a mano, e tre copie di una tavolozza divergono al primo
+// colore ritoccato in un posto solo.
 
 /// The dot that carries a project's state in a list.
 struct StatusDot: View {

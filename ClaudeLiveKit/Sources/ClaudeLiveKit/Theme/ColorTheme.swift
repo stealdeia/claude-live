@@ -98,6 +98,16 @@ public struct ColorTheme: Identifiable, Hashable, Sendable {
     /// pannello che si confonde con l'hardware. Sul Mac invece è il
     /// comportamento di prima, e chi lo preferiva deve poterlo riavere.
     public static let panelChoices: [ColorTheme] = [.black] + all
+
+    /// Il tema con questo identificativo, o mezzanotte.
+    ///
+    /// Qui e non in chi lo cerca perché ora lo cercano in tre: `ThemeStore`
+    /// nell'app, il deposito condiviso per l'estensione, e i widget. Tre copie di
+    /// «e se non lo trovo» divergerebbero al primo tema aggiunto.
+    public static func named(_ id: String?) -> ColorTheme {
+        guard let id else { return .midnight }
+        return panelChoices.first { $0.id == id } ?? .midnight
+    }
 }
 
 extension ColorTheme {

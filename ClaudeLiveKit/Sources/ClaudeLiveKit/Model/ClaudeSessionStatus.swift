@@ -468,6 +468,34 @@ public struct ClaudeProjectStatus: Equatable, Sendable {
         lines.append("aggiornato \(Format.age(since: updatedAt))")
         return lines.joined(separator: "\n")
     }
+
+    /// I progetti nell'ordine in cui vanno mostrati: i più urgenti prima, e a
+    /// pari urgenza **sempre lo stesso ordine**.
+    ///
+    /// ## Perché il pareggio conta
+    ///
+    /// L'ordinamento era `sorted { $0.state > $1.state }`, cioè per sola urgenza,
+    /// e i progetti arrivano dai valori di un dizionario. Due progetti nello
+    /// stesso stato finivano quindi nell'ordine in cui il dizionario li
+    /// restituisce — che non è un ordine, è un caso, e cambia fra una fotografia
+    /// e la successiva.
+    ///
+    /// Invisibile finché l'elenco si vedeva tutto: le stesse righe rimescolate
+    /// restano le stesse righe. Ma un widget ne mostra **tre**, e con un ordine
+    /// che balla i tre progetti mostrati cambiano da soli, senza che sul Mac sia
+    /// successo niente. Un'interfaccia che si muove quando la realtà è ferma
+    /// insegna a non fidarsi di lei.
+    ///
+    /// Due pareggi e non uno: `updatedAt` è quello utile — chi si è mosso per
+    /// ultimo sta più in alto — ma due progetti possono avere lo stesso istante,
+    /// e allora decide il percorso, che è unico per costruzione.
+    public static func sortedByUrgency(_ projects: [ClaudeProjectStatus]) -> [ClaudeProjectStatus] {
+        projects.sorted { lhs, rhs in
+            if lhs.state != rhs.state { return lhs.state > rhs.state }
+            if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
+            return lhs.projectPath < rhs.projectPath
+        }
+    }
 }
 
 /// Transmissible, for the iPhone companion.

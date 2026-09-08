@@ -2,6 +2,7 @@ import Foundation
 import UserNotifications
 import UIKit
 import CryptoKit
+import WidgetKit
 import ClaudeLiveKit
 
 /// Reads what the Mac published, and decrypts it.
@@ -34,16 +35,20 @@ final class RemoteStore: ObservableObject {
     /// accoppiata. Chi aveva già l'app installata trova ancora il vecchio valore,
     /// che viene travasato la prima volta che serve.
     private var relayURL: String {
-        get {
-            if let stored = RemoteSecrets.read(.relayURL), !stored.isEmpty { return stored }
-            let legacy = UserDefaults.standard.string(forKey: "relayURL") ?? ""
-            if !legacy.isEmpty { RemoteSecrets.write(legacy, to: .relayURL) }
-            return legacy
-        }
+        get { Self.storedRelayURL }
         set {
             RemoteSecrets.write(newValue, to: .relayURL)
             UserDefaults.standard.set(newValue, forKey: "relayURL")
         }
+    }
+
+    /// L'indirizzo, leggibile anche da chi non ha un'istanza di questo oggetto —
+    /// cioè dal risveglio in sottofondo, che accade prima che una vista esista.
+    static var storedRelayURL: String {
+        if let stored = RemoteSecrets.read(.relayURL), !stored.isEmpty { return stored }
+        let legacy = UserDefaults.standard.string(forKey: "relayURL") ?? ""
+        if !legacy.isEmpty { RemoteSecrets.write(legacy, to: .relayURL) }
+        return legacy
     }
 
     private var refreshTask: Task<Void, Never>?
@@ -232,8 +237,7 @@ final class RemoteStore: ObservableObject {
 
     func refresh() async {
         guard isPaired else { return }
-        guard let url = URL(string: relayURL + "/state"),
-              let pairID = RemoteSecrets.read(.pairID),
+        guard let pairID = RemoteSecrets.read(.pairID),
               let keyText = RemoteSecrets.read(.encryptionKey),
               let key = try? RemoteCrypto.importKey(keyText)
         else {
@@ -241,39 +245,20 @@ final class RemoteStore: ObservableObject {
             return
         }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
-        request.timeoutInterval = 15
-        // Always from the network: a status that is quietly served from a cache
-        // is the one failure this app must never have.
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-
-            switch code {
-            case 200:
-                break
-            case 404:
-                problem = "Il Mac non ha ancora pubblicato nulla."
-                return
-            case 401:
-                problem = "Il relay ha rifiutato la parola d'ordine."
-                return
-            default:
-                problem = "Il relay ha risposto \(code)."
-                return
-            }
-
-            guard let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let payload = body["payload"] as? String
-            else {
-                problem = "Risposta del relay illeggibile."
-                return
-            }
-
-            let fresh = try RemoteCrypto.open(RemoteSnapshot.self, from: payload, with: key)
+            // La lettura vera sta in `RemoteFetcher`, nel pacchetto condiviso.
+            // Non per eleganza: da quando una notifica silenziosa può svegliare
+            // l'app in sottofondo, quella lettura serve anche in un momento in
+            // cui *questo oggetto non esiste* — `AppDelegate.store` viene
+            // assegnato da `RootView.onAppear`, e a un risveglio in sottofondo
+            // `onAppear` non accade. Due copie del percorso di rete
+            // divergerebbero, e la divergenza si vedrebbe come «l'app dice una
+            // cosa, il widget un'altra».
+            let fresh = try await RemoteFetcher.snapshot(
+                relayURL: relayURL,
+                pairID: pairID,
+                key: key
+            )
 
             // Forget an answer the moment the Mac stops describing the request
             // it belongs to: keeping it would silence the session's next
@@ -289,15 +274,67 @@ final class RemoteStore: ObservableObject {
             snapshot = fresh
             problem = nil
             clearArrivedPrompts(in: fresh)
+            Self.handToWidgets(fresh)
 
-        } catch let failure as RemoteCrypto.Failure {
-            // Not a network problem, and saying so matters: it means this phone
-            // and that Mac hold different keys, which no amount of retrying fixes.
-            problem = failure == .couldNotOpen
-                ? "Non riesco a decifrare: la chiave non corrisponde. Riaccoppia."
-                : "Dati dal Mac illeggibili."
+        } catch let failure as RemoteFetcher.Failure {
+            problem = Self.message(for: failure)
         } catch {
             problem = "Relay irraggiungibile."
+        }
+    }
+
+    /// Deposita per i widget quello che è appena arrivato.
+    ///
+    /// `static` di proposito: la chiama anche il risveglio in sottofondo, che non
+    /// ha nessuna istanza a disposizione. E qui e **non** in
+    /// `LiveActivityController.sync`, che sarebbe stato il posto ovvio: quel
+    /// metodo è chiuso dietro il suo interruttore `enabled` ed esce presto quando
+    /// la fotografia è ancora scarna. I widget devono aggiornarsi anche a Live
+    /// Activity spenta — sono due superfici che l'utente accende separatamente.
+    /// Restituisce `true` se il contenuto era diverso da quello in deposito —
+    /// cioè se c'era davvero qualcosa di nuovo. Il risveglio in sottofondo lo
+    /// riferisce a iOS, che da quella risposta impara quanto valga svegliare
+    /// quest'app: rispondere «dati nuovi» sempre farebbe strozzare il canale.
+    @discardableResult
+    static func handToWidgets(_ snapshot: RemoteSnapshot) -> Bool {
+        let island = ClaudeIslandState(snapshot: snapshot)
+
+        // Chiesto **prima** di scrivere, perché la risposta riguarda ciò che sta
+        // in deposito adesso.
+        let changed = SharedStore.contentDiffers(from: island)
+
+        // Scritto sempre, anche identico: dentro c'è `updatedAt`, che è la
+        // scritta «dal Mac N minuti fa» — non aggiornarla farebbe invecchiare
+        // sotto gli occhi un dato che invece è appena arrivato.
+        SharedStore.write(island)
+
+        // Ricaricato solo se è cambiato qualcosa. Le ricariche hanno un budget e
+        // questo metodo viene chiamato ogni cinque secondi mentre l'app è
+        // aperta: chiederne una per ridisegnare gli stessi numeri lo brucerebbe
+        // per niente, e a quel punto non ne resterebbero per quando servono.
+        if changed {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        return changed
+    }
+
+    /// La frase da mostrare per un guasto della lettura.
+    ///
+    /// Le frasi stanno qui e non in `RemoteFetcher` perché le due sponde le
+    /// dicono in posti diversi: questa finisce sullo schermo, quella del
+    /// risveglio in sottofondo finisce in un registro che nessuno legge in quel
+    /// momento.
+    private static func message(for failure: RemoteFetcher.Failure) -> String {
+        switch failure {
+        case .nothingPublished: return "Il Mac non ha ancora pubblicato nulla."
+        case .refused: return "Il relay ha rifiutato la parola d'ordine."
+        case .http(let code): return "Il relay ha risposto \(code)."
+        case .unreadableResponse: return "Risposta del relay illeggibile."
+        // Non è un problema di rete, e dirlo conta: vuol dire che questo telefono
+        // e quel Mac hanno chiavi diverse, cosa che nessun tentativo risolve.
+        case .wrongKey: return "Non riesco a decifrare: la chiave non corrisponde. Riaccoppia."
+        case .malformed: return "Dati dal Mac illeggibili."
+        case .unreachable: return "Relay irraggiungibile."
         }
     }
 

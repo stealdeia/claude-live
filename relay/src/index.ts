@@ -146,13 +146,35 @@ async function apnsToken(env: Env): Promise<string> {
  * seconda firma è nuova per costruzione.
  */
 /**
- * Il tipo di notifica, che decide anche l'argomento.
+ * Il tipo di notifica, che decide anche l'argomento e la priorità.
  *
  * Le Live Activity non si aggiornano con una notifica normale: vogliono il tipo
  * `liveactivity` e un argomento con un suffisso proprio. Sbagliare uno dei due
  * dà un rifiuto che parla d'altro, quindi stanno insieme in un posto solo.
+ *
+ * `background` è il colpetto che sveglia l'app per farle aggiornare i widget.
+ * Non porta contenuto: l'app va a prendere la fotografia da sé, perché è la sola
+ * che può decifrarla — dall'estensione dei widget il portachiavi non risponde.
  */
-type PushKind = 'alert' | 'liveactivity'
+type PushKind = 'alert' | 'liveactivity' | 'background'
+
+/**
+ * L'argomento e la priorità di ciascun tipo.
+ *
+ * Erano un ternario e una costante, e con un terzo caso quella forma smette di
+ * bastare — soprattutto per la priorità, che con `background` **non è
+ * facoltativa**: APNs rifiuta una notifica di sfondo che chieda 10, e il rifiuto
+ * (`BadPriority`) parla d'altro. Cablarla a 10 avrebbe fatto fallire ogni
+ * risveglio senza che il guasto nominasse la sua causa.
+ *
+ * 10 è «consegna adesso»; 5 è «quando ti torna comodo», che per una notifica di
+ * sfondo è l'unica cosa che il sistema accetta di promettere.
+ */
+const PUSH_SHAPE: Record<PushKind, { topicSuffix: string; priority: string }> = {
+  alert: { topicSuffix: '', priority: '10' },
+  liveactivity: { topicSuffix: '.push-type.liveactivity', priority: '10' },
+  background: { topicSuffix: '', priority: '5' },
+}
 
 async function sendPush(
   env: Env,
@@ -169,12 +191,9 @@ async function sendPush(
     method: 'POST',
     headers: {
       authorization: `bearer ${await apnsToken(env)}`,
-      'apns-topic':
-        kind === 'liveactivity' ? `${env.APNS_TOPIC}.push-type.liveactivity` : env.APNS_TOPIC,
+      'apns-topic': `${env.APNS_TOPIC}${PUSH_SHAPE[kind].topicSuffix}`,
       'apns-push-type': kind,
-      // 10 è «consegna adesso». Meno lascia a iOS la facoltà di accorpare, che
-      // misurerebbe la discrezione di Apple invece del nostro giro.
-      'apns-priority': '10',
+      'apns-priority': PUSH_SHAPE[kind].priority,
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -206,6 +225,21 @@ async function sendPush(
 /** Durate: quanto vale uno snapshot, e quanto resta in giro una risposta. */
 const SNAPSHOT_LIFE_MS = 600_000
 const COMMAND_LIFE_MS = 300_000
+
+/**
+ * Il pavimento fra due risvegli dell'app per i widget.
+ *
+ * Novanta secondi, e il numero è un compromesso dichiarato. I risvegli in
+ * sottofondo hanno un bilancio che iOS gestisce da sé e che non pubblica: chi ne
+ * chiede troppi non ne ottiene di più, ne ottiene *meno* — il sistema impara che
+ * quest'app non vale il risveglio e la strozza, perdendo anche quelli che
+ * servivano. Un widget d'altra parte non è una superficie da secondi: mostra
+ * quanto è vecchio il suo dato, e un minuto e mezzo di ritardo là si legge come
+ * «adesso».
+ *
+ * Scavalcato quando c'è un avviso — vedi `/publish`.
+ */
+const WAKE_FLOOR_MS = 90_000
 
 /**
  * Tutto quello che riguarda una coppia Mac–iPhone, e nient'altro.
@@ -263,6 +297,26 @@ export class PairState {
     const prefs = await this.ctx.storage.get<Record<string, boolean>>('notifyPrefs')
     if (!prefs) return true
     return prefs[kind] !== false
+  }
+
+  /**
+   * Se è il momento di svegliare l'app perché aggiorni i widget.
+   *
+   * Il limite sta qui e non sul Mac per due ragioni. La prima è strutturale:
+   * questo oggetto **è** la coppia, quindi un contatore scritto qui è già per
+   * accoppiamento senza che nessuno debba renderlo tale. La seconda è che il Mac
+   * si riavvia, si aggiorna, si spegne — e un pavimento tenuto nella sua memoria
+   * si azzererebbe ogni volta, cioè proprio nei momenti in cui pubblica di più.
+   * È lo stesso ragionamento per cui `notifyPrefs` vive qui.
+   *
+   * `urgent` scavalca il pavimento: è vero quando il Mac sta anche mandando un
+   * avviso, cioè quando è cambiato *lo stato d'attesa* — l'unica cosa in questo
+   * sistema per cui valga la pena consumare un risveglio subito.
+   */
+  private async mayWake(urgent: boolean): Promise<boolean> {
+    if (urgent) return true
+    const last = (await this.ctx.storage.get<number>('backgroundPushAt')) ?? 0
+    return Date.now() - last >= WAKE_FLOOR_MS
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -372,7 +426,50 @@ export class PairState {
         }
       }
 
-      return json({ ok: true, pushed, island })
+      // Il colpetto che sveglia l'app perché aggiorni i widget.
+      //
+      // Non porta contenuto, e non potrebbe: la fotografia è cifrata e la chiave
+      // sta nel portachiavi del telefono, che dall'estensione dei widget **non
+      // risponde**. Quindi l'app si sveglia, se la va a prendere da sé, la apre e
+      // deposita il risultato dove il widget lo legge. Niente in chiaro passa da
+      // qui né da Apple, che è la proprietà su cui tutto questo è costruito.
+      //
+      // Legato a `body.activity` di proposito, invece di avere una porta sua: il
+      // Mac apre quella porta soltanto quando l'isola è **cambiata** o sono
+      // passati otto minuti — cioè ha già deciso, con criteri suoi, quando c'è
+      // qualcosa che vale la pena dire. Un secondo criterio parallelo sarebbe una
+      // seconda cosa da tenere in pari.
+      let wake: unknown = null
+      if (body.activity) {
+        // Urgente quando il Mac sta anche mandando un avviso: è cambiato lo stato
+        // d'attesa, ed è la sola cosa per cui valga saltare la fila.
+        if (await this.mayWake(Boolean(body.notify))) {
+          const { token, environment } = await this.device()
+          if (token) {
+            // Scritto **prima** di spedire, non dopo. Se lo scrivessimo dopo, un
+            // APNs lento con due pubblicazioni ravvicinate lascerebbe passare
+            // due risvegli — e il pavimento esiste proprio per quello. Un
+            // risveglio perso perché la spedizione poi è fallita costa novanta
+            // secondi; due risvegli di troppo costano il bilancio.
+            await this.ctx.storage.put('backgroundPushAt', Date.now())
+            wake = await sendPush(
+              this.env,
+              token,
+              { aps: { 'content-available': 1 } },
+              environment,
+              false,
+              'background'
+            )
+          }
+        } else {
+          // Riferito e non taciuto: «il widget non si è mosso» ha tre cause
+          // diverse — nessun token, APNs che rifiuta, e il pavimento — e da fuori
+          // si vedono identiche. Questa riga in `wrangler tail` le distingue.
+          wake = { skipped: 'pavimento' }
+        }
+      }
+
+      return json({ ok: true, pushed, island, wake })
     }
 
     // Il telefono chiede l'ultima fotografia.

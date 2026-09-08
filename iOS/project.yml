@@ -94,6 +94,19 @@ targets:
           - CFBundleURLName: it.aldeialab.ClaudeLiveMobile
             CFBundleURLSchemes:
               - claudelive
+        # Il permesso di essere svegliata da una notifica silenziosa.
+        #
+        # Serve ai widget, e per una ragione che vale la pena scrivere: un widget
+        # non può decifrare niente da sé — dall'estensione il portachiavi non si
+        # raggiunge — quindi chi apre la fotografia del Mac deve essere l'app. La
+        # notifica silenziosa la sveglia, lei decifra e riscrive il deposito
+        # condiviso, e il widget legge un file già pronto.
+        #
+        # Senza questa chiave iOS **scarta la notifica senza dirlo**: APNs la
+        # accetta, il relay riceve un 200, e non succede niente. Il guasto più
+        # silenzioso di questa categoria.
+        UIBackgroundModes:
+          - remote-notification
     entitlements:
       path: ClaudeLiveMobile/ClaudeLiveMobile.entitlements
       properties:
@@ -111,6 +124,20 @@ targets:
         keychain-access-groups:
           - $(AppIdentifierPrefix)it.aldeialab.ClaudeLiveMobile
           - $(AppIdentifierPrefix)it.aldeialab.ClaudeLiveMobile.shared
+        # Il contenitore condiviso con l'estensione, dove l'app deposita quello
+        # che i widget devono disegnare.
+        #
+        # Non è un doppione del portachiavi condiviso qui sopra: quello serve
+        # all'isola per aprire le scatole sigillate che arrivano per notifica, ma
+        # dall'estensione **non risponde** (`-25291`, misurato). L'isola se la
+        # cava perché la chiave le viene consegnata insieme all'attività; un
+        # widget non ha nessuno che gli consegni niente, deve andarsi a prendere
+        # il contenuto — e questo è il solo posto da cui può prenderlo.
+        #
+        # Il prefisso non c'è, ed è giusto: gli App Group non ne vogliono uno,
+        # sono globali per l'account e si scrivono `group.` seguito da un nome.
+        com.apple.security.application-groups:
+          - group.it.aldeialab.ClaudeLiveMobile
 
   # L'isola dinamica e la schermata di blocco. Un bersaglio a sé perché gira in
   # un processo suo: il sistema disegna queste viste anche con l'app chiusa.
@@ -153,3 +180,9 @@ targets:
         # da nessun'altra parte.
         keychain-access-groups:
           - $(AppIdentifierPrefix)it.aldeialab.ClaudeLiveMobile.shared
+        # Lo stesso contenitore dell'app: è da qui che i widget leggono cosa
+        # disegnare. Deve combaciare parola per parola con quello dichiarato
+        # dall'app — un gruppo scritto in due modi sono due gruppi, e il secondo
+        # è vuoto.
+        com.apple.security.application-groups:
+          - group.it.aldeialab.ClaudeLiveMobile

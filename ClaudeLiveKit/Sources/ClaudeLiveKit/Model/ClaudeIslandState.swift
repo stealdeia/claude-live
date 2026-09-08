@@ -59,6 +59,33 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
         alertKind.flatMap(ClaudeAlertKind.init(rawValue:))
     }
 
+    /// Se dice le stesse cose di un altro, **a parte l'ora**.
+    ///
+    /// ## Perché non basta `==`
+    ///
+    /// `updatedAt` cambia a ogni fotografia, anche quando tutto il resto è
+    /// identico: da sola farebbe sembrare cambiato tutto, sempre. E questa
+    /// domanda viene posta esattamente per decidere se valga la pena spendere
+    /// qualcosa — una notifica dal Mac, una ricarica dei widget sul telefono — su
+    /// un contenuto che potrebbe essere lo stesso di prima.
+    ///
+    /// ## Perché sta qui e non nei due posti che la pongono
+    ///
+    /// La pongono in due: `RemotePublisher.islandToSend()` sul Mac, per non
+    /// rispedire un'isola identica, e `SharedStore.contentDiffers(from:)` sul
+    /// telefono, per non bruciare il bilancio delle ricariche. Erano la stessa
+    /// riga scritta due volte, e due copie di una regola di uguaglianza
+    /// divergono in modo particolarmente sgradevole: il Mac deciderebbe che una
+    /// cosa è cambiata e il telefono che non lo è, o viceversa, e nessuno dei due
+    /// avrebbe torto sul proprio codice.
+    public func describesSameContent(as other: ClaudeIslandState) -> Bool {
+        var a = self, b = other
+        let epoch = Date(timeIntervalSince1970: 0)
+        a.updatedAt = epoch
+        b.updatedAt = epoch
+        return a == b
+    }
+
     /// Cosa è successo, in una riga.
     public var headline: String {
         guard let alert else { return "Vibing Code Live" }
