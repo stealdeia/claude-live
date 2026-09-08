@@ -491,12 +491,12 @@ private struct LockScreenView: View {
 
     /// Quante righe di progetto stanno a schermo pieno.
     ///
-    /// Tre, e il numero viene da un conto non da un gusto: il budget è ~196 punti
-    /// intrinsechi, la fila degli anelli ne prende 66 e i margini 28, quindi
-    /// all'elenco ne restano un centinaio — cioè tre righe a questa dimensione,
-    /// più l'intestazione. Con la quarta la scheda sfora lo schermo e il sistema
-    /// taglia in fondo, che è il modo peggiore di perdere un progetto: senza
-    /// dirlo. Quelli che restano fuori sono contati in una riga.
+    /// Quante righe di progetto stanno a schermo pieno.
+    ///
+    /// Tre, e stavolta il numero viene da una misura invece che da una stima: la
+    /// colonna del testo ha ~93 punti d'altezza, il titolo ne prende 18 e ogni
+    /// riga 18. Gli altri sono contati in una riga: la quarta farebbe tagliare
+    /// la scheda, che è il modo peggiore di perdere un progetto — senza dirlo.
     private static let fullscreenRowLimit = 3
 
     var body: some View {
@@ -528,107 +528,148 @@ private struct LockScreenView: View {
         }
     }
 
-    @ViewBuilder
     private var content: some View {
-        if fullscreen { fullscreenContent } else { compactContent }
+        // Schermo pieno: anelli da 62 e testo a 1,3. Il contenuto sta a ~117
+        // punti sui ~136 concessi, e dei 365 di larghezza ne restano ~199 alla
+        // colonna del testo — abbastanza perché «trasferimento in attesa» non si
+        // tronchi, che è il difetto del tentativo a 1,8.
+        //
+        // Schermata di blocco: invariata. Là il tetto è 160 e questa ne usa 96.
+        fullscreen
+            ? layout(ring: 62, headlineSize: 17, troubleSize: 11,
+                     rowScale: 1.3, padding: 12, rowLimit: Self.fullscreenRowLimit)
+            : layout(ring: 44, headlineSize: 13, troubleSize: 9,
+                     rowScale: 1, padding: 14, rowLimit: nil)
     }
 
-    /// La schermata di blocco: gli anelli a sinistra, l'elenco a destra.
+    /// ## Una forma, due tarature
     ///
-    /// Invariata, e deliberatamente non toccata dalla presentazione a schermo
-    /// pieno: qui il tetto è 160 punti e questa impaginazione ne usa 96. Ogni
-    /// modifica fatta «per StandBy» che passasse da qui rischierebbe di far
-    /// tagliare questa, che è quella che si guarda cento volte al giorno.
-    private var compactContent: some View {
-        HStack(spacing: 14) {
+    /// Anelli a sinistra, elenco a destra, in entrambe le presentazioni: sono la
+    /// stessa forma, e tenerne due in pari era lavoro che si paga senza comprare
+    /// niente. Cambiano solo i numeri.
+    ///
+    /// I numeri, **misurati** il 2026-09-08 con `sizeProbe` invece di essere
+    /// dedotti da una fotografia come le tre volte precedenti:
+    ///
+    /// - **Schermata di blocco**: cornice ~340 punti di larghezza, tetto **160**
+    ///   d'altezza oltre il quale il sistema taglia. Questa taratura ne usa 96.
+    /// - **Schermo pieno in StandBy**: cornice **365** punti, ingrandita **2×**
+    ///   dal sistema. E il tetto non è mezzo schermo: iOS si tiene ~120 punti di
+    ///   margine proprio — 66 sopra, 55 sotto — quindi dei 393 dello schermo
+    ///   restano ~273, cioè **~136 intrinsechi**.
+    ///
+    /// Quei 136 sono il vero motivo per cui «facciamola più grande» ha un
+    /// limite, e il pezzo che mancava a tutte le stime: a 144 la scheda veniva
+    /// tagliata sopra e sotto.
+    private func layout(
+        ring: CGFloat,
+        headlineSize: CGFloat,
+        troubleSize: CGFloat,
+        rowScale: CGFloat,
+        padding: CGFloat,
+        rowLimit: Int?
+    ) -> some View {
+        HStack(spacing: 14 * rowScale) {
             ActivityRing(
                 label: "5h",
                 percent: state.fiveHourPercent,
                 resetsAt: state.fiveHourResetsAt,
-                showsReset: !dimmed
+                showsReset: !dimmed,
+                diameter: ring
             )
             ActivityRing(
                 label: "7g",
                 percent: state.sevenDayPercent,
                 resetsAt: state.sevenDayResetsAt,
-                showsReset: !dimmed
+                showsReset: !dimmed,
+                diameter: ring
             )
 
-            VStack(alignment: .leading, spacing: 3) {
-                headline(size: 13, troubleSize: 9)
+            VStack(alignment: .leading, spacing: 3 * rowScale) {
+                // Accanto agli anelli, non scagliato a destra. Nel tentativo di
+                // prima fra i due c'era uno `Spacer`, che a schermo pieno
+                // spingeva il titolo contro il bordo opposto con duecento punti
+                // di vuoto in mezzo: su una scheda larga e bassa non c'è niente
+                // da distribuire, c'è da stare vicini.
+                headline(size: headlineSize, troubleSize: troubleSize)
 
-                // Tutti, non due: questa è una scheda a tutta larghezza sulla
-                // schermata di blocco, non i centoventi punti dell'isola aperta.
-                // È qui che l'elenco dei progetti ha senso di esistere.
+                // Tutti, dove ci stanno: questa è una scheda a tutta larghezza,
+                // non i centoventi punti dell'isola aperta.
                 //
                 // A luminanza ridotta solo quelli che stanno aspettando: in
                 // StandBy notturno lo schermo è appena acceso, e un elenco intero
                 // di righe grigie non si legge comunque.
-                ForEach(visibleProjects) { project in
-                    // Anche qui, non solo nell'isola aperta: toccare un nome
-                    // porta a quel progetto. Prima la schermata di blocco aveva
-                    // un solo collegamento per tutto.
-                    projectRow(project, scale: 1)
+                ForEach(rows(limit: rowLimit)) { project in
+                    // Toccare un nome porta a quel progetto. Prima la schermata
+                    // di blocco aveva un solo collegamento per tutto.
+                    projectRow(project, scale: rowScale)
                 }
 
-                pendingLine(size: 11)
+                if let hidden = hiddenCount(limit: rowLimit), hidden > 0 {
+                    Text("+\(hidden) altri")
+                        .font(.system(size: 11 * rowScale))
+                        .foregroundStyle(.secondary)
+                }
+
+                pendingLine(size: 11 * rowScale)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(padding)
+        .overlay(alignment: .topTrailing) { sizeProbe }
     }
 
-    /// StandBy a schermo pieno: gli anelli sopra, l'elenco sotto a tutta
-    /// larghezza.
-    ///
-    /// ## Perché impilata e non semplicemente più grande
-    ///
-    /// Il primo tentativo era la stessa impaginazione con tutto moltiplicato per
-    /// 1,8. Ha prodotto «Vibin…» al posto del titolo e due file di puntini al
-    /// posto dei progetti, e la ragione è che avevo capito male cosa concede il
-    /// sistema: il 2× è un **ingrandimento visivo**, non spazio in più. La
-    /// cornice proposta resta larga come sulla schermata di blocco, quindi degli
-    /// anelli da 79 punti si mangiano la colonna del testo e al testo non resta
-    /// niente.
-    ///
-    /// Ciò che cresce davvero è solo l'altezza: ~196 punti intrinsechi contro i
-    /// 96 usati. Quindi gli anelli restano della loro dimensione — a schermo
-    /// diventano comunque 88 punti, come nella presentazione che funzionava — e
-    /// l'altezza guadagnata va all'elenco, che passando sotto invece che di
-    /// fianco prende **tutta** la larghezza: molto più di quella che aveva prima.
-    private var fullscreenContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 18) {
-                ActivityRing(
-                    label: "5h",
-                    percent: state.fiveHourPercent,
-                    resetsAt: state.fiveHourResetsAt,
-                    showsReset: !dimmed
-                )
-                ActivityRing(
-                    label: "7g",
-                    percent: state.sevenDayPercent,
-                    resetsAt: state.sevenDayResetsAt,
-                    showsReset: !dimmed
-                )
-                Spacer(minLength: 0)
-                headline(size: 15, troubleSize: 10)
-            }
+    private func rows(limit: Int?) -> [ClaudeIslandState.Project] {
+        guard let limit else { return visibleProjects }
+        return Array(visibleProjects.prefix(limit))
+    }
 
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(fullscreenProjects) { project in
-                    projectRow(project, scale: 1.45)
-                }
-                if hiddenProjectCount > 0 {
-                    Text("+\(hiddenProjectCount) altri")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-                pendingLine(size: 14)
-            }
+    private func hiddenCount(limit: Int?) -> Int? {
+        guard let limit else { return nil }
+        return max(0, visibleProjects.count - limit)
+    }
+
+    /// Quanto spazio questa vista ha preso davvero, scritto in un angolo.
+    ///
+    /// ## Perché esiste
+    ///
+    /// L'impaginazione a schermo pieno l'ho sbagliata tre volte, e le tre volte
+    /// per la stessa ragione: numeri dedotti da una fotografia. Il 2× del
+    /// sistema, la larghezza della cornice, il tetto in altezza — tutto stimato.
+    /// Poi la scheda veniva tagliata e ricominciava il giro. Alla prima misura
+    /// vera è uscito il pezzo che mancava a ogni stima: i ~120 punti di margine
+    /// che iOS si tiene per sé.
+    ///
+    /// In alto a destra e non in basso: appoggiata al bordo inferiore veniva
+    /// tagliata dall'angolo arrotondato, cioè era illeggibile proprio nel caso
+    /// in cui serviva.
+    ///
+    /// ## Perché è sicuro dentro un `overlay`
+    ///
+    /// Un `GeometryReader` che partecipa all'impaginazione **rompe** una Live
+    /// Activity: non dichiara un'altezza propria, e il sistema quell'altezza la
+    /// deve chiedere. Dentro un `overlay` no: l'overlay viene dimensionato *dal*
+    /// contenuto, quindi legge la misura senza poterla influenzare.
+    ///
+    /// ## Solo nelle build via cavo
+    ///
+    /// `#if DEBUG`, quindi non esiste nelle build che passano da TestFlight: è
+    /// uno strumento per me, non una cosa da mostrare a qualcuno.
+    @ViewBuilder
+    private var sizeProbe: some View {
+        #if DEBUG
+        GeometryReader { geometry in
+            Text("\(Int(geometry.size.width))×\(Int(geometry.size.height))")
+                .font(.system(size: 8))
+                .foregroundStyle(.white.opacity(0.35))
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .topTrailing
+                )
         }
-        .padding(14)
+        #endif
     }
 
     // MARK: - Pezzi comuni alle due impaginazioni
@@ -666,14 +707,6 @@ private struct LockScreenView: View {
                     .lineLimit(2)
             }
         }
-    }
-
-    private var fullscreenProjects: [ClaudeIslandState.Project] {
-        Array(visibleProjects.prefix(Self.fullscreenRowLimit))
-    }
-
-    private var hiddenProjectCount: Int {
-        max(0, visibleProjects.count - Self.fullscreenRowLimit)
     }
 
     private var visibleProjects: [ClaudeIslandState.Project] {

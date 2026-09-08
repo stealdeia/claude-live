@@ -144,7 +144,7 @@ struct UsageWidget: Widget {
         StaticConfiguration(kind: "it.aldeialab.ClaudeLive.usage", provider: IslandProvider()) { entry in
             UsageWidgetView(entry: entry)
                 .widgetURL(entry.fallbackLink)
-                .claudeWidgetBackground()
+                .claudeWidgetChrome()
         }
         .configurationDisplayName("Utilizzo")
         .description("Quanto è consumato delle finestre di 5 ore e 7 giorni.")
@@ -163,7 +163,7 @@ struct ProjectsWidget: Widget {
                 // collegamento: le righe coprono le righe, non l'intestazione né
                 // il margine, e un tocco là finirebbe nel vuoto.
                 .widgetURL(entry.fallbackLink)
-                .claudeWidgetBackground()
+                .claudeWidgetChrome()
         }
         .configurationDisplayName("Progetti")
         .description("Le sessioni di Claude Code: al lavoro, in attesa, o ferme.")
@@ -177,7 +177,7 @@ struct OverviewWidget: Widget {
         StaticConfiguration(kind: "it.aldeialab.ClaudeLive.overview", provider: IslandProvider()) { entry in
             OverviewWidgetView(entry: entry)
                 .widgetURL(entry.fallbackLink)
-                .claudeWidgetBackground()
+                .claudeWidgetChrome()
         }
         .configurationDisplayName("Panoramica")
         .description("I due contatori e i progetti, in un riquadro grande.")
@@ -188,21 +188,43 @@ struct OverviewWidget: Widget {
 // MARK: - Lo sfondo
 
 private extension View {
-    /// Lo sfondo sfumato del tema scelto nell'app.
+    /// Lo sfondo sfumato del tema scelto nell'app, e il tema scuro imposto.
+    ///
+    /// ## Lo sfondo
     ///
     /// `containerBackground` e non un `.background`, e la differenza conta: negli
     /// slot StandBy e sulla schermata di blocco iOS **rimuove** lo sfondo del
     /// contenitore da sé, per far sembrare il contenuto appoggiato sullo schermo.
     /// Uno sfondo disegnato a mano resterebbe là come un rettangolo colorato in
     /// mezzo al nero.
-    func claudeWidgetBackground() -> some View {
-        containerBackground(for: .widget) {
-            LinearGradient(
-                colors: [SharedStore.theme.top, SharedStore.theme.deep],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
+    ///
+    /// ## Perché il tema scuro va imposto
+    ///
+    /// Un widget prende l'aspetto **di sistema**, non quello dell'app.
+    /// `RootView` forza `preferredColorScheme(.dark)`, ma quella riga vale solo
+    /// dentro l'app: qui non arriva. Quindi con il telefono in modalità chiara
+    /// `.primary` e `.secondary` si risolvevano in **nero**, sopra questo sfondo
+    /// che è scuro sempre — scritte invisibili sulla schermata Home, mentre in
+    /// StandBy si vedevano benissimo perché là è scuro comunque. Visto il
+    /// 2026-09-08.
+    ///
+    /// Imposto e non adattato: lo sfondo di questa app è un gradiente
+    /// nero-verso-colore e non ne esiste una versione chiara — è la stessa
+    /// ragione per cui `RootView` lo forza. Un widget che schiarisse lo sfondo
+    /// sarebbe un altro widget.
+    ///
+    /// Sotto `containerBackground` di proposito: in modalità `vibrant` — StandBy
+    /// notturno — iOS rifà i colori a suo modo, e questa riga non gli toglie
+    /// niente perché agisce sui colori semantici prima che lui li rimpiazzi.
+    func claudeWidgetChrome() -> some View {
+        environment(\.colorScheme, .dark)
+            .containerBackground(for: .widget) {
+                LinearGradient(
+                    colors: [SharedStore.theme.top, SharedStore.theme.deep],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
     }
 }
 
