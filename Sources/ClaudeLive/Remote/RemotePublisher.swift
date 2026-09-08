@@ -174,6 +174,15 @@ final class RemotePublisher: ObservableObject {
         if let island = islandToSend(), let box = try? RemoteCrypto.seal(island, with: key) {
             body["activity"] = box
             islandInFlight = island
+            // Quanto vale la pena svegliare il telefono per questo.
+            //
+            // Il relay non può deciderlo: la scatola è sigillata e per lui è una
+            // stringa. Ma senza distinguere, ogni risveglio finisce speso per una
+            // percentuale che sale da 14 a 15 — e i risvegli in sottofondo iOS li
+            // concede con parsimonia, quindi il bilancio si consuma in rumore e
+            // quando cambia davvero uno stato non ne resta. È il motivo per cui
+            // «i dati si aggiornano un po' lentamente».
+            body["wake"] = wakeUrgency(for: island)
         }
         if let notify = notificationText() {
             body["notify"] = notify
@@ -339,6 +348,21 @@ final class RemotePublisher: ObservableObject {
         // peggiore — il Mac deciderebbe che una cosa è cambiata e il telefono
         // che non lo è, senza che nessuno dei due abbia torto sul proprio codice.
         return island.describesSameContent(as: last) ? nil : island
+    }
+
+    /// «urgent» quando è cambiata la **situazione** — un progetto che parte, uno
+    /// che si mette ad aspettare, una richiesta nuova — e «routine» quando sono
+    /// cambiati solo i numeri dell'utilizzo.
+    ///
+    /// Il confronto sta nel pacchetto (`describesSameSituation(as:)`) e non qui:
+    /// è una proprietà del contenuto, e il giorno che si aggiungesse un campo
+    /// all'isola va aggiornata in un posto solo.
+    private func wakeUrgency(for island: ClaudeIslandState) -> String {
+        // Senza un precedente non si sa cosa sia cambiato, e la prima volta
+        // conviene sbagliare per eccesso: è quella in cui il telefono non sa
+        // ancora niente.
+        guard let last = lastIsland else { return "urgent" }
+        return island.describesSameSituation(as: last) ? "routine" : "urgent"
     }
 
     private func makeSnapshot() -> RemoteSnapshot {

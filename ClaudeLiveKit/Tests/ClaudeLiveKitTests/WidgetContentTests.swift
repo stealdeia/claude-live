@@ -149,3 +149,90 @@ final class WidgetContentTests: XCTestCase {
         XCTAssertEqual(atteso, ["/a/due", "/b/quattro", "/m/tre", "/z/uno"])
     }
 }
+
+/// «Vale la pena svegliare il telefono?» — che è una domanda diversa da «è
+/// cambiato qualcosa?».
+///
+/// Confonderle era il difetto dietro «i dati si aggiornano un po' lentamente»:
+/// ogni percentuale che saliva spendeva un risveglio, e i risvegli in sottofondo
+/// iOS li concede con parsimonia.
+final class WakeUrgencyTests: XCTestCase {
+
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    private func island(
+        five: Double,
+        projects: [ClaudeIslandState.Project],
+        pending: String? = nil,
+        alert: String? = nil
+    ) -> ClaudeIslandState {
+        ClaudeIslandState(
+            fiveHourPercent: five,
+            fiveHourResetsAt: now,
+            sevenDayPercent: 9,
+            projects: projects,
+            alertKind: alert,
+            pending: pending,
+            updatedAt: now
+        )
+    }
+
+    private let working = ClaudeIslandState.Project(
+        name: "hub", path: "/a/hub", state: .working, alerting: false
+    )
+    private let waiting = ClaudeIslandState.Project(
+        name: "hub", path: "/a/hub", state: .waitingInput, alerting: false
+    )
+
+    /// Il caso per cui esiste: sale l'utilizzo e non è cambiato niente altro.
+    /// «È cambiato qualcosa» dice sì, «vale la pena» deve dire no.
+    func testSoloLaPercentualeNonMeritaUnRisveglio() {
+        let prima = island(five: 14, projects: [working])
+        let dopo = island(five: 15, projects: [working])
+
+        XCTAssertTrue(prima.describesSameSituation(as: dopo))
+        XCTAssertFalse(
+            prima.describesSameContent(as: dopo),
+            "il widget va comunque ridisegnato quando lo si guarda: cambia il numero"
+        )
+    }
+
+    /// Anche la data di azzeramento si muove da sé, minuto per minuto.
+    func testAncheLAzzeramentoScorreDaSolo() {
+        var dopo = island(five: 14, projects: [working])
+        dopo.fiveHourResetsAt = now.addingTimeInterval(-60)
+        XCTAssertTrue(island(five: 14, projects: [working]).describesSameSituation(as: dopo))
+    }
+
+    /// Un progetto che si mette ad aspettare: è la cosa per cui ci si alza dalla
+    /// sedia, e deve passare davanti.
+    func testUnoStatoCheCambiaMeritaUnRisveglio() {
+        XCTAssertFalse(
+            island(five: 14, projects: [working])
+                .describesSameSituation(as: island(five: 14, projects: [waiting]))
+        )
+    }
+
+    func testUnProgettoInPiuMeritaUnRisveglio() {
+        XCTAssertFalse(
+            island(five: 14, projects: [working])
+                .describesSameSituation(as: island(five: 14, projects: [working, waiting]))
+        )
+    }
+
+    func testUnaRichiestaInAttesaMeritaUnRisveglio() {
+        XCTAssertFalse(
+            island(five: 14, projects: [waiting])
+                .describesSameSituation(as: island(five: 14, projects: [waiting],
+                                                   pending: "posso scrivere?"))
+        )
+    }
+
+    func testUnAvvisoMeritaUnRisveglio() {
+        XCTAssertFalse(
+            island(five: 14, projects: [working])
+                .describesSameSituation(as: island(five: 14, projects: [working],
+                                                   alert: "done"))
+        )
+    }
+}

@@ -96,6 +96,29 @@ public struct ClaudeIslandState: Codable, Hashable, Sendable {
         }
     }
 
+    /// Se descrive la stessa **situazione** di un altro: gli stessi progetti
+    /// negli stessi stati, la stessa richiesta in attesa, lo stesso avviso.
+    ///
+    /// ## Perché non basta `describesSameContent(as:)`
+    ///
+    /// Quello confronta tutto tranne l'ora, percentuali comprese — ed è giusto
+    /// per decidere se *ridisegnare*. Ma le percentuali salgono di continuo:
+    /// usarle per decidere se **svegliare il telefono** vuol dire spendere un
+    /// risveglio ogni volta che l'utilizzo passa da 14 a 15, cioè consumare in
+    /// rumore un bilancio che iOS concede con parsimonia. E quando poi cambia
+    /// davvero uno stato, il sistema ci ha già visti chiedere troppo.
+    ///
+    /// Quindi qui percentuali e date di azzeramento **non** contano: contano i
+    /// progetti, i loro stati, e ciò che sta aspettando una risposta. Cioè le
+    /// cose per cui vale la pena guardare il telefono adesso invece che fra
+    /// dieci minuti.
+    public func describesSameSituation(as other: ClaudeIslandState) -> Bool {
+        projects == other.projects
+            && pending == other.pending
+            && alertKind == other.alertKind
+            && alertSessionID == other.alertSessionID
+    }
+
     /// Un progetto nell'elenco dell'isola.
     public struct Project: Codable, Hashable, Identifiable, Sendable {
         public var name: String

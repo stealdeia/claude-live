@@ -227,19 +227,36 @@ const SNAPSHOT_LIFE_MS = 600_000
 const COMMAND_LIFE_MS = 300_000
 
 /**
- * Il pavimento fra due risvegli dell'app per i widget.
+ * I due pavimenti fra due risvegli dell'app per i widget.
  *
- * Novanta secondi, e il numero è un compromesso dichiarato. I risvegli in
- * sottofondo hanno un bilancio che iOS gestisce da sé e che non pubblica: chi ne
- * chiede troppi non ne ottiene di più, ne ottiene *meno* — il sistema impara che
- * quest'app non vale il risveglio e la strozza, perdendo anche quelli che
- * servivano. Un widget d'altra parte non è una superficie da secondi: mostra
- * quanto è vecchio il suo dato, e un minuto e mezzo di ritardo là si legge come
- * «adesso».
+ * ## Perché due e non uno
  *
- * Scavalcato quando c'è un avviso — vedi `/publish`.
+ * Era uno, novanta secondi per qualunque cambiamento. Sbagliato, e il difetto
+ * si vedeva come «i dati si aggiornano un po' lentamente»: il Mac pubblica ogni
+ * cinque-venticinque secondi, e le percentuali d'utilizzo salgono di continuo,
+ * quindi il pavimento veniva colpito **sempre** — un risveglio ogni novanta
+ * secondi per dire «14 invece di 13». Quaranta risvegli all'ora spesi in rumore.
+ *
+ * E i risvegli in sottofondo hanno un bilancio che iOS gestisce da sé e non
+ * pubblica: chi ne chiede troppi non ne ottiene di più, ne ottiene **meno** — il
+ * sistema impara che quest'app non vale il risveglio e la strozza. Così quando
+ * cambiava davvero uno stato non restava niente per consegnarlo.
+ *
+ * Adesso il Mac dice di che tipo è il cambiamento — lui la scatola la può
+ * leggere, questo Worker no — e i due tipi hanno due prezzi:
+ *
+ * - **urgente**: un progetto che parte, uno che si mette ad aspettare, una
+ *   richiesta nuova. Venti secondi, cioè praticamente subito: è la cosa per cui
+ *   si guarda il telefono.
+ * - **routine**: solo i numeri dell'utilizzo. Cinque minuti, e non è una
+ *   penalizzazione — il widget mostra quanto è vecchio il suo dato, e una
+ *   percentuale di cinque minuti fa non ha mai fatto sbagliare niente a nessuno.
+ *
+ * Un Mac più vecchio che non manda il tipo viene trattato come urgente: meglio
+ * il comportamento di prima che nessun risveglio.
  */
-const WAKE_FLOOR_MS = 90_000
+const WAKE_FLOOR_URGENT_MS = 20_000
+const WAKE_FLOOR_ROUTINE_MS = 300_000
 
 /**
  * Tutto quello che riguarda una coppia Mac–iPhone, e nient'altro.
@@ -314,9 +331,9 @@ export class PairState {
    * sistema per cui valga la pena consumare un risveglio subito.
    */
   private async mayWake(urgent: boolean): Promise<boolean> {
-    if (urgent) return true
     const last = (await this.ctx.storage.get<number>('backgroundPushAt')) ?? 0
-    return Date.now() - last >= WAKE_FLOOR_MS
+    const floor = urgent ? WAKE_FLOOR_URGENT_MS : WAKE_FLOOR_ROUTINE_MS
+    return Date.now() - last >= floor
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -370,6 +387,8 @@ export class PairState {
         notify?: string
         notifyKind?: string
         activity?: string
+        /** «urgent» o «routine»: quanto vale svegliare il telefono. */
+        wake?: string
       }
       if (typeof body.payload !== 'string' || body.payload.length === 0) {
         return json({ error: 'payload mancante' }, 400)
@@ -441,9 +460,11 @@ export class PairState {
       // seconda cosa da tenere in pari.
       let wake: unknown = null
       if (body.activity) {
-        // Urgente quando il Mac sta anche mandando un avviso: è cambiato lo stato
-        // d'attesa, ed è la sola cosa per cui valga saltare la fila.
-        if (await this.mayWake(Boolean(body.notify))) {
+        // Urgente quando il Mac lo dice, o quando sta anche mandando un avviso.
+        // `!== 'routine'` e non `=== 'urgent'`: un Mac che non manda il campo
+        // deve continuare a funzionare come prima, non smettere di svegliare.
+        const urgent = body.wake !== 'routine' || Boolean(body.notify)
+        if (await this.mayWake(urgent)) {
           const { token, environment } = await this.device()
           if (token) {
             // Scritto **prima** di spedire, non dopo. Se lo scrivessimo dopo, un
@@ -460,14 +481,31 @@ export class PairState {
               false,
               'background'
             )
+          } else {
+            wake = { skipped: 'nessun token' }
           }
         } else {
-          // Riferito e non taciuto: «il widget non si è mosso» ha tre cause
-          // diverse — nessun token, APNs che rifiuta, e il pavimento — e da fuori
-          // si vedono identiche. Questa riga in `wrangler tail` le distingue.
-          wake = { skipped: 'pavimento' }
+          wake = { skipped: 'pavimento', urgent }
         }
       }
+
+      // Scritto nel registro e non solo restituito.
+      //
+      // «Il widget non si è mosso» ha quattro cause che da fuori si vedono
+      // identiche: il Mac non ha mandato l'isola, il telefono non ha un token,
+      // APNs ha rifiutato, o è scattato il pavimento. La risposta le distingue
+      // già — ma la risposta la legge il Mac, che non la mostra a nessuno.
+      // Questa riga la fa comparire in `npx wrangler tail`, che è il posto dove
+      // si va a guardare quando qualcosa non arriva.
+      console.log(
+        JSON.stringify({
+          at: new Date().toISOString(),
+          isola: Boolean(body.activity),
+          tipo: body.wake ?? 'non dichiarato',
+          avviso: Boolean(body.notify),
+          risveglio: wake,
+        })
+      )
 
       return json({ ok: true, pushed, island, wake })
     }
