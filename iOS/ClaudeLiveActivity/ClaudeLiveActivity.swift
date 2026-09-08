@@ -557,7 +557,7 @@ private struct LockScreenView: View {
     /// stessa forma, e tenerne due in pari era lavoro che si paga senza comprare
     /// niente. Cambiano solo i numeri.
     ///
-    /// I numeri, **misurati** il 2026-09-08 con `sizeProbe` invece di essere
+    /// I numeri, **misurati** il 2026-09-08 sul telefono invece di essere
     /// dedotti da una fotografia come le tre volte precedenti:
     ///
     /// - **Schermata di blocco**: cornice ~340 punti di larghezza, tetto **160**
@@ -641,7 +641,6 @@ private struct LockScreenView: View {
             Spacer(minLength: 0)
         }
         .padding(padding)
-        .overlay(alignment: .topTrailing) { sizeProbe }
     }
 
     private func rows(limit: Int?) -> [ClaudeIslandState.Project] {
@@ -654,47 +653,21 @@ private struct LockScreenView: View {
         return max(0, visibleProjects.count - limit)
     }
 
-    /// Quanto spazio questa vista ha preso davvero, scritto in un angolo.
-    ///
-    /// ## Perché esiste
-    ///
-    /// L'impaginazione a schermo pieno l'ho sbagliata tre volte, e le tre volte
-    /// per la stessa ragione: numeri dedotti da una fotografia. Il 2× del
-    /// sistema, la larghezza della cornice, il tetto in altezza — tutto stimato.
-    /// Poi la scheda veniva tagliata e ricominciava il giro. Alla prima misura
-    /// vera è uscito il pezzo che mancava a ogni stima: i ~120 punti di margine
-    /// che iOS si tiene per sé.
-    ///
-    /// In alto a destra e non in basso: appoggiata al bordo inferiore veniva
-    /// tagliata dall'angolo arrotondato, cioè era illeggibile proprio nel caso
-    /// in cui serviva.
-    ///
-    /// ## Perché è sicuro dentro un `overlay`
-    ///
-    /// Un `GeometryReader` che partecipa all'impaginazione **rompe** una Live
-    /// Activity: non dichiara un'altezza propria, e il sistema quell'altezza la
-    /// deve chiedere. Dentro un `overlay` no: l'overlay viene dimensionato *dal*
-    /// contenuto, quindi legge la misura senza poterla influenzare.
-    ///
-    /// ## Solo nelle build via cavo
-    ///
-    /// `#if DEBUG`, quindi non esiste nelle build che passano da TestFlight: è
-    /// uno strumento per me, non una cosa da mostrare a qualcuno.
-    @ViewBuilder
-    private var sizeProbe: some View {
-        #if DEBUG
-        GeometryReader { geometry in
-            Text("\(Int(geometry.size.width))×\(Int(geometry.size.height))")
-                .font(.system(size: 8))
-                .foregroundStyle(.white.opacity(0.35))
-                .frame(
-                    width: geometry.size.width,
-                    height: geometry.size.height,
-                    alignment: .topTrailing
-                )
-        }
-        #endif
-    }
+    // La sonda che ha dato quei numeri non c'è più: ha finito il suo lavoro, e
+    // i numeri stanno scritti sopra.
+    //
+    // Era un `GeometryReader` dentro un `overlay(alignment: .topTrailing)` che
+    // disegnava «larghezza×altezza» in piccolo, sotto `#if DEBUG`. Se un giorno
+    // servisse rimisurare — un iPhone di un'altra dimensione, una versione di
+    // iOS che cambia i margini — sono tre righe e vanno rimesse **così**:
+    // nell'overlay e non nell'impaginazione, perché l'overlay viene dimensionato
+    // *dal* contenuto e legge la misura senza poterla influenzare. Un
+    // `GeometryReader` che partecipa all'impaginazione rompe la Live Activity.
+    //
+    // Cosa ha detto, il 2026-09-08 su iPhone 14 Pro con iOS 26.6.1: **364×125**
+    // a schermo pieno, contro un tetto di ~141. Le tre stime che l'avevano
+    // preceduta dicevano 196, e sbagliavano tutte per lo stesso motivo — nessuna
+    // teneva conto dei ~55 punti di margine che iOS si tiene per lato.
 
     // MARK: - Pezzi comuni alle due impaginazioni
 
