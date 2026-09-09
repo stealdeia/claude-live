@@ -1,8 +1,7 @@
-Nel pannello si risponde anche alle domande a scelta multipla, non solo ai permessi.
+Consumo di CPU: da mezzo core a quasi niente.
 
-- **Le domande di Claude si leggono e si rispondono dal pannello.** Quelle con le opzioni fra cui scegliere, e con lo spazio per scriverne una propria. Prima il pannello sapeva rispondere soltanto alle richieste di permesso — che in modalità automatica non arrivano quasi più, mentre una domanda in quella modalità è **l'unica cosa** che ferma la sessione ad aspettare una persona: cioè proprio il caso in cui il pannello serve, ed era il solo che non ci arrivava.
-- **La risposta arriva a Claude come una risposta**, non come un permesso negato con un messaggio attaccato: l'hook riscrive l'input dello strumento, che è il campo che di norma riempie il terminale. Quindi la domanda risulta risposta e non saltata, e una risposta scritta a mano arriva come tale.
-- **Tre minuti invece di 45 secondi** per rispondere: «Consenti» è un pulsante, una domanda sono due o tre opzioni con le loro descrizioni da leggere. E come sempre l'attesa finisce da sé nell'istante in cui riporti in vista la finestra di quel progetto.
-- **«Consenti sempre» non compare per le domande**: rispondere per sempre alla stessa domanda non vorrebbe dire niente.
-- Il diario delle anomalie non registra più un evento che non è mai rispondibile: era una riga a ogni domanda per un limite noto, e un diario deve contenere le sorprese.
+- **L'app consumava fra un terzo e due terzi di un core, e ora sta all'1%.** Misurato sulla stessa macchina, a notch chiuso e con un progetto in lavorazione: 48% prima, 1,1% dopo. Sul portatile vuol dire ventola ferma e batteria che dura.
+- **Il tempo di CPU non cresce più senza limite.** Finché un avviso restava non notato, il segnale luminoso del notch veniva ridisegnato dalla CPU decine di volte al secondo: bastava lasciare un progetto in attesa per la notte e l'app aveva macinato ore di calcolo per una luce che respira. Ora quel disegno lo fa la scheda grafica, e una volta avviato non costa più niente per fotogramma.
+- **I pallini di stato si fermano quando non li vedi.** Pulsavano anche a pannello chiuso, e su un secondo pannello tenuto fuori schermo che in modalità notch non si mostra mai: invisibili, e da soli valevano il 24% di un core.
+- **Niente cambia in ciò che vedi**: stessa luce, stesso respiro, stessi colori, stesso pannello. Non è un giudizio a occhio — il vecchio disegno e il nuovo sono stati confrontati pixel per pixel, e la differenza media è di 0,31 livelli su 255.
 - Claude Live è un progetto di **Purple Heads**.
