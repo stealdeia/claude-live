@@ -436,7 +436,7 @@ private struct GlowRowBackground: View {
         if let palette {
             // Nothing animates unless something is pending: with no alert this view
             // is an `EmptyView` and no clock runs.
-            TimelineView(.animation) { context in
+            TimelineView(.animation(minimumInterval: GlowBand.frameInterval)) { context in
                 // Una tinta unita che respira, non una banda che attraversa.
                 //
                 // Prima era un gradiente orizzontale con la fase che scorreva, e

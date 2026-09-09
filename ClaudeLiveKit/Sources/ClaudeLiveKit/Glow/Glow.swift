@@ -130,13 +130,48 @@ public enum GlowBand {
     /// How lit the rest stays, so it reads as a strip with light running through it
     /// rather than as two dots chasing each other.
     public static let floor: Double = 0.16
-    /// Enough samples that the band's edges are smooth; the cost is one gradient
-    /// either way.
+    /// Enough samples that the band's edges are smooth.
+    ///
+    /// Leave this alone: cutting it is a bad trade, and the arithmetic is done.
+    /// Profiling the strip on 2026-09-09 put everything that depends on the stop
+    /// count — building the shading ramp and colour-converting it — at ~7% of the
+    /// drawing. The other 93% is the per-pixel blit and the blurs, which scale with
+    /// *area* and do not care how many stops there are.
+    ///
+    /// The quality side is not free either. Against the true Gaussian the
+    /// piecewise-linear reading errs by 3.6 levels out of 255 here; at 32 stops it
+    /// is 5.5, at 16 it is 12, and the rainbow palette degrades faster still (12
+    /// levels here, 37 at 16). So halving this buys a couple of per cent of CPU and
+    /// pays for it in visible banding — the more so since the core stroke is no
+    /// longer blurred. Frame rate and the number of blurred passes are the levers
+    /// that matter; see `frameInterval` and `NotchGlowView`.
     public static let samples = 48
 
     /// One full out-and-back. Slow enough to read as breathing rather than as a
     /// warning light.
     public static let period: TimeInterval = 2.6
+
+    /// Ceiling on how often the light is redrawn.
+    ///
+    /// `TimelineView(.animation)` asks for a frame at every display refresh — and
+    /// on a ProMotion panel that is up to 120 a second. Nothing about a breath
+    /// lasting `period` needs that, and it is not cheap: a blurred shape cannot be
+    /// composited by the GPU, so every frame re-rasterises the strip on the CPU.
+    ///
+    /// Measured on 2026-09-09, glow lit and panel closed, before and after capping
+    /// (`sample` on the live process, 10s):
+    ///
+    ///     main thread busy   55% -> 25%     (~48% -> ~22% of a core)
+    ///       rasterising      35% -> 10%
+    ///       SwiftUI layout   18% -> 15%
+    ///
+    /// Note the second row: capping the rate barely touched it. The layout pass is
+    /// driven by the hosting view, not by how often this view produces content, so
+    /// it is now what dominates — see `NotchGlowView` for what would remove it.
+    ///
+    /// `phase(at:)` is a pure function of the date, so the notch and the rows stay
+    /// in step whatever rate either of them is redrawn at.
+    public static let frameInterval: TimeInterval = 1.0 / 30.0
 
     /// Out-and-back, eased at both ends so the light lingers at the centre and at
     /// the tips instead of snapping around.
