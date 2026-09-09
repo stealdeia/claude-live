@@ -432,10 +432,13 @@ private struct GlowRowBackground: View {
     /// un'interfaccia significa «errore».
     private let floorFraction: Double = 0.34
 
+    @Environment(\.panelContentIsVisible) private var isVisible
+
     var body: some View {
-        if let palette {
-            // Nothing animates unless something is pending: with no alert this view
-            // is an `EmptyView` and no clock runs.
+        if let palette, isVisible {
+            // Nothing animates unless something is pending, and nothing at all
+            // while the notch is shut: with no alert this view is an `EmptyView`
+            // and no clock runs.
             TimelineView(.animation(minimumInterval: GlowBand.frameInterval)) { context in
                 // Una tinta unita che respira, non una banda che attraversa.
                 //

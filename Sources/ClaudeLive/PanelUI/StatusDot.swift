@@ -14,6 +14,8 @@ struct StatusDot: View {
     private let size: CGFloat
 
     @State private var pulsing = false
+    /// A dot nobody can see has nothing to signal — see `panelContentIsVisible`.
+    @Environment(\.panelContentIsVisible) private var isVisible
 
     init(activity: ClaudeActivity?, size: CGFloat = 6.5) {
         self.activity = activity
@@ -62,10 +64,12 @@ struct StatusDot: View {
         .frame(width: size * 2.4, height: size * 2.4)
         .onAppear { restartAnimation() }
         .onChange(of: activity) { _, _ in restartAnimation() }
+        .onChange(of: isVisible) { _, _ in restartAnimation() }
     }
 
     private func restartAnimation() {
         pulsing = false
+        guard isVisible else { return }
         switch activity {
         case .working:
             withAnimation(.easeOut(duration: 1.3).repeatForever(autoreverses: false)) {

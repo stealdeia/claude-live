@@ -135,6 +135,11 @@ struct NotchView: View {
                 .opacity(isExpanded ? 1 : 0)
                 // Invisible content must not intercept clicks on the strips.
                 .allowsHitTesting(isExpanded)
+                // Nor must it animate: see `panelContentIsVisible`. This is built
+                // and laid out while the notch is shut, so anything pulsing in
+                // there costs a full view-graph pass per display cycle for a
+                // result behind an opacity of zero.
+                .environment(\.panelContentIsVisible, isExpanded)
         }
         .frame(width: NotchGeometry.expandedWidth)
     }

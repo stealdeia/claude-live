@@ -37,3 +37,29 @@ enum PanelTheme {
     static let valueFont = Font.system(size: 13, weight: .semibold).monospacedDigit()
     static let captionFont = Font.system(size: 10.5, weight: .regular).monospacedDigit()
 }
+
+/// Whether the panel's detail is actually on screen.
+///
+/// The collapsed notch builds the whole expanded panel and hides it — opacity 0
+/// inside a clip — because keeping the content at its full size is what stops the
+/// layout from depending on a window that is mid-animation. The cost is that
+/// everything in there goes on *running*: a repeating SwiftUI animation drives the
+/// view graph on every display cycle whether or not anyone can see the result, and
+/// the whole hosting view is laid out again each time.
+///
+/// Measured on 2026-09-09: the pulsing status dots alone, invisible behind a
+/// collapsed notch, held the app at ~24% of a core. With them still the same app
+/// sat at 1.1%. So anything in the detail that animates by itself reads this first.
+///
+/// Defaults to true: the floating panel has no hidden state to speak of, and a
+/// view that forgets to be told is better left animating than left frozen.
+private struct PanelContentIsVisibleKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var panelContentIsVisible: Bool {
+        get { self[PanelContentIsVisibleKey.self] }
+        set { self[PanelContentIsVisibleKey.self] = newValue }
+    }
+}

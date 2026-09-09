@@ -22,6 +22,13 @@ struct PanelRootView: View {
     @ObservedObject var status: ClaudeStatusStore
     @ObservedObject var settings: Settings
     let actions: PanelActions
+    /// Whether the panel is actually on screen.
+    ///
+    /// It is built and kept alive even in notch mode, where it is never shown:
+    /// ordering a window out does not stop the SwiftUI tree inside it, so its
+    /// pulsing dots went on driving a view-graph pass per display cycle for a
+    /// window nobody could see. See `panelContentIsVisible`.
+    var contentIsVisible: Bool = true
 
     var body: some View {
         Group {
@@ -41,6 +48,7 @@ struct PanelRootView: View {
                                     ? PanelTheme.collapsedCornerRadius
                                     : PanelTheme.cornerRadius))
         .opacity(settings.panelOpacity)
+        .environment(\.panelContentIsVisible, contentIsVisible)
     }
 
     private var expanded: some View {

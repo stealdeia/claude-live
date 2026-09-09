@@ -70,6 +70,9 @@ final class PanelController: NSObject {
             actions: makeActions()
         )
 
+        // The panel starts off screen, and in notch mode it stays there.
+        syncContentVisibility()
+
         panel.onDragEnded = { [weak self] origin in
             self?.handleDragEnded(origin: origin)
         }
@@ -179,6 +182,7 @@ final class PanelController: NSObject {
         // `orderFrontRegardless` shows the panel without activating the app,
         // so whatever the user was typing in keeps focus.
         panel.orderFrontRegardless()
+        syncContentVisibility()
         Log.debug("Pannello mostrato", category: .panel)
     }
 
@@ -186,6 +190,7 @@ final class PanelController: NSObject {
     func hide() {
         settings.panelVisible = false
         panel.orderOut(nil)
+        syncContentVisibility()
         Log.debug("Pannello nascosto", category: .panel)
     }
 
@@ -198,7 +203,16 @@ final class PanelController: NSObject {
     /// nothing at all and the panel had to be summoned from the menu by hand.
     func suspend() {
         panel.orderOut(nil)
+        syncContentVisibility()
         Log.debug("Pannello sospeso (superficie non attiva)", category: .panel)
+    }
+
+    /// Tells the content whether anyone can see it. Called after every change of
+    /// the window's on-screen state, and once at start-up — a panel that is built
+    /// and never shown must not animate. See `panelContentIsVisible`.
+    private func syncContentVisibility() {
+        guard hosting.rootView.contentIsVisible != panel.isVisible else { return }
+        hosting.rootView.contentIsVisible = panel.isVisible
     }
 
     func toggleVisibility() {
