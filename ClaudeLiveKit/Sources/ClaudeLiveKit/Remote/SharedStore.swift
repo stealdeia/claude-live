@@ -5,14 +5,17 @@ import Foundation
 ///
 /// ## Perché un App Group e non il portachiavi
 ///
-/// Il portachiavi era la strada giusta e non funziona: dall'estensione risponde
-/// `-25291`, «nessun portachiavi disponibile» — misurato sul telefono, non
-/// dedotto, ed è la ragione per cui la chiave dell'isola viaggia dentro
-/// `ClaudeActivityAttributes` invece di stare dove dovrebbe. Un widget non ha un
-/// equivalente di quella scappatoia: nessuno gli consegna niente all'avvio, deve
-/// **andare a prendere** il suo contenuto. Quindi serve un posto che
-/// l'estensione possa davvero leggere, e quel posto è il contenitore condiviso
-/// del gruppo.
+/// Un widget deve **andare a prendere** il suo contenuto: nessuno gli consegna
+/// niente all'avvio, come invece il sistema fa con la Live Activity. Serve
+/// quindi un posto che l'estensione possa leggere da sé, e quel posto è il
+/// contenitore condiviso del gruppo.
+///
+/// Qui c'era scritto anche che il portachiavi dall'estensione non risponde
+/// (`-25291`). **Non è più vero**, ed è stato rimisurato il 2026-09-09: era la
+/// voce di prova che `IslandKey.accessGroup()` scriveva sul percorso di lettura,
+/// e con la riscrittura di `read()` è sparita. Il contenitore condiviso resta
+/// comunque il posto giusto per il *contenuto* — vedi il paragrafo sotto — ma
+/// non perché il portachiavi sia chiuso.
 ///
 /// ## Cosa cambia sulla protezione, onestamente
 ///

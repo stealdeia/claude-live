@@ -107,11 +107,17 @@ struct ClaudeLiveActivityWidget: Widget {
 
     /// La chiave per aprire le scatole: prima il portachiavi, poi l'attività.
     ///
-    /// In quest'ordine perché il portachiavi è il posto giusto per un segreto, e
-    /// se un giorno tornasse raggiungibile da qui va usato lui. Ma da questa
-    /// estensione oggi risponde «nessun portachiavi disponibile», quindi la
-    /// chiave viaggia anche dentro l'attività — dove il sistema la consegna
-    /// insieme al resto, senza che nessun processo debba andarsela a prendere.
+    /// In quest'ordine perché il portachiavi è il posto giusto per un segreto.
+    ///
+    /// E da qui **risponde**: rimisurato il 2026-09-09 dal widget, che sta in
+    /// questa stessa estensione — `chiave OK` anche ad app terminata. Il
+    /// `-25291` di agosto veniva dalla voce di prova che `accessGroup()`
+    /// scriveva sul percorso di lettura, ed è sparito quando `read()` ha smesso
+    /// di dichiarare il gruppo.
+    ///
+    /// La chiave dentro l'attività resta come riserva, non come strada
+    /// principale: è già consegnata dal sistema insieme al resto, quindi non
+    /// costa niente tenerla, e copre il caso in cui il portachiavi torni muto.
     static func key(from attributes: ClaudeActivityAttributes) -> SymmetricKey? {
         if let stored = IslandKey.read() { return stored }
         guard let text = attributes.key else { return nil }

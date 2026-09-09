@@ -457,10 +457,16 @@ export class PairState {
       // Il colpetto che sveglia l'app perché aggiorni i widget.
       //
       // Non porta contenuto, e non potrebbe: la fotografia è cifrata e la chiave
-      // sta nel portachiavi del telefono, che dall'estensione dei widget **non
-      // risponde**. Quindi l'app si sveglia, se la va a prendere da sé, la apre e
-      // deposita il risultato dove il widget lo legge. Niente in chiaro passa da
-      // qui né da Apple, che è la proprietà su cui tutto questo è costruito.
+      // non passa di qui. Quindi l'app si sveglia, se la va a prendere da sé, la
+      // apre e deposita il risultato dove il widget lo legge. Niente in chiaro
+      // passa da qui né da Apple, che è la proprietà su cui tutto è costruito.
+      //
+      // Qui c'era scritto che il widget non potrebbe fare da sé perché «dal suo
+      // processo il portachiavi non risponde». Non è più vero — rimisurato sul
+      // telefono il 2026-09-09 — e dalla stessa data il widget **si legge il
+      // relay da solo** quando il suo deposito è vecchio. Questo colpetto resta
+      // la corsia veloce: la ricarica che il widget si concede da sé ha il
+      // budget che iOS le assegna, mentre una notifica arriva quando serve.
       //
       // Legato a `body.activity` di proposito, invece di avere una porta sua: il
       // Mac apre quella porta soltanto quando l'isola è **cambiata** o sono

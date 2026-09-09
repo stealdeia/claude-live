@@ -39,20 +39,29 @@ import ClaudeLiveKit
 /// un widget ha un budget che iOS decide, in pratica una ogni quindici o venti
 /// minuti. Le notifiche restano la corsia veloce quando l'app è raggiungibile.
 ///
-/// ## Il portachiavi, che è la parte incerta
+/// ## Il portachiavi da qui risponde, ed è una notizia
 ///
-/// Da questa estensione rispondeva `-25291`, «nessun portachiavi disponibile»,
-/// misurato sul telefono — ed è il motivo per cui la chiave dell'isola viaggia
-/// dentro `ClaudeActivityAttributes`, che un widget non ha. Ma quel fallimento
-/// veniva quasi certamente da `IslandKey.accessGroup()`, che per scoprire il
-/// prefisso **scriveva** una voce di prova sul percorso di lettura;
-/// `IslandKey.read()` è stato poi riscritto per cercare senza dichiarare il
-/// gruppo, e da allora nessuno ha rimisurato.
+/// Per settimane il codice ha detto il contrario: da questa estensione il
+/// portachiavi rispondeva `-25291`, «nessun portachiavi disponibile», misurato
+/// sul telefono — ed è il motivo per cui la chiave dell'isola viaggia dentro
+/// `ClaudeActivityAttributes`, che un widget non ha.
 ///
-/// Quindi qui non si dà per buono niente: se la chiave non si legge, il widget
-/// ricade esattamente sul deposito come prima e **scrive il numero** che il
-/// portachiavi ha risposto, in fondo al riquadro. Costa una riga e chiude una
-/// domanda aperta da settembre.
+/// Quel fallimento veniva da `IslandKey.accessGroup()`, che per scoprire il
+/// prefisso **scriveva** una voce di prova sul percorso di lettura. Quando
+/// `read()` è stato riscritto per cercare senza dichiarare il gruppo il guasto è
+/// sparito con lui, ma nessuno aveva rimisurato e la conclusione vecchia è
+/// rimasta scritta in quattro punti diversi, dove ha continuato a dire che
+/// questa strada era chiusa.
+///
+/// **Rimisurato il 2026-09-09**, su iPhone 14 Pro, con una sonda che stampava
+/// l'esito in fondo al riquadro: `chiave OK` con l'app aperta, e `chiave OK`
+/// anche ad app terminata e Live Activity rimosse. Poi la catena intera —
+/// `relay letto OK`, cioè fotografia scaricata e aperta dall'estensione, senza
+/// che l'app girasse.
+///
+/// Se un giorno dovesse tornare a non rispondere, il widget ricade sul deposito
+/// come prima e scrive il numero in fondo al riquadro: `-34018` autorizzazione,
+/// `-25300` voce assente, `-25308` telefono mai sbloccato.
 
 // MARK: - La linea temporale
 
