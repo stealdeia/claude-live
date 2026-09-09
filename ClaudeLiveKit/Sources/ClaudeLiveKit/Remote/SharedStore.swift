@@ -35,6 +35,8 @@ public enum SharedStore {
 
     private static let islandFile = "island.json"
     private static let themeKey = "themeID"
+    private static let relayURLKey = "relayURL"
+    private static let pairIDKey = "pairID"
 
     private static var container: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
@@ -126,6 +128,42 @@ public enum SharedStore {
     /// Il tema, già risolto, con `.midnight` quando non si sa.
     public static var theme: ColorTheme {
         ColorTheme.named(themeID)
+    }
+
+    // MARK: - Dove chiedere
+
+    /// L'indirizzo del relay e il nome con cui chiedergli lo stato, per chi deve
+    /// andarselo a prendere invece di aspettare che glielo depositino.
+    ///
+    /// **Qui e non nel portachiavi, di proposito.** Il paragrafo sopra dice che in
+    /// questo contenitore non entra nessuna chiave, e continua a valere: con
+    /// queste due stringhe si ottiene soltanto la scatola sigillata, che senza la
+    /// chiave non si apre. Chi le rubasse avrebbe del rumore cifrato. La chiave
+    /// resta dove deve stare — nel portachiavi, e la legge `IslandKey`.
+    ///
+    /// Le scrive l'app a ogni lettura riuscita, così restano vere anche dopo che
+    /// l'utente cambia relay o rifà l'accoppiamento.
+    public static var relayCoordinates: (url: String, pairID: String)? {
+        guard let defaults = UserDefaults(suiteName: groupID),
+              let url = defaults.string(forKey: relayURLKey), !url.isEmpty,
+              let pairID = defaults.string(forKey: pairIDKey), !pairID.isEmpty
+        else { return nil }
+        return (url, pairID)
+    }
+
+    public static func rememberRelay(url: String, pairID: String) {
+        guard let defaults = UserDefaults(suiteName: groupID) else { return }
+        defaults.set(url, forKey: relayURLKey)
+        defaults.set(pairID, forKey: pairIDKey)
+    }
+
+    /// Scordate allo scollegamento: un widget che continuasse a interrogare il
+    /// relay di un accoppiamento disfatto prenderebbe 401 per sempre, e lo
+    /// direbbe all'utente come se fosse un guasto.
+    public static func forgetRelay() {
+        guard let defaults = UserDefaults(suiteName: groupID) else { return }
+        defaults.removeObject(forKey: relayURLKey)
+        defaults.removeObject(forKey: pairIDKey)
     }
 
     // MARK: - Diagnosi

@@ -46,13 +46,18 @@ public enum RemoteFetcher {
         relayURL: String,
         pairID: String,
         key: SymmetricKey,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        timeout: TimeInterval = 15
     ) async throws -> RemoteSnapshot {
         guard let url = URL(string: relayURL + "/state") else { throw Failure.unreachable }
 
         var request = URLRequest(url: url)
         request.setValue("Bearer \(pairID)", forHTTPHeaderField: "authorization")
-        request.timeoutInterval = 15
+        // Regolabile perché non tutti i chiamanti hanno lo stesso tempo. L'app ne
+        // ha quanto ne vuole; un widget gira dentro un processo a cui il sistema
+        // concede poco, e quindici secondi appesi a una rete lenta sono un widget
+        // che non si disegna affatto.
+        request.timeoutInterval = timeout
         // Sempre dalla rete: uno stato servito da una cache in silenzio è l'unico
         // guasto che questa app non può permettersi.
         request.cachePolicy = .reloadIgnoringLocalCacheData

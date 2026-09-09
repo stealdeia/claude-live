@@ -227,6 +227,7 @@ final class RemoteStore: ObservableObject {
 
     func unpair() {
         RemoteSecrets.reset()
+        SharedStore.forgetRelay()
         relayURL = ""
         snapshot = nil
         isPaired = false
@@ -259,6 +260,13 @@ final class RemoteStore: ObservableObject {
                 pairID: pairID,
                 key: key
             )
+
+            // Depositate qui, dopo una lettura riuscita, perché è l'unico punto
+            // in cui si sa che *funzionano*: scriverle all'accoppiamento vorrebbe
+            // dire depositare anche coordinate sbagliate, e il widget passerebbe
+            // la giornata a raccogliere 401 da un indirizzo che non ha mai reso
+            // niente a nessuno.
+            SharedStore.rememberRelay(url: relayURL, pairID: pairID)
 
             // Forget an answer the moment the Mac stops describing the request
             // it belongs to: keeping it would silence the session's next

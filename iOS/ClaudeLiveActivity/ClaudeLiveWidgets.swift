@@ -16,20 +16,43 @@ import ClaudeLiveKit
 /// vecchio il suo dato**, e sbiadisce da sé quando quel dato invecchia troppo —
 /// la stessa scelta che la Live Activity fa con la sua `staleDate`.
 ///
-/// ## Perché non fanno né rete né crittografia
+/// ## Da dove prendono il contenuto
 ///
-/// La fotografia che il Mac pubblica è cifrata, e la chiave sta nel portachiavi.
-/// Da questa estensione il portachiavi **non risponde** — `-25291`, misurato sul
-/// telefono. Quindi un widget non potrebbe decifrare niente nemmeno volendo.
+/// Due strade, e la seconda è la rete di sicurezza della prima.
 ///
-/// Il lavoro è diviso così: l'app decifra — lei il portachiavi lo raggiunge — e
-/// deposita il contenuto in chiaro nel contenitore condiviso; il widget lo legge.
-/// Il che è anche il progetto migliore a prescindere: dentro un processo a cui il
-/// sistema concede poco tempo e poca memoria, «leggo un file» ha molti meno modi
-/// di fallire di «apro una connessione e decifro».
+/// **L'app deposita.** Quando gira — anche svegliata in sottofondo da una
+/// notifica silenziosa — decifra la fotografia e lascia il contenuto in chiaro
+/// nel contenitore condiviso; il widget lo legge. È la strada veloce, e finché
+/// funziona è anche la migliore: in un processo a cui il sistema concede poco
+/// tempo e poca memoria, «leggo un file» ha molti meno modi di fallire di «apro
+/// una connessione e decifro».
 ///
-/// Chi tiene aggiornato il deposito ad app chiusa è una notifica silenziosa, che
-/// sveglia l'app: vedi `AppDelegate` in `ClaudeLiveMobileApp.swift`.
+/// **Il widget se lo va a prendere.** Perché la prima strada ha un buco che è
+/// costato una giornata di widget fermi: iOS **non consegna** le notifiche
+/// silenziose a un'app tolta dal multitasking o mai aperta dopo un riavvio.
+/// Quando succede nessuno deposita più niente, e i widget ridisegnano per ore lo
+/// stesso numero senza che nulla, da nessuna parte, sia rotto. Quindi prima di
+/// disegnarsi il widget prova a leggere il relay da sé, con la chiave del
+/// portachiavi.
+///
+/// Non sostituisce le notifiche, mette un pavimento sotto di loro: la ricarica di
+/// un widget ha un budget che iOS decide, in pratica una ogni quindici o venti
+/// minuti. Le notifiche restano la corsia veloce quando l'app è raggiungibile.
+///
+/// ## Il portachiavi, che è la parte incerta
+///
+/// Da questa estensione rispondeva `-25291`, «nessun portachiavi disponibile»,
+/// misurato sul telefono — ed è il motivo per cui la chiave dell'isola viaggia
+/// dentro `ClaudeActivityAttributes`, che un widget non ha. Ma quel fallimento
+/// veniva quasi certamente da `IslandKey.accessGroup()`, che per scoprire il
+/// prefisso **scriveva** una voce di prova sul percorso di lettura;
+/// `IslandKey.read()` è stato poi riscritto per cercare senza dichiarare il
+/// gruppo, e da allora nessuno ha rimisurato.
+///
+/// Quindi qui non si dà per buono niente: se la chiave non si legge, il widget
+/// ricade esattamente sul deposito come prima e **scrive il numero** che il
+/// portachiavi ha risposto, in fondo al riquadro. Costa una riga e chiude una
+/// domanda aperta da settembre.
 
 // MARK: - La linea temporale
 
@@ -107,9 +130,73 @@ struct IslandProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<IslandEntry>) -> Void) {
-        let now = Date()
+        Task {
+            let refusal = await Self.fetchForOurselves()
+            completion(Self.timeline(at: Date(), refusal: refusal))
+        }
+    }
+
+    /// Prova a rinnovare il deposito senza passare dall'app. Restituisce il
+    /// motivo per cui non ci è riuscito, o `nil` se ce l'ha fatta.
+    ///
+    /// Non ricarica le linee temporali: siamo *dentro* la loro costruzione, e
+    /// chiederne una qui sarebbe un anello chiuso che si mangia il budget.
+    private static func fetchForOurselves() async -> String? {
+        // Se il deposito è appena stato rinnovato, non c'è niente da andare a
+        // prendere. Succede tutte le volte che è l'app a chiedere la ricarica:
+        // ha appena scritto lei, e una lettura in più sarebbe rete e batteria
+        // spese per riottenere gli stessi numeri.
+        if let stored = SharedStore.read(),
+           Date().timeIntervalSince(stored.updatedAt) < 2 * 60 {
+            return nil
+        }
+        guard let coordinates = SharedStore.relayCoordinates else {
+            return "apri l'app una volta"
+        }
+        guard let key = IslandKey.read() else {
+            // Il numero, non la parola: `-34018` è un'autorizzazione mancante,
+            // `-25300` una voce mai scritta, `-25308` un telefono mai sbloccato
+            // dopo il riavvio. Tre cure diverse dietro lo stesso riquadro muto.
+            return "chiave \(IslandKey.lookupStatus())"
+        }
+        do {
+            let fresh = try await RemoteFetcher.snapshot(
+                relayURL: coordinates.url,
+                pairID: coordinates.pairID,
+                key: key,
+                // Corto di proposito: meglio un widget che si disegna con il dato
+                // di prima che uno che non si disegna perché stava aspettando.
+                timeout: 8
+            )
+            SharedStore.write(ClaudeIslandState(snapshot: fresh))
+            return nil
+        } catch {
+            return "relay non raggiungibile"
+        }
+    }
+
+    private static func timeline(at now: Date, refusal: String?) -> Timeline<IslandEntry> {
         let island = SharedStore.read()
-        let trouble = SharedStore.diagnosis()
+
+        // Cosa scrivere in fondo, in ordine di quanto è utile saperlo.
+        //
+        // Il rifiuto viene **prima** della diagnosi del deposito, e non dopo come
+        // avevo scritto: se il deposito è vuoto, `diagnosis()` dice «apri l'app
+        // una volta» — che è vero ma è il sintomo — mentre il rifiuto dice perché
+        // non siamo riusciti a rimediare da soli, che è la causa e l'unica delle
+        // due su cui si possa intervenire.
+        //
+        // E quando il deposito è fresco non si scrive niente: l'app sta facendo
+        // il suo lavoro, *come* ci siamo arrivati non interessa a nessuno, e là
+        // sotto serve l'età del dato — l'unica cosa che un widget debba sempre
+        // dire di sé.
+        let trouble: String?
+        if let island {
+            let stale = now.timeIntervalSince(island.updatedAt) > 25 * 60
+            trouble = stale ? refusal : nil
+        } else {
+            trouble = refusal ?? SharedStore.diagnosis()
+        }
 
         // Lo stesso contenuto a distanza di tempo: le voci future non dicono
         // cose nuove, fanno **invecchiare** quella presente sotto gli occhi di
@@ -123,12 +210,15 @@ struct IslandProvider: TimelineProvider {
             )
         }
 
-        // Un quarto d'ora: chiedere più spesso non ottiene più spesso — il
-        // budget è quello — e chiedere meno spesso rinuncerebbe a un aggiornamento
-        // che il sistema avrebbe concesso. Chi tiene davvero il passo è la
-        // notifica silenziosa, che ricarica queste linee temporali quando c'è
-        // qualcosa di nuovo da dire.
-        completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(15 * 60))))
+        // Un quarto d'ora: chiedere più spesso non ottiene più spesso — il budget
+        // è quello — e chiedere meno spesso rinuncerebbe a un aggiornamento che il
+        // sistema avrebbe concesso. È anche la cadenza con cui il widget rilegge
+        // il relay da sé, visto che è qui che ripassa.
+        //
+        // Chi tiene il passo *davvero*, quando può, resta la notifica silenziosa:
+        // ricarica queste linee temporali nell'istante in cui c'è qualcosa di
+        // nuovo, invece di aspettare il prossimo giro.
+        return Timeline(entries: entries, policy: .after(now.addingTimeInterval(15 * 60)))
     }
 
     private func current(at date: Date) -> IslandEntry {
