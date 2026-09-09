@@ -178,6 +178,10 @@ final class NotchController {
         surfaces.first?.writeSnapshot(to: url)
     }
 
+    func writeGlowSnapshot(to url: URL) {
+        surfaces.first?.writeGlowSnapshot(to: url)
+    }
+
     /// One line per surface: which screen, whether the notch is drawn, and the
     /// window rect actually on screen. The only way to tell "the setting had no
     /// effect" from "the setting does not apply here".

@@ -27,14 +27,11 @@ final class NotchAuraWindow: NSPanel {
     private let shadowView = NotchShadowView()
 
     /// The notification strip. Lives here rather than in the notch window because
-    /// it has to be drawn *outside* the shape — see `NotchGlowView`.
-    private let glowHost = NSHostingView(rootView: NotchGlowView(
-        palette: .solid(.waiting),
-        bottomCornerRadius: NotchGeometry.collapsedCornerRadius,
+    /// it has to be drawn *outside* the shape — see `NotchGlowLayerView`.
+    private let glowView = NotchGlowLayerView(
         horizontalMargin: NotchAuraWindow.margin,
-        bottomMargin: NotchAuraWindow.margin,
-        fixedPhase: nil
-    ))
+        bottomMargin: NotchAuraWindow.margin
+    )
     private var glow: NotchGlowPalette?
     private var cornerRadius: CGFloat = NotchGeometry.collapsedCornerRadius
 
@@ -63,13 +60,12 @@ final class NotchAuraWindow: NSPanel {
 
         contentView = shadowView
 
-        glowHost.frame = shadowView.bounds
-        glowHost.autoresizingMask = [.width, .height]
-        // Hidden, not merely transparent: a `TimelineView` that is on screen keeps
-        // asking for a frame every refresh, and there is nothing to animate when no
-        // project is waiting.
-        glowHost.isHidden = true
-        shadowView.addSubview(glowHost)
+        glowView.frame = shadowView.bounds
+        glowView.autoresizingMask = [.width, .height]
+        // Hidden, and with no animation installed: see `setGlow`. A strip nobody
+        // asked for should cost exactly nothing.
+        glowView.isHidden = true
+        shadowView.addSubview(glowView)
     }
 
     override var canBecomeKey: Bool { false }
@@ -106,20 +102,95 @@ final class NotchAuraWindow: NSPanel {
     }
 
     private func refreshGlow() {
-        glowHost.isHidden = glow == nil
-        guard let glow else { return }
-        glowHost.rootView = NotchGlowView(
-            palette: glow,
-            bottomCornerRadius: cornerRadius,
-            horizontalMargin: Self.margin,
-            bottomMargin: Self.margin,
-            fixedPhase: nil
-        )
+        glowView.setGlow(glow, bottomCornerRadius: cornerRadius)
     }
 
     func setShadow(visible: Bool, duration: TimeInterval) {
         shadowView.setShadow(visible: visible, duration: duration)
     }
+
+    /// Writes the strip as both engines draw it, at the same instant, one above
+    /// the other: Core Animation's on top, SwiftUI's below.
+    ///
+    /// The two have to agree — stills come from `NotchGlowView`, the real thing
+    /// from `NotchGlowLayerView` — and nothing else can tell you whether they do:
+    /// the strip lives on a window above the menu bar, and `screencapture` needs
+    /// the Screen Recording permission this machine does not grant.
+    ///
+    /// Core Animation's half renders the **presentation** layer, so it is the
+    /// frame actually on screen and not the resting value the model layer holds.
+    /// SwiftUI's half is asked for the phase of that same moment, which is what
+    /// makes the comparison mean anything.
+    func writeGlowSnapshot(to url: URL) {
+        guard let layer = glowView.layer, let palette = glow else { return }
+        let size = glowView.bounds.size
+        let scale: CGFloat = 2
+        guard size.width > 1, size.height > 1 else { return }
+
+        let pane = CGSize(width: size.width * scale, height: size.height * scale)
+        let sheet = CGSize(width: pane.width, height: pane.height * 2)
+
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: Int(sheet.width),
+                height: Int(sheet.height),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else {
+            Log.error("Snapshot glow: impossibile creare il bitmap", category: .panel)
+            return
+        }
+
+        // A stand-in for whatever is behind: the strip is light, and against a
+        // transparent ground there would be nothing to judge it by.
+        context.setFillColor(CGColor(gray: 0.18, alpha: 1))
+        context.fill(CGRect(origin: .zero, size: sheet))
+
+        let phase = GlowBand.phase(at: Date())
+
+        // Core Animation, top half.
+        context.saveGState()
+        context.translateBy(x: 0, y: pane.height)
+        context.scaleBy(x: scale, y: scale)
+        (layer.presentation() ?? layer).render(in: context)
+        context.restoreGState()
+
+        // SwiftUI at the same phase, bottom half.
+        let still = NotchGlowView(
+            palette: palette,
+            bottomCornerRadius: cornerRadius,
+            horizontalMargin: Self.margin,
+            bottomMargin: Self.margin,
+            phase: phase
+        )
+        .frame(width: size.width, height: size.height)
+        let renderer = ImageRenderer(content: still)
+        renderer.scale = scale
+        if let image = renderer.cgImage {
+            context.draw(image, in: CGRect(origin: .zero, size: pane))
+        }
+
+        guard let sheetImage = context.makeImage(),
+              let data = NSBitmapImageRep(cgImage: sheetImage)
+                .representation(using: .png, properties: [:])
+        else { return }
+        do {
+            try data.write(to: url)
+            Log.info(
+                "Snapshot glow salvato: \(url.path) — CA sopra, SwiftUI sotto, "
+                + "fase \(String(format: "%.3f", phase)), "
+                + "animazione \(layer.presentation() == nil ? "assente" : "in corso")",
+                category: .panel
+            )
+        } catch {
+            Log.error("Snapshot glow non salvato: \(error.localizedDescription)", category: .panel)
+        }
+    }
+
 }
 
 /// Draws nothing but a shadowLayer.

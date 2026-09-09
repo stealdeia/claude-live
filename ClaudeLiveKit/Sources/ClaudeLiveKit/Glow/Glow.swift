@@ -182,22 +182,43 @@ public enum GlowBand {
         return triangle * triangle * (3 - 2 * triangle)
     }
 
-    /// Brightness is a function of horizontal position — a Gaussian band centred at
-    /// `distance == phase` — so one gradient draws both travelling bands at once and
-    /// the symmetry costs nothing.
+    /// How lit the band is at a point, given where the light currently is.
+    ///
+    /// A Gaussian centred at `distance == phase`, which is what lets one gradient
+    /// draw both travelling bands at once: the symmetry costs nothing because
+    /// `distance` is already folded around the centre.
+    ///
+    /// Its own function because two different renderers need it. The rows build
+    /// SwiftUI stops from it; the notch's strip is drawn by Core Animation and
+    /// varies only the alpha of colours it has already resolved, so it wants the
+    /// brightness without the colour. One definition, so they cannot drift.
+    public static func brightness(atDistance distance: Double, phase: Double) -> Double {
+        let offset = (distance - phase) / band
+        return max(floor, exp(-offset * offset))
+    }
+
+    /// 0 at the centre of the strip, 1 at either end.
+    public static func distance(atPosition position: Double) -> Double {
+        abs(position - 0.5) * 2
+    }
+
+    /// Where the `index`-th stop sits along the strip.
+    public static func position(ofStop index: Int) -> Double {
+        Double(index) / Double(samples)
+    }
+
+    /// The band as SwiftUI gradient stops.
     public static func stops(
         phase: Double,
         palette: NotchGlowPalette,
         maxOpacity: Double = 1
     ) -> [Gradient.Stop] {
         (0...samples).map { index in
-            let position = Double(index) / Double(samples)
-            // 0 at the centre, 1 at either end.
-            let distance = abs(position - 0.5) * 2
-            let offset = (distance - phase) / band
-            let brightness = max(floor, exp(-offset * offset))
+            let position = position(ofStop: index)
+            let distance = distance(atPosition: position)
             return Gradient.Stop(
-                color: palette.color(atDistance: distance).opacity(brightness * maxOpacity),
+                color: palette.color(atDistance: distance)
+                    .opacity(brightness(atDistance: distance, phase: phase) * maxOpacity),
                 location: position
             )
         }

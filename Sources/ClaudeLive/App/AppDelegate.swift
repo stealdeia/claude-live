@@ -226,6 +226,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 // the snapshot diagnostic also shows it moving on screen.
                 self.notch.previewGlow(.solid(.done), seconds: 12)
 
+                // Mid-breath, so the file shows the band somewhere along its
+                // travel rather than at the one phase the model layer rests on.
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                self.notch.writeGlowSnapshot(
+                    to: Paths.supportDirectory.appendingPathComponent("glow-vivo.png")
+                )
+
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 self.notch.writeSnapshot(to: Paths.supportDirectory.appendingPathComponent("notch-collapsed.png"))
                 self.notch.setExpanded(true)

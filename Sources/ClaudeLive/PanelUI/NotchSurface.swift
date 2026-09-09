@@ -367,6 +367,11 @@ final class NotchSurface: NSObject, ObservableObject {
     /// `screencapture` requires the Screen Recording permission. Drawing our own
     /// view needs no permission at all, which makes it the only way to check the
     /// notch's appearance from a script.
+    /// The strip, as Core Animation composites it — see `NotchAuraWindow`.
+    func writeGlowSnapshot(to url: URL) {
+        shadowWindow.writeGlowSnapshot(to: url)
+    }
+
     func writeSnapshot(to url: URL) {
         let view = hosting.view
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {

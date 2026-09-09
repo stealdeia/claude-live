@@ -22,24 +22,17 @@ import ClaudeLiveKit
 /// floor keeps the whole outline faintly lit, so it reads as a strip that has
 /// light running through it rather than as two dots chasing each other.
 ///
-/// ## What it costs, and what is left to do
+/// ## This one does not move
 ///
-/// Every frame is rasterised on the CPU: `.blur` puts the layer beyond what the
-/// GPU can composite, so Core Animation falls back to drawing the whole thing into
-/// a backing store. Capping the rate at `GlowBand.frameInterval` and dropping the
-/// third blurred pass took the strip from ~48% of a core to ~22% (measured
-/// 2026-09-09, glow lit, panel closed).
+/// It draws a single phase and stops there. On screen the strip is
+/// `NotchGlowLayerView`, which does the same composition in Core Animation
+/// because doing it in SwiftUI cost half a core for as long as an alert stood —
+/// the reasoning is written up there. What is left here renders **stills**: the
+/// filmstrip below, which is the only way to look at a signal that lives on a
+/// window above the menu bar on a machine with no Screen Recording permission.
 ///
-/// The remaining cost is no longer the drawing but the SwiftUI layout pass, which
-/// runs off the hosting view on every display cycle whatever this view produces —
-/// so lowering the rate further would not help much. Removing it means taking the
-/// animation out of SwiftUI: the geometry never changes during a cycle, only the
-/// gradient moves, so the blurred stroke can be built **once** as a layer mask with
-/// a `CAGradientLayer` behind it, animating only `locations`. That runs on the
-/// render server, off this thread, and costs the app nothing per frame. The
-/// alternative, given `phase(at:)` is a pure function of time and
-/// `NotchGlowFilmstrip` already knows how to render frames, is to pre-bake one
-/// cycle and play it back with a `CAKeyframeAnimation` on `contents`.
+/// The two have to keep drawing the same thing, so if the passes change here they
+/// change there too. `GlowBand` holds everything both of them read.
 struct NotchGlowView: View {
     var palette: NotchGlowPalette
     /// Corner radius of the shape being traced; the notch's changes when it opens.
@@ -48,17 +41,11 @@ struct NotchGlowView: View {
     var horizontalMargin: CGFloat
     /// Room below it.
     var bottomMargin: CGFloat
-    /// Fixed phase, for rendering a filmstrip. Nil means "animate".
-    var fixedPhase: Double?
+    /// The moment of the cycle to draw. There is no animating variant: see above.
+    var phase: Double
 
     var body: some View {
-        if let fixedPhase {
-            strip(phase: fixedPhase)
-        } else {
-            TimelineView(.animation(minimumInterval: GlowBand.frameInterval)) { context in
-                strip(phase: GlowBand.phase(at: context.date))
-            }
-        }
+        strip(phase: phase)
     }
 
     private func strip(phase: Double) -> some View {
@@ -129,7 +116,7 @@ enum NotchGlowFilmstrip {
                     bottomCornerRadius: bottomCornerRadius,
                     horizontalMargin: margin,
                     bottomMargin: margin,
-                    fixedPhase: phase
+                    phase: phase
                 )
 
                 // The panel itself, which is what hides the inner half of the stroke.
