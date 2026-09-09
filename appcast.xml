@@ -5,6 +5,22 @@
     <description>Aggiornamenti di Claude Live</description>
     <language>it</language>
     <item>
+      <title>Versione 0.11.3</title>
+      <sparkle:version>0.11.3</sparkle:version>
+      <sparkle:shortVersionString>0.11.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <pubDate>Wed, 09 Sep 2026 09:28:29 +0000</pubDate>
+      <description>&lt;p&gt;Consumo di CPU: da mezzo core a quasi niente.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**L&amp;#x27;app consumava fra un terzo e due terzi di un core, e ora sta all&amp;#x27;1%.** Misurato sulla stessa macchina, a notch chiuso e con un progetto in lavorazione: 48% prima, 1,1% dopo. Sul portatile vuol dire ventola ferma e batteria che dura.&lt;/li&gt;
+&lt;li&gt;**Il tempo di CPU non cresce più senza limite.** Finché un avviso restava non notato, il segnale luminoso del notch veniva ridisegnato dalla CPU decine di volte al secondo: bastava lasciare un progetto in attesa per la notte e l&amp;#x27;app aveva macinato ore di calcolo per una luce che respira. Ora quel disegno lo fa la scheda grafica, e una volta avviato non costa più niente per fotogramma.&lt;/li&gt;
+&lt;li&gt;**I pallini di stato si fermano quando non li vedi.** Pulsavano anche a pannello chiuso, e su un secondo pannello tenuto fuori schermo che in modalità notch non si mostra mai: invisibili, e da soli valevano il 24% di un core.&lt;/li&gt;
+&lt;li&gt;**Niente cambia in ciò che vedi**: stessa luce, stesso respiro, stessi colori, stesso pannello. Non è un giudizio a occhio — il vecchio disegno e il nuovo sono stati confrontati pixel per pixel, e la differenza media è di 0,31 livelli su 255.&lt;/li&gt;
+&lt;li&gt;Claude Live è un progetto di **Purple Heads**.&lt;/li&gt;
+&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/stealdeia/claude-live/releases/download/v0.11.3/Claude.Live.0.11.3.dmg" length="3123468" type="application/octet-stream" sparkle:edSignature="Zwiaoht79WkIMgtbEjoPu4cmsdpCr8h+RdJV2px4ZBldifKJdNC2M69xIhSBJSy/0y8MROFCnrEyZxN4NJgbCw==" />
+    </item>
+    <item>
       <title>Versione 0.11.2</title>
       <sparkle:version>0.11.2</sparkle:version>
       <sparkle:shortVersionString>0.11.2</sparkle:shortVersionString>
