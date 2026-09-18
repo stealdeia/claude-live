@@ -1,32 +1,35 @@
 {
   "_nota": "I testi della scheda App Store e di TestFlight. Stanno qui e non solo su App Store Connect perché una descrizione è testo del prodotto: va riletta, corretta e versionata come il resto. `tools/appstore-metadata.mjs` li carica.",
   "locale": "it",
-
   "subtitle": "Claude Code, da lontano",
-
   "promotionalText": "Il Mac lavora anche quando tu non sei alla scrivania. Guarda cosa sta facendo Claude Code, e rispondi ai permessi dal telefono.",
-
   "keywords": "claude,claude code,mac,sviluppo,permessi,notifiche,monitor,terminale,ai,programmazione",
-
   "description": "Vibing Code Live è il compagno per iPhone di Claude Live, l'app per Mac che mostra cosa sta facendo Claude Code mentre lavori.\n\nQuando ti alzi dalla scrivania, il Mac continua. Vibing Code Live ti dice cosa sta succedendo — quali progetti stanno lavorando, quali si sono fermati ad aspettare una risposta, quanto hai consumato dei tuoi limiti — e ti permette di rispondere a una richiesta di permesso senza tornare indietro.\n\nCOSA VEDI\n• Lo stato di ogni progetto e di ogni chat aperta, aggiornato di continuo\n• Le sessioni che aspettano una risposta, in evidenza sulla prima schermata\n• I limiti d'uso a 5 ore e a 7 giorni, con gli stessi due anelli che hai sul Mac\n• Da quanto tempo il Mac non si fa sentire, per non confondere un Mac zitto con un Mac spento\n\nCOSA PUOI FARE\n• Ricevere una notifica quando Claude si ferma ad aspettarti\n• Consenti, Nega o Consenti sempre, direttamente dal telefono\n• Riprendere il lavoro senza tornare al computer\n\nCOME SI COLLEGA\nServe Claude Live sul Mac, gratuita. L'accoppiamento è un codice QR: apri le impostazioni sul Mac, mostri il codice, lo inquadri col telefono. Non c'è niente da digitare — né indirizzi né password.\n\nPRIVACY\nFinché non accendi la pubblicazione sul Mac, nessun dato lo lascia. Quando la accendi, quello che il Mac pubblica è cifrato da un capo all'altro: la chiave per aprirlo viaggia solo dentro il codice QR e mai attraverso i nostri server, che quindi trasportano senza poter leggere. Non raccogliamo niente e non c'è nessun account da creare.\n\nVibing Code Live è un progetto di Purple Heads.",
-
   "primaryCategory": "DEVELOPER_TOOLS",
-
+  "_nota_diritti": "Due campi che App Store Connect non mostra come mancanti finché non si prova a inviare, e allora rifiuta la pratica intera. Il copyright compare sulla scheda pubblica: è l'unico posto in cui «Purple Heads» si legge accanto all'app. `DOES_NOT_USE_THIRD_PARTY_CONTENT` perché dentro non c'è niente di altri — nessuna libreria di terze parti, nessun contenuto su licenza.",
+  "copyright": "2026 Purple Heads",
+  "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT",
   "ageRating": {
     "_nota": "Tutte le risposte negative, perché l'app non ha nessuno di quei contenuti: mostra lo stato del Mac e niente altro. La fascia d'età dei bambini resta vuota perché non è un'app per bambini, e dichiararla la sottoporrebbe a regole che non le appartengono.",
     "tuttoNegativo": true
   },
-
   "supportUrl": "https://vibingcodelive.purpleheads.it",
   "marketingUrl": "https://purpleheads.it",
-
-  "_privacyPolicyUrl": "Lasciato vuoto di proposito: è un documento legale, e puntare a una pagina che non esiste è un motivo di rifiuto in più, non in meno. Serve prima la pagina.",
-
+  "_nota_privacyPolicyUrl": "La pagina esiste dal 2026-08-20 ed è collegata dal footer del sito. ATTENZIONE: al 2026-09-17 dice ancora «non legge il contenuto delle tue conversazioni con Claude», che non è più vero — il Mac manda gli ultimi venti messaggi di ogni chat. Va corretta prima di inviare a revisione: è il documento che Apple legge per verificare la dichiarazione sulla privacy, e una che smentisce l'app è un rifiuto.",
+  "privacyPolicyUrl": "https://vibingcodelive.purpleheads.it/privacy.html",
   "beta": {
-    "description": "Vibing Code Live mostra sul telefono cosa sta facendo Claude Code sul Mac, e permette di rispondere alle richieste di permesso da lontano.\n\nPer provarla serve Claude Live sul Mac, versione 0.7.1 o successiva, scaricabile da github.com/stealdeia/claude-live. Sul Mac: Impostazioni → scheda iPhone → accendi «Pubblica sul relay», poi «Mostra il QR per l'iPhone». Sul telefono l'app ti guida passo per passo e chiude con l'inquadratura del codice.\n\nSegnalazioni e problemi: info@purpleheads.com",
-    "feedbackEmail": "info@purpleheads.com",
+    "description": "Vibing Code Live mostra sul telefono cosa sta facendo Claude Code sul Mac, e permette di rispondere alle richieste di permesso da lontano.\n\nPer provarla serve Claude Live sul Mac, versione 0.7.1 o successiva, scaricabile da vibingcodelive.purpleheads.it. Sul Mac: Impostazioni → scheda iPhone → accendi «Pubblica sul relay», poi «Mostra il QR per l'iPhone». Sul telefono l'app ti guida passo per passo e chiude con l'inquadratura del codice.\n\nSegnalazioni e problemi: info@purpleheads.it",
+    "feedbackEmail": "info@purpleheads.it",
     "marketingUrl": "https://purpleheads.it"
   },
-
-  "buildWhatsNew": "Prima versione da provare.\n\nCosa guardare in particolare:\n• L'accoppiamento col Mac: i passi sono chiari? Il codice QR viene letto al primo colpo?\n• Le notifiche: arrivano da sole a telefono bloccato, quando Claude si ferma ad aspettare?\n• Rispondere da lontano: premendo Consenti, il Mac riprende a lavorare?\n• Quando il Mac è spento o irraggiungibile, l'app lo dice chiaramente invece di mostrare dati vecchi?\n\nSegnalazioni: info@purpleheads.com"
+  "buildWhatsNew": "Prima versione da provare.\n\nCosa guardare in particolare:\n• L'accoppiamento col Mac: i passi sono chiari? Il codice QR viene letto al primo colpo?\n• Le notifiche: arrivano da sole a telefono bloccato, quando Claude si ferma ad aspettare?\n• Rispondere da lontano: premendo Consenti, il Mac riprende a lavorare?\n• Quando il Mac è spento o irraggiungibile, l'app lo dice chiaramente invece di mostrare dati vecchi?\n\nSegnalazioni: info@purpleheads.it",
+  "review": {
+    "_nota": "Quello che il revisore di Apple legge prima di aprire l'app. In inglese di proposito: la revisione si fa in inglese, e l'app è in italiano. Il telefono è obbligatorio — Apple rifiuta la richiesta senza. Il video sta come allegato alla pratica, caricato da `tools/appstore-review-video.mjs`.",
+    "contactFirstName": "Samuel",
+    "contactLastName": "Ravani",
+    "contactEmail": "info@purpleheads.it",
+    "contactPhone": "+393341020485",
+    "demoAccountRequired": false,
+    "notes": "IMPORTANT: this is a companion app. It cannot show any data on its own.\n\nVibing Code Live mirrors, on the iPhone, what the free macOS app \"Claude Live\"\nsees on the user's own Mac: which of their Claude Code coding sessions are\nworking, which ones stopped to ask for permission, and how much of their usage\nlimits is left. The user can answer a permission request from the phone, and the\nMac carries on.\n\nWHY YOU CANNOT SIGN IN\nThere is no account, and there is nothing to sign into. The phone is paired to\none specific Mac by scanning a QR code shown by the Mac app. Without a Mac\nrunning Claude Live, and without Anthropic's Claude Code installed on it, the app\nhas nothing true to display — so it shows its onboarding screen and says so,\nrather than inventing data.\n\nDEMO VIDEO — PLEASE SEE THE ATTACHMENT\nBecause of the above, a screen recording is attached to this submission. It\nshows, in one continuous take, the Mac on the left and the iPhone mirrored on\nthe right:\n- a Claude Code session working in a project;\n- it stops and asks permission to run a shell command;\n- the request appears on the iPhone with the full command, and \"Consenti\"\n  (Allow) is tapped there;\n- the Mac resumes, writes a README and runs the test suite (4 passing);\n- the same session then asks open and multiple-choice questions, and those are\n  answered from the iPhone too.\n\nThe interface in the recording is Italian, which is the app's language. The\nproject shown is a throwaway sample project.\n\nIF YOU WANT TO REPRODUCE IT\n1. On a Mac (macOS 14 or later), download Claude Live, free, from\n   https://vibingcodelive.purpleheads.it\n2. Claude Code by Anthropic must be installed and in use on that Mac; the Mac app\n   reads the status Claude Code writes locally.\n3. In Claude Live: Settings -> iPhone tab -> turn on \"Pubblica sul relay\"\n   (Publish to relay), then \"Mostra il QR per l'iPhone\" (Show the QR).\n4. On the iPhone, open the app, follow the three steps and scan the QR.\n\nPRIVACY AND ENCRYPTION\n- No account, no registration, no analytics, no tracking, no advertising.\n- Nothing leaves the Mac until the user turns the publishing switch on.\n- What the Mac publishes is encrypted on the Mac with ChaCha20-Poly1305\n  (Apple CryptoKit) before it leaves. The key travels only inside the QR code,\n  never over the network. Our relay (Cloudflare Workers) transports the payload\n  and cannot read it.\n- The payload contains: project names and states, usage-window counters, and the\n  last 20 readable messages of each conversation, so they can be read on the\n  phone. Claude's internal reasoning, tool calls and tool results are excluded.\n- The app uses no third-party SDKs.\n\nPERMISSIONS\n- Camera: used only to scan the pairing QR code shown by the Mac.\n- Notifications: the user's own Mac, through the relay, notifies the phone when a\n  session is waiting for an answer. Push payloads carry no readable content.\n\nThe app's interface is in Italian, which is the app's primary language."
+  }
 }

@@ -80,6 +80,25 @@ if (meta.primaryCategory) {
   }
 }
 
+// --- Diritti sul contenuto, che vive sull'app -------------------------------
+/// App Store Connect non lo segnala come mancante da nessuna parte: si scopre
+/// quando la pratica viene rifiutata in blocco al momento dell'invio.
+if (meta.contentRightsDeclaration) {
+  console.log(`  diritti sul contenuto: ${meta.contentRightsDeclaration}`)
+  if (APPLY) {
+    await api(`/v1/apps/${app.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        data: {
+          type: 'apps',
+          id: app.id,
+          attributes: { contentRightsDeclaration: meta.contentRightsDeclaration },
+        },
+      }),
+    })
+  }
+}
+
 // --- Classificazione per età ------------------------------------------------
 /// Compila solo i campi ancora vuoti, mai quelli già risposti: una risposta data
 /// da una persona non va sovrascritta da uno script.
@@ -132,6 +151,9 @@ if (editable) {
   const locs = await api(
     `/v1/appStoreVersions/${editable.id}/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale`
   )
+  if (meta.copyright) {
+    await patch('appStoreVersions', editable.id, { copyright: meta.copyright }, 'copyright')
+  }
   const loc = locs.data.find((l) => l.attributes.locale === LOCALE)
   if (loc) {
     await patch('appStoreVersionLocalizations', loc.id, {
@@ -144,6 +166,54 @@ if (editable) {
   }
 } else {
   console.log('  versione: nessuna bozza modificabile')
+}
+
+// --- Le note per il revisore di Apple ---------------------------------------
+/// Quello che Apple legge prima di aprire l'app, e per questa app conta più del
+/// solito: senza un Mac acceso con Claude Code sopra, il revisore vede la
+/// schermata di benvenuto e niente altro. Un'app companion che non si spiega
+/// viene rifiutata sulla 2.1, e il rifiuto costa un giro completo.
+if (meta.review && editable) {
+  const r = meta.review
+  // Il segnaposto del video non deve arrivare ad Apple. Il controllo sta qui e
+  // non nella testa di chi lancia il comando: è esattamente il genere di cosa
+  // che si nota dopo l'invio.
+  if (typeof r.notes === 'string' && r.notes.includes('<<')) {
+    console.error("\n✗ Le note per il revisore contengono ancora un segnaposto (<<…>>): sostituiscilo prima di caricarle.")
+    process.exit(1)
+  }
+  if (!r.contactPhone) {
+    console.error('\n✗ Manca il telefono del contatto per la revisione: Apple lo pretende e rifiuta la richiesta senza.')
+    process.exit(1)
+  }
+  const attributes = {
+    contactFirstName: r.contactFirstName,
+    contactLastName: r.contactLastName,
+    contactEmail: r.contactEmail,
+    contactPhone: r.contactPhone,
+    demoAccountRequired: r.demoAccountRequired ?? false,
+    notes: r.notes,
+  }
+  const current = await api(`/v1/appStoreVersions/${editable.id}/appStoreReviewDetail`)
+  if (current.data) {
+    await patch('appStoreReviewDetails', current.data.id, attributes, 'note per il revisore')
+  } else {
+    console.log('  note per il revisore: le creo')
+    if (APPLY) {
+      await api('/v1/appStoreReviewDetails', {
+        method: 'POST',
+        body: JSON.stringify({
+          data: {
+            type: 'appStoreReviewDetails',
+            attributes,
+            relationships: {
+              appStoreVersion: { data: { type: 'appStoreVersions', id: editable.id } },
+            },
+          },
+        }),
+      })
+    }
+  }
 }
 
 // --- TestFlight: quello che i tester leggono prima di installare -------------
