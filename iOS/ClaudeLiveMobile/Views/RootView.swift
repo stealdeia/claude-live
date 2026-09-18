@@ -128,6 +128,7 @@ struct RootView: View {
             notifications.attach(to: store)
             liveActivity.attach(to: store)
             Task { await liveActivity.sync(with: snapshot, alertSeen: alertAlreadySeen) }
+            applyDemo()
         }
         .onChange(of: store.isPaired) { _, paired in
             // Appena accoppiato il relay non sa ancora niente di questo telefono.
@@ -156,6 +157,35 @@ struct RootView: View {
             let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first { $0.name == "path" }?.value
             if let path, !path.isEmpty { openRequest.projectPath = path }
+        }
+    }
+
+    /// Porta l'app sulla schermata che la dimostrazione ha chiesto.
+    ///
+    /// Una schermata per lancio invece di un percorso guidato che tocca i
+    /// pulsanti: guidare l'interfaccia vuol dire aspettare animazioni e sperare
+    /// che finiscano prima dello scatto, e una fotografia presa mezzo istante
+    /// troppo presto si riconosce solo riguardandola. Lanciare già sul posto
+    /// toglie l'attesa e con essa il caso.
+    ///
+    /// Il bagliore viene spento ovunque tranne che nella schermata fatta per
+    /// mostrarlo: è un velo colorato su tutto lo schermo, e lasciarlo acceso
+    /// significherebbe fotografare lui invece del contenuto.
+    private func applyDemo() {
+        guard Demo.isOn else { return }
+        if Demo.screen != "glow", let alert = snapshot?.alert {
+            glowState.seen(
+                sessionID: alert.sessionID,
+                projectPath: alert.projectPath,
+                alert: alert
+            )
+        }
+        switch Demo.screen {
+        case "projects": tab = .projects
+        case "usage": tab = .usage
+        case "chat": openRequest.chatSessionID = Demo.blockedSession
+        case "settings": showingSettings = true
+        default: break
         }
     }
 

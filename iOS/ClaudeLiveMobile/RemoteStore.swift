@@ -54,6 +54,14 @@ final class RemoteStore: ObservableObject {
     private var refreshTask: Task<Void, Never>?
 
     init() {
+        // La dimostrazione per le schermate dell'App Store: un Mac finto già
+        // accoppiato e una fotografia inventata. Vive solo nelle build di
+        // sviluppo e solo con `-demo` al lancio — vedi `DemoMode.swift`.
+        if Demo.isOn {
+            isPaired = Demo.pretendsPaired
+            snapshot = Demo.pretendsPaired ? Demo.snapshot() : nil
+            return
+        }
         isPaired = Self.pairingLooksComplete() ?? false
     }
 
@@ -125,6 +133,9 @@ final class RemoteStore: ObservableObject {
     // MARK: - Notifiche
 
     func requestPushPermission() async {
+        // Il pannello di sistema che chiede le notifiche comparirebbe sopra la
+        // schermata mentre la si fotografa, e sarebbe l'unica cosa visibile.
+        guard !Demo.isOn else { return }
         do {
             let granted = try await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .sound, .badge])
@@ -140,6 +151,7 @@ final class RemoteStore: ObservableObject {
 
     /// The address APNs gave this phone, handed to the relay.
     func registerDevice(token: Data) async {
+        guard !Demo.isOn else { return }
         let hex = token.map { String(format: "%02x", $0) }.joined()
         guard isPaired,
               let url = URL(string: relayURL + "/register"),
@@ -180,6 +192,7 @@ final class RemoteStore: ObservableObject {
     /// restare non letta per ore — e nel frattempo le notifiche continuerebbero
     /// ad arrivare, che è esattamente il guasto che questo evita.
     func sendNotificationPreferences(_ prefs: [String: Bool]) async -> String? {
+        guard !Demo.isOn else { return nil }
         guard isPaired else { return nil }
         guard let url = URL(string: relayURL + "/prefs"),
               let pairID = RemoteSecrets.read(.pairID)
@@ -211,6 +224,7 @@ final class RemoteStore: ObservableObject {
     /// vecchio, Apple accetta la notifica e non la consegna a nessuno — il guasto
     /// più silenzioso che ci sia, per questo viene rimandato a ogni cambiamento.
     func sendActivityToken(_ token: String) async {
+        guard !Demo.isOn else { return }
         guard isPaired,
               let url = URL(string: relayURL + "/activity-token"),
               let pairID = RemoteSecrets.read(.pairID)
@@ -237,6 +251,10 @@ final class RemoteStore: ObservableObject {
     // MARK: - Lettura
 
     func refresh() async {
+        // In dimostrazione non c'è niente da andare a prendere: la fotografia è
+        // già quella, e una lettura vera qui vorrebbe dire una schermata con
+        // sopra un errore di rete.
+        guard !Demo.isOn else { return }
         guard isPaired else { return }
         guard let pairID = RemoteSecrets.read(.pairID),
               let keyText = RemoteSecrets.read(.encryptionKey),
@@ -569,6 +587,7 @@ final class RemoteStore: ObservableObject {
     /// Polls while the app is on screen. Stopped when it is not: a phone that
     /// keeps asking from a pocket spends battery to learn things nobody reads.
     func startRefreshing(every seconds: Duration = .seconds(5)) {
+        guard !Demo.isOn else { return }
         refreshTask?.cancel()
         refreshTask = Task { [weak self] in
             while !Task.isCancelled {

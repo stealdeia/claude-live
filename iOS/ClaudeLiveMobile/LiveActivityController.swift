@@ -62,6 +62,9 @@ final class LiveActivityController: ObservableObject {
 
     func attach(to store: RemoteStore) {
         self.store = store
+        // In dimostrazione non c'è nessuna chiave da condividere, e l'unica cosa
+        // che si vedrebbe nelle impostazioni sarebbe l'avviso che manca.
+        guard !Demo.isOn else { return }
         // La chiave dell'accoppiamento, copiata dove l'estensione può leggerla.
         // Rifatta a ogni avvio e a ogni ritorno in primo piano: se
         // l'accoppiamento è stato rifatto, la copia vecchia aprirebbe le scatole

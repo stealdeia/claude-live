@@ -42,8 +42,8 @@ extension RemoteSnapshot {
         ])!
 
         let working = ClaudeSessionStatus(json: [
-            "project_path": "/Users/s/Progetti/sito-aldeialab",
-            "project_name": "sito-aldeialab",
+            "project_path": "/Users/s/Progetti/sito-vetrina",
+            "project_name": "sito-vetrina",
             "session_id": "77aa11bb22cc",
             "state": "working",
             "event": "PreToolUse",
@@ -97,7 +97,7 @@ extension RemoteSnapshot {
                     isStale: false
                 ),
                 ClaudeProjectStatus(
-                    projectPath: "/Users/s/Progetti/sito-aldeialab",
+                    projectPath: "/Users/s/Progetti/sito-vetrina",
                     state: .working,
                     detail: "Edit",
                     requestKind: nil,
