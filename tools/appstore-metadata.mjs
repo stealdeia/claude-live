@@ -173,7 +173,14 @@ if (editable) {
 /// solito: senza un Mac acceso con Claude Code sopra, il revisore vede la
 /// schermata di benvenuto e niente altro. Un'app companion che non si spiega
 /// viene rifiutata sulla 2.1, e il rifiuto costa un giro completo.
-if (meta.review && editable) {
+// Le note NON sono legate alla bozza, ed è la differenza che conta: la versione
+// più recente va bene anche se è già in coda per la revisione. Erano dentro il
+// ramo `editable` e venivano **saltate in silenzio** con la versione in
+// `WAITING_FOR_REVIEW` — il 2026-09-21 è servito scriverle proprio in quel
+// momento, perché dopo un reinvio il Centro risoluzioni non accetta più
+// risposte e le note sono l'unico posto che il revisore legge comunque.
+const versionForReview = editable ?? versions.data[0]
+if (meta.review && versionForReview) {
   const r = meta.review
   // Il segnaposto del video non deve arrivare ad Apple. Il controllo sta qui e
   // non nella testa di chi lancia il comando: è esattamente il genere di cosa
@@ -194,7 +201,7 @@ if (meta.review && editable) {
     demoAccountRequired: r.demoAccountRequired ?? false,
     notes: r.notes,
   }
-  const current = await api(`/v1/appStoreVersions/${editable.id}/appStoreReviewDetail`)
+  const current = await api(`/v1/appStoreVersions/${versionForReview.id}/appStoreReviewDetail`)
   if (current.data) {
     await patch('appStoreReviewDetails', current.data.id, attributes, 'note per il revisore')
   } else {
@@ -207,7 +214,7 @@ if (meta.review && editable) {
             type: 'appStoreReviewDetails',
             attributes,
             relationships: {
-              appStoreVersion: { data: { type: 'appStoreVersions', id: editable.id } },
+              appStoreVersion: { data: { type: 'appStoreVersions', id: versionForReview.id } },
             },
           },
         }),
