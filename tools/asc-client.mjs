@@ -67,7 +67,17 @@ export async function api(path, options = {}) {
   })
   const text = await response.text()
   if (!response.ok) {
-    throw new Error(`${response.status} su ${path}: ${text.slice(0, 400)}`)
+    // Il messaggio resta corto, perché è quello che finisce a schermo. Il corpo
+    // intero viaggia a parte: i rifiuti di App Store Connect mettono il motivo
+    // **vero** dentro `meta.associatedErrors`, e quello di primo livello dice
+    // sempre e solo «check associated errors to see why». Troncando a 400
+    // caratteri il JSON arrivava spezzato, `JSON.parse` fallisce, e chi voleva
+    // leggere il motivo annidato concludeva di non averlo trovato — costato due
+    // tentativi a vuoto sul reinvio del 2026-09-21.
+    const error = new Error(`${response.status} su ${path}: ${text.slice(0, 400)}`)
+    error.status = response.status
+    error.body = text
+    throw error
   }
   return text ? JSON.parse(text) : null
 }
