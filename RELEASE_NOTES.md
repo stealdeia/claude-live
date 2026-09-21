@@ -1,7 +1,10 @@
-Consumo di CPU: da mezzo core a quasi niente.
+La mascotte: un personaggio sulla scrivania che ti dice cosa sta facendo Claude.
 
-- **L'app consumava fra un terzo e due terzi di un core, e ora sta all'1%.** Misurato sulla stessa macchina, a notch chiuso e con un progetto in lavorazione: 48% prima, 1,1% dopo. Sul portatile vuol dire ventola ferma e batteria che dura.
-- **Il tempo di CPU non cresce più senza limite.** Finché un avviso restava non notato, il segnale luminoso del notch veniva ridisegnato dalla CPU decine di volte al secondo: bastava lasciare un progetto in attesa per la notte e l'app aveva macinato ore di calcolo per una luce che respira. Ora quel disegno lo fa la scheda grafica, e una volta avviato non costa più niente per fotogramma.
-- **I pallini di stato si fermano quando non li vedi.** Pulsavano anche a pannello chiuso, e su un secondo pannello tenuto fuori schermo che in modalità notch non si mostra mai: invisibili, e da soli valevano il 24% di un core.
-- **Niente cambia in ciò che vedi**: stessa luce, stesso respiro, stessi colori, stesso pannello. Non è un giudizio a occhio — il vecchio disegno e il nuovo sono stati confrontati pixel per pixel, e la differenza media è di 0,31 livelli su 255.
+- **Un pupazzetto che sta sopra le finestre e reagisce a Claude Code.** Pensa mentre Claude lavora, salta quando ha finito o quando ti chiede qualcosa, si addormenta dopo cinque minuti che non succede niente. Lo trascini dove vuoi e se lo ricorda, anche su quale monitor.
+- **Va accesa**: Impostazioni → Mascotte, oppure «Mostra mascotte» nel menu. Spenta di default: un aggiornamento non può far comparire un personaggio a chi non l'ha chiesto.
+- **Un pallino arancione sulla testa** quando ci sono cose che non hai ancora guardato, col numero se i progetti sono più di uno. Cliccandolo si apre l'elenco: una riga per progetto, e un clic ti porta lì.
+- **Si risponde da lì.** Se Claude fa una domanda, le sue opzioni sono pulsanti dentro il fumetto; se chiede un permesso, ci sono «Consenti» e «Nega». Senza andare a cercare la finestra giusta.
+- **Si scrive da lì.** Sotto il personaggio c'è una riga: quello che scrivi mentre Claude lavora resta in coda e parte da solo appena il turno finisce. È l'unico modo di infilare un messaggio in una conversazione viva stando al Mac, e la riga dice sempre dove andrà a finire prima che tu prema Invio.
+- **Tre personaggi inclusi**, e puoi usare il tuo: una cartella con i disegni e un file che li descrive, lo stesso formato di quelli di serie.
+- **Non dà fastidio.** Cliccarlo o trascinarlo non toglie il fuoco a quello che stai scrivendo, non compare nel Dock né in Cmd-Tab, si vede su tutte le scrivanie e sopra le app a schermo intero. Da fermo non gira nessun timer: a riposo costa zero.
 - Claude Live è un progetto di **Purple Heads**.
