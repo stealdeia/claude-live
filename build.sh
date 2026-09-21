@@ -69,6 +69,14 @@ done
 
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "${BUNDLE}/Contents/Resources/AppIcon.icns"
 
+# Le mascotte: una cartella per personaggio, con dentro il suo mascot.json e i
+# suoi disegni. Copiate così come sono perché è lo stesso formato che l'app
+# accetta da una cartella scelta dall'utente: se funziona per le incluse,
+# funziona anche per la sua.
+if [[ -d Resources/Mascots ]]; then
+  cp -R Resources/Mascots "${BUNDLE}/Contents/Resources/Mascots"
+fi
+
 # Sparkle ships as an XCFramework; SwiftPM links it but does not embed it. The
 # executable carries an @executable_path/../Frameworks rpath (see Package.swift),
 # so copying it here is what makes it loadable at runtime.

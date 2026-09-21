@@ -57,10 +57,26 @@ ALLOWLIST = os.path.join(HUB, "allowlist.json")
 # due volte il 2026-08-21 e ha continuato a perdere: la richiesta che
 # l'hook sta aspettando non deve condividere un file con nient'altro.
 PENDING_DIR = os.path.join(HUB, "pending")
+# Quello che è stato scritto nella barra della mascotte mentre Claude lavorava,
+# in attesa che il turno finisca. Un file per sessione.
+#
+# Cartella a parte da `decisions` e non un file in più là dentro: `decisions`
+# risponde a una domanda che qualcuno *sta aspettando*, ed esiste solo dentro
+# quella finestra di tempo. Questo è il contrario — nessuno lo aspetta, sta lì
+# finché il turno non finisce — e mescolarli farebbe sembrare rispondibile una
+# sessione che non sta chiedendo niente.
+QUEUE_DIR = os.path.join(HUB, "queue")
 HEARTBEAT = os.path.join(HUB, "app-heartbeat")
 CONFIG = os.path.join(HUB, "config.json")
 
 SCHEMA = 2
+# Oltre questo, un messaggio in coda non viene più consegnato.
+#
+# Perché scada: la coda parte alla fine del turno, e un turno può finire fra
+# cinque secondi o fra un'ora. «Aggiungi anche i test» scritto mezz'ora fa
+# riguardava quello che Claude stava facendo allora, e consegnarlo adesso lo
+# infilerebbe in una conversazione che nel frattempo è andata da un'altra parte.
+QUEUED_PROMPT_MAX_AGE = 30 * 60
 # A heartbeat older than this is ignored even if the pid happens to exist,
 # which guards against a recycled pid from an earlier run.
 HEARTBEAT_MAX_AGE = 60
@@ -614,6 +630,42 @@ def emit_decision(behavior, event):
     sys.stdout.flush()
 
 
+def take_queued_prompt(safe_session):
+    """Il messaggio lasciato in coda per questa sessione, se c'è ancora.
+
+    Lo consuma: il file sparisce comunque, anche quando è troppo vecchio per
+    essere consegnato. Un messaggio che non si consegna non deve restare lì ad
+    aspettare il turno dopo — chi l'ha scritto lo ha dato per perso da un pezzo,
+    e se lo ritrovasse in bocca alla conversazione mezz'ora dopo non capirebbe
+    da dove è uscito.
+    """
+    path = os.path.join(QUEUE_DIR, "%s.json" % safe_session)
+    data = read_json(path, None)
+    if not data:
+        return None
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+    raw = data.get("prompt")
+    # Solo una stringa: un numero o una lista in quel campo non è un messaggio
+    # scritto da una persona, è un file scritto da qualcos'altro. Stessa regola
+    # del seguito che arriva dal telefono.
+    if not isinstance(raw, str):
+        return None
+    text = raw.strip()[:MAX_PROMPT_CHARACTERS]
+    if not text:
+        return None
+    try:
+        written_at = float(data.get("at") or 0)
+    except (TypeError, ValueError):
+        return None
+    if time.time() - written_at > QUEUED_PROMPT_MAX_AGE:
+        return None
+    return text
+
+
 def emit_prompt(text):
     """Fa ripartire il turno appena finito con quello che è stato scritto.
 
@@ -877,6 +929,25 @@ def main():
             return
 
     write_atomic(target, record)
+
+    # La coda: qualcosa scritto nella barra della mascotte mentre Claude
+    # lavorava, da consegnare adesso che il turno è finito.
+    #
+    # Prima dell'attesa da lontano, e senza aspettare niente: qui non c'è nessuna
+    # domanda in sospeso, il messaggio è già stato scritto. È anche l'unico modo
+    # di scrivere dentro una conversazione viva **stando al Mac**: l'attesa qui
+    # sotto si apre solo da lontano, per non far sembrare che Claude non finisca
+    # mai.
+    if event == "Stop" and not asking:
+        queued = take_queued_prompt(safe_session)
+        if queued:
+            emit_prompt(queued)
+            record["state"] = "working"
+            record["prompt_request_id"] = ""
+            record["hold_until"] = 0
+            record["updated_at_epoch"] = time.time()
+            write_atomic(target, record)
+            return
 
     if holding_for_prompt:
         # Lo stesso file che il pannello legge per i permessi, con un `kind` suo:

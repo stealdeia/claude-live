@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "id": "chip",
+  "name": "Chip",
+  "author": "Claude Live",
+  "frameWidth": 96,
+  "frameHeight": 96,
+  "fps": 6,
+  "sheet": "sprites.png",
+  "columns": 8,
+  "states": {
+    "idle": {
+      "frames": "0-3",
+      "fps": 5,
+      "loop": true
+    },
+    "working": {
+      "frames": "4-7",
+      "fps": 3,
+      "loop": true
+    },
+    "notify": {
+      "frames": "8-13",
+      "fps": 12,
+      "loop": false,
+      "next": "idle"
+    },
+    "dragging": {
+      "frames": "14-15",
+      "fps": 6,
+      "loop": true
+    },
+    "dropped": {
+      "frames": "16-17",
+      "fps": 10,
+      "loop": false,
+      "next": "idle"
+    },
+    "sleeping": {
+      "frames": "18-21",
+      "fps": 2,
+      "loop": true
+    }
+  }
+}

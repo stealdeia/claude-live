@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import ClaudeLiveKit
+import MascotCore
 
 enum PanelAnchor: String, Codable, CaseIterable, Identifiable {
     case topLeft, topRight, bottomLeft, bottomRight, free
@@ -65,6 +66,11 @@ private struct SettingsData: Codable {
     var decisionWaitSeconds: Double?
     var remoteEnabled: Bool?
     var remoteRelayURL: String?
+    var mascotEnabled: Bool?
+    var mascotID: String?
+    var mascotCustomPath: String?
+    var mascotScreenID: String?
+    var mascotPositionByScreen: [String: MascotPoint]?
 }
 
 @MainActor
@@ -320,6 +326,56 @@ final class Settings: ObservableObject {
     /// kept: they become live again when the monitor comes back.
     @Published var notchScreenIDs: [String] = [] { didSet { schedulePersist() } }
 
+    /// Se il personaggio sul desktop c'è.
+    ///
+    /// Spento di default, e non per prudenza: è l'unica cosa che questa app
+    /// mette sulla scrivania invece che nella barra dei menu o attorno al notch,
+    /// e un aggiornamento non può far comparire un pupazzetto a chi non l'ha
+    /// chiesto. Si accende dalle Impostazioni o dal menu.
+    @Published var mascotEnabled: Bool = false { didSet { schedulePersist() } }
+
+    /// Quale personaggio, per identificativo (il nome della sua cartella).
+    ///
+    /// Per identificativo e non per percorso, come già il tema del pannello: una
+    /// mascotte inclusa nell'app cambia posto a ogni aggiornamento, e un
+    /// percorso salvato diventerebbe falso al primo.
+    @Published var mascotID: String = "bolla" { didSet { schedulePersist() } }
+
+    /// La cartella di una mascotte disegnata dall'utente, se ne ha scelta una.
+    ///
+    /// Un percorso e basta: l'app non è in sandbox — vedi il commento sulla
+    /// firma in `build.sh` — quindi non servono segnalibri con ambito di
+    /// sicurezza per tornare a leggerla al prossimo avvio. Se un giorno l'app
+    /// entrasse in sandbox, questa è la riga da cui ripartire.
+    @Published var mascotCustomPath: String? = nil { didSet { schedulePersist() } }
+
+    /// Su quale schermo stava la mascotte l'ultima volta (vedi `ScreenIdentity`).
+    ///
+    /// Serve perché la posizione da sola non basta a dire *dove*: lo stesso
+    /// «in basso a destra» esiste su ogni monitor collegato.
+    @Published var mascotScreenID: String? = nil { didSet { schedulePersist() } }
+
+    /// Dove sta la mascotte su ciascuno schermo, per identificativo stabile.
+    ///
+    /// Il punto è l'angolo in alto a sinistra **relativo all'origine dello
+    /// schermo**, non in coordinate globali: vedi `MascotPlacement.relative`.
+    /// Gli schermi scollegati restano qui dentro, come per le dimensioni del
+    /// notch: tornano validi quando il monitor torna.
+    @Published var mascotPositionByScreen: [String: MascotPoint] = [:] { didSet { schedulePersist() } }
+
+    /// La posizione salvata per uno schermo, se c'è.
+    func mascotPosition(forScreen id: String) -> CGPoint? {
+        mascotPositionByScreen[id]?.cgPoint
+    }
+
+    /// Registra dove la mascotte è stata lasciata, e su quale schermo.
+    func setMascotPosition(_ relativeTopLeft: CGPoint, forScreen id: String) {
+        let point = MascotPoint(relativeTopLeft)
+        if mascotScreenID != id { mascotScreenID = id }
+        guard mascotPositionByScreen[id] != point else { return }
+        mascotPositionByScreen[id] = point
+    }
+
     @Published var panelVisible: Bool = true { didSet { schedulePersist() } }
     @Published var panelCollapsed: Bool = false { didSet { schedulePersist() } }
     @Published var panelAnchor: PanelAnchor = .topRight { didSet { schedulePersist() } }
@@ -456,6 +512,11 @@ final class Settings: ObservableObject {
         if let v = decoded.hasCompletedOnboarding { hasCompletedOnboarding = v }
         if let v = decoded.decisionWaitSeconds { decisionWaitSeconds = v }
         if let v = decoded.remoteEnabled { remoteEnabled = v }
+        if let v = decoded.mascotEnabled { mascotEnabled = v }
+        if let v = decoded.mascotID, !v.isEmpty { mascotID = v }
+        if let v = decoded.mascotCustomPath, !v.isEmpty { mascotCustomPath = v }
+        if let v = decoded.mascotScreenID { mascotScreenID = v }
+        if let v = decoded.mascotPositionByScreen { mascotPositionByScreen = v }
         // Un valore vuoto salvato non deve cancellare il predefinito: prima
         // l'indirizzo andava scritto a mano, quindi in giro esistono impostazioni
         // in cui è la stringa vuota.
@@ -519,7 +580,12 @@ final class Settings: ObservableObject {
             hasCompletedOnboarding: hasCompletedOnboarding,
             decisionWaitSeconds: decisionWaitSeconds,
             remoteEnabled: remoteEnabled,
-            remoteRelayURL: remoteRelayURL
+            remoteRelayURL: remoteRelayURL,
+            mascotEnabled: mascotEnabled,
+            mascotID: mascotID,
+            mascotCustomPath: mascotCustomPath,
+            mascotScreenID: mascotScreenID,
+            mascotPositionByScreen: mascotPositionByScreen
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

@@ -18,6 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var menuBar: MenuBarController!
     private var panel: PanelController!
     private var notch: NotchController!
+    private var mascot: MascotController!
+    private var mascots: MascotStore!
+    private var mascotEvents: ClaudeMascotEventSource!
+    private var mascotRouter: MascotPromptRouter!
+    private var mascotInbox: MascotInbox!
     private var updates: UpdateController!
     private var settingsWindow: SettingsWindowController!
     private var onboardingWindow: OnboardingWindowController!
@@ -74,6 +79,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // phone can answer in your place.
         waitPolicy = RemoteWaitPolicy(settings: settings, status: status)
 
+        // Prima della finestra delle Impostazioni, che mostra le stesse
+        // mascotte con le stesse anteprime.
+        mascots = MascotStore(settings: settings)
+
         onboardingWindow = OnboardingWindowController(
             settings: settings,
             onInstallHooks: { [weak self] in self?.installHooks() }
@@ -91,7 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             // Evaluated when tapped, by which point `panel` exists — it is built a
             // few lines below this.
             onTogglePanelVisibility: { [weak self] in self?.togglePanelVisibility() },
+            mascots: mascots,
             onPreviewGlow: { [weak self] palette in self?.notch.previewGlow(palette) },
+            onPreviewMascot: { [weak self] in self?.mascot.previewNotify() },
             onQuit: { NSApp.terminate(nil) }
         )
 
@@ -126,6 +137,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             )
         )
 
+        // Indipendente dalla superficie scelta: il personaggio sta sulla
+        // scrivania, quindi convive sia col pannello sia col notch.
+        // Dove finisce quello che si scrive nella barra della mascotte. Come
+        // `ClaudeMascotEventSource`, è un adattatore: tiene la mascotte fuori
+        // dalla logica di Claude Code e viceversa.
+        mascotRouter = MascotPromptRouter(status: status)
+        // Cosa è rimasto in sospeso: gli stessi avvisi che accendono la striscia
+        // attorno al notch, contati sulla testa del pupazzetto.
+        mascotInbox = MascotInbox(status: status) { [weak self] path in
+            self?.projects.focus(path: path)
+        }
+
+        mascot = MascotController(
+            settings: settings,
+            store: mascots,
+            router: mascotRouter,
+            inbox: mascotInbox,
+            onOpenProject: { [weak self] in self?.focusRelevantProject() },
+            onOpenSettings: { [weak self] in self?.settingsWindow.show() }
+        )
+        // Chi le racconta cosa succede. Tenuto vivo qui: è un osservatore, non
+        // ha nessuno che lo chiami.
+        mascotEvents = ClaudeMascotEventSource(status: status)
+
         menuBar = MenuBarController(
             monitor: monitor,
             projects: projects,
@@ -155,6 +190,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             .sink { [weak self] _ in
                 Task { @MainActor in self?.applyDisplayMode() }
             }
+
+        mascot.showIfEnabled()
 
         monitor.start()
         projects.start()
@@ -435,6 +472,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         )
         existing.activate()
         exit(0)
+    }
+
+    /// Dove porta il doppio clic sulla mascotte.
+    ///
+    /// «La finestra di cui sta parlando, o l'ultima usata»: se c'è un avviso non
+    /// ancora visto — Claude ha finito, chiede qualcosa, si è interrotto — il
+    /// progetto è quello, ed è anche il motivo per cui il pupazzetto ha appena
+    /// saltato. Altrimenti è il progetto in cui Claude si è mosso più di
+    /// recente. Aprire l'avviso lo spegne anche, esattamente come cliccare la
+    /// riga nel pannello o la notifica: è lo stesso gesto, «l'ho visto».
+    private func focusRelevantProject() {
+        if let alert = status.topAlert {
+            Log.debug("Doppio clic sulla mascotte → \(alert.projectName)", category: .mascot)
+            projects.focus(path: alert.projectPath)
+            status.clearAlert(forPath: alert.projectPath)
+            return
+        }
+
+        if let latest = status.statusesByPath.values.max(by: { $0.updatedAt < $1.updatedAt }) {
+            Log.debug(
+                "Doppio clic sulla mascotte → ultimo progetto attivo: \((latest.projectPath as NSString).lastPathComponent)",
+                category: .mascot
+            )
+            projects.focus(path: latest.projectPath)
+            return
+        }
+
+        // Nessun progetto di cui parlare: meglio aprire qualcosa che non fare
+        // niente, perché un doppio clic senza effetto si legge come un guasto.
+        Log.debug("Doppio clic sulla mascotte: nessun progetto, apro le Impostazioni", category: .mascot)
+        settingsWindow.show()
     }
 
     // MARK: - Reachability

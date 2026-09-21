@@ -288,6 +288,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(panelAnchorItem())
         }
 
+        // Fuori dallo `switch`: la mascotte sta sulla scrivania, quindi c'è in
+        // tutti e due i modi di visualizzazione.
+        menu.addItem(action(
+            title: settings.mascotEnabled ? "Nascondi mascotte" : "Mostra mascotte",
+            key: "",
+            selector: #selector(toggleMascot)
+        ))
+
         menu.addItem(.separator())
         menu.addItem(action(title: "Impostazioni…", key: ",", selector: #selector(openSettings)))
         menu.addItem(action(title: "Configurazione guidata…", key: "", selector: #selector(showOnboarding)))
@@ -473,6 +481,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     // MARK: - Menu actions
+
+    /// Scrive la preferenza invece di comandare il controller: l'interruttore
+    /// nelle Impostazioni scrive la stessa, e chi guarda la mascotte segue quella.
+    @objc private func toggleMascot() {
+        settings.mascotEnabled.toggle()
+    }
 
     @objc private func refreshNow() {
         Task { await monitor.refresh(reason: "menu") }

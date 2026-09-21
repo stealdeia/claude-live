@@ -26,7 +26,9 @@ final class SettingsWindowController {
     private let onInstallHooks: () -> Void
     private let onShowOnboarding: () -> Void
     private let onTogglePanelVisibility: () -> Void
+    private let mascots: MascotStore
     private let onPreviewGlow: (NotchGlowPalette) -> Void
+    private let onPreviewMascot: () -> Void
     private let onQuit: () -> Void
 
     // Larga per la barra laterale: 480 punti bastavano a una lista da scorrere, non
@@ -43,7 +45,9 @@ final class SettingsWindowController {
         onInstallHooks: @escaping () -> Void,
         onShowOnboarding: @escaping () -> Void,
         onTogglePanelVisibility: @escaping () -> Void,
+        mascots: MascotStore,
         onPreviewGlow: @escaping (NotchGlowPalette) -> Void,
+        onPreviewMascot: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.settings = settings
@@ -55,7 +59,9 @@ final class SettingsWindowController {
         self.onInstallHooks = onInstallHooks
         self.onShowOnboarding = onShowOnboarding
         self.onTogglePanelVisibility = onTogglePanelVisibility
+        self.mascots = mascots
         self.onPreviewGlow = onPreviewGlow
+        self.onPreviewMascot = onPreviewMascot
         self.onQuit = onQuit
     }
 
@@ -80,7 +86,9 @@ final class SettingsWindowController {
                 onInstallHooks: onInstallHooks,
                 onShowOnboarding: onShowOnboarding,
                 onTogglePanelVisibility: onTogglePanelVisibility,
+                mascots: mascots,
                 onPreviewGlow: onPreviewGlow,
+                onPreviewMascot: onPreviewMascot,
                 onQuit: onQuit
             )
         )

@@ -13,11 +13,23 @@ let package = Package(
         .package(path: "ClaudeLiveKit")
     ],
     targets: [
+        // La parte della mascotte che non tocca lo schermo: manifest, macchina a
+        // stati, posizionamento. Target a sé perché l'eseguibile non è
+        // collaudabile — un target eseguibile non si può importare in un test —
+        // e queste tre cose si sbagliano in silenzio: una mascotte fuori dallo
+        // schermo non la vedi, quindi non ti accorgi nemmeno che è un bug.
+        .target(name: "MascotCore", path: "Sources/MascotCore"),
+        .testTarget(
+            name: "MascotCoreTests",
+            dependencies: ["MascotCore"],
+            path: "Tests/MascotCoreTests"
+        ),
         .executableTarget(
             name: "ClaudeLive",
             dependencies: [
                 .product(name: "ClaudeLiveKit", package: "ClaudeLiveKit"),
-                .product(name: "Sparkle", package: "Sparkle")
+                .product(name: "Sparkle", package: "Sparkle"),
+                "MascotCore"
             ],
             path: "Sources/ClaudeLive",
             linkerSettings: [

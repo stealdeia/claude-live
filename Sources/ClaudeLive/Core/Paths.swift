@@ -54,6 +54,17 @@ enum Paths {
         hubDirectory.appendingPathComponent("decisions", isDirectory: true)
     }
 
+    /// Quello che è stato scritto nella barra della mascotte mentre Claude
+    /// lavorava, in attesa che il turno finisca. Un file per sessione, letto e
+    /// cancellato dall'hook.
+    ///
+    /// Cartella a parte da `decisions`: là dentro ci sono risposte a domande che
+    /// qualcuno *sta aspettando*, e vivono quanto l'attesa. Qui non aspetta
+    /// nessuno — il messaggio sta lì finché il turno non finisce.
+    static var queueDirectory: URL {
+        hubDirectory.appendingPathComponent("queue", isDirectory: true)
+    }
+
     /// Touched periodically so the hook can tell whether the app is running — it
     /// only waits for an answer when there is someone to give one.
     static var heartbeatFile: URL {
@@ -79,7 +90,7 @@ enum Paths {
     /// Created eagerly: FSEvents needs the directory to exist before the watcher
     /// starts, otherwise it watches a path that never resolves.
     static func ensureStatusDirectory() {
-        for dir in [statusDirectory, decisionsDirectory, pendingDirectory] {
+        for dir in [statusDirectory, decisionsDirectory, pendingDirectory, queueDirectory] {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         }
     }

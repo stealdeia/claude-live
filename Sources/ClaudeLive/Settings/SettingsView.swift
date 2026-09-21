@@ -14,7 +14,9 @@ struct SettingsView: View {
     let onInstallHooks: () -> Void
     let onShowOnboarding: () -> Void
     let onTogglePanelVisibility: () -> Void
+    @ObservedObject var mascots: MascotStore
     let onPreviewGlow: (NotchGlowPalette) -> Void
+    let onPreviewMascot: () -> Void
     let onQuit: () -> Void
 
     @State private var showNotchScreens = false
@@ -26,7 +28,7 @@ struct SettingsView: View {
     /// dire ricordarsi a che altezza stava. Raggruppate per la domanda a cui
     /// rispondono, non per l'ordine in cui sono state scritte.
     private enum Tab: String, CaseIterable, Identifiable, Hashable {
-        case appearance, glow, notifications, claudeCode, phone, refresh, diagnostics, about
+        case appearance, glow, mascot, notifications, claudeCode, phone, refresh, diagnostics, about
 
         var id: String { rawValue }
 
@@ -34,6 +36,7 @@ struct SettingsView: View {
             switch self {
             case .appearance: return "Aspetto"
             case .glow: return "Segnale luminoso"
+            case .mascot: return "Mascotte"
             case .notifications: return "Notifiche"
             case .claudeCode: return "Claude Code"
             case .phone: return "iPhone"
@@ -47,6 +50,7 @@ struct SettingsView: View {
             switch self {
             case .appearance: return "paintbrush"
             case .glow: return "light.beacon.max"
+            case .mascot: return "figure.wave"
             case .notifications: return "bell"
             case .claudeCode: return "terminal"
             case .phone: return "iphone"
@@ -103,6 +107,9 @@ struct SettingsView: View {
             if settings.displayMode == .floating { panelSection }
         case .glow:
             glowSection
+        case .mascot:
+            mascotSection
+            characterSection
         case .notifications:
             notificationsSection
             thresholdsSection
@@ -276,6 +283,154 @@ struct SettingsView: View {
 
     /// The luminous strip: one colour per kind of event, because the point of
     /// colouring it is telling them apart from across the room.
+    /// Il personaggio sulla scrivania.
+    ///
+    /// Sezione a sé e non una riga dentro «Aspetto» perché è l'unica cosa che
+    /// l'app mette sulla scrivania invece che nella barra dei menu o attorno al
+    /// notch: chi la cerca la cerca per nome, e chi non la vuole deve trovare
+    /// l'interruttore senza leggere tutto.
+    private var mascotSection: some View {
+        Section("Mascotte") {
+            Toggle("Mostra la mascotte sulla scrivania", isOn: $settings.mascotEnabled)
+            Text("Un personaggio che resta sopra le altre finestre e si sposta trascinandolo. "
+                 + "Cliccarlo non toglie il fuoco a quello che stai facendo.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Text("Fai vedere come festeggia")
+                Spacer()
+                Button("Prova") { onPreviewMascot() }
+                    // Serve una mascotte sullo schermo a cui farlo fare.
+                    .disabled(!settings.mascotEnabled)
+            }
+            Text("Tasto destro sul personaggio per nasconderlo o cambiarlo, "
+                 + "doppio clic per aprire il progetto di cui sta parlando.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// La scelta del personaggio.
+    ///
+    /// Con le facce e non con un elenco di nomi: «Bolla», «Chip» e «Mou» non
+    /// dicono niente a chi non li ha ancora visti, e la scelta di una mascotte è
+    /// per definizione una scelta che si fa con gli occhi.
+    private var characterSection: some View {
+        Section("Personaggio") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(mascots.entries) { entry in
+                        mascotChoice(entry)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            if let custom = mascots.customEntry {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Mascotte personalizzata: \(custom.name)")
+                        Text(custom.folder.path)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    }
+                    Spacer()
+                    Button("Rimuovi") {
+                        settings.mascotCustomPath = nil
+                        // Se era quella in uso, si torna alla prima inclusa.
+                        if settings.mascotID == custom.id {
+                            settings.mascotID = mascots.entries.first?.id ?? "bolla"
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Usa una mascotte tua")
+                    Text("Una cartella con dentro mascot.json e i disegni, "
+                         + "nello stesso formato di quelle incluse.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Scegli una cartella…") { chooseCustomMascot() }
+            }
+        }
+    }
+
+    private func mascotChoice(_ entry: MascotStore.Entry) -> some View {
+        let isSelected = entry.id == settings.mascotID
+        return Button {
+            settings.mascotID = entry.id
+        } label: {
+            VStack(spacing: 6) {
+                Group {
+                    if let preview = entry.preview {
+                        Image(nsImage: preview)
+                            .resizable()
+                            // Come sulla scrivania: i pixel restano pixel.
+                            .interpolation(.none)
+                            .antialiased(false)
+                            .scaledToFit()
+                    } else {
+                        Image(systemName: "questionmark.square.dashed").imageScale(.large)
+                    }
+                }
+                .frame(width: 64, height: 64)
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(isSelected ? 0.12 : 0.04))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: isSelected ? 2 : 0)
+                )
+
+                Text(entry.name)
+                    .font(.caption)
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .help(entry.isBuiltIn ? entry.name : "\(entry.name) — cartella tua")
+    }
+
+    /// Chiede la cartella e la prova subito.
+    ///
+    /// Provarla qui, davanti all'utente, invece di limitarsi a salvarla: una
+    /// cartella sbagliata altrimenti si manifesterebbe come «la mascotte non
+    /// cambia», senza dire perché — e il perché (manca mascot.json, il foglio ha
+    /// meno fotogrammi di quelli dichiarati) sta già scritto per bene
+    /// nell'errore.
+    private func chooseCustomMascot() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Scegli"
+        panel.message = "Scegli la cartella della mascotte: deve contenere mascot.json e i disegni."
+
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        do {
+            let sprites = try MascotSprites.load(from: folder)
+            settings.mascotCustomPath = folder.path
+            settings.mascotID = sprites.manifest.id
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Questa cartella non è una mascotte"
+            alert.informativeText = "\(error)"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+        }
+    }
+
     private var glowSection: some View {
         Section("Segnale luminoso") {
             Toggle("Striscia luminosa attorno al notch", isOn: $settings.glowEnabled)

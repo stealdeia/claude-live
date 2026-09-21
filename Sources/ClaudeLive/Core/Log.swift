@@ -6,7 +6,7 @@ import os
 /// a plain text file that is easy to tail and to paste into a bug report.
 enum Log {
     enum Category: String {
-        case app, usage, keychain, panel, projects, status
+        case app, usage, keychain, panel, projects, status, mascot
     }
 
     private static let subsystem = "it.aldeialab.ClaudeLive"
