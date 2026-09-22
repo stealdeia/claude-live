@@ -13,5 +13,8 @@
     "@cloudflare/workers-types": "^5.20260819.1",
     "typescript": "^5.7.0",
     "wrangler": "^4.124.0"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0"
   }
 }

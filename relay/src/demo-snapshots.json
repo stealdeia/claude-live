@@ -1,0 +1,343 @@
+{
+ "_nota": "Generate da Swift con i tipi veri — vedi demo.ts. Non modificarle a mano: la forma la decide il Codable dell'app.",
+ "inAttesa": {
+  "alert": {
+   "detail": "npm run build && npm run test",
+   "kind": "waiting",
+   "projectName": "bottega-online",
+   "projectPath": "/Users/demo/Progetti/bottega-online",
+   "raisedAt": 1799999992,
+   "sessionID": "3f9a2c71b4e8"
+  },
+  "generatedAt": 1800000000,
+  "messages": {
+   "3f9a2c71b4e8": [
+    {
+     "at": 1799997600,
+     "author": "assistant",
+     "text": "Le prove passano tutte e 24. La pagina del prodotto adesso mostra la disponibilità vera invece di «disponibile» fisso."
+    },
+    {
+     "at": 1799997900,
+     "author": "user",
+     "text": "Perfetto. Un'altra cosa: il carrello si svuota quando ricarico la pagina. Riesci a capire perché?"
+    },
+    {
+     "at": 1799998200,
+     "author": "assistant",
+     "text": "Trovato. Il carrello vive solo in memoria: `CartStore` lo tiene in una variabile e nessuno lo scrive da nessuna parte, quindi un ricarico riparte da zero.\n\nTi propongo di salvarlo in `localStorage` a ogni cambiamento e rileggerlo all'avvio, con una scadenza di sette giorni perché un carrello di un mese fa non è più una cosa che qualcuno vuole ritrovare."
+    },
+    {
+     "at": 1799999100,
+     "author": "user",
+     "text": "Va bene. Aggiungi anche una prova che il carrello sopravvive al ricarico."
+    },
+    {
+     "at": 1799999980,
+     "author": "assistant",
+     "text": "Fatto: `CartStore` adesso legge e scrive, e la prova ricrea lo store da zero e verifica che ritrovi i tre articoli.\n\nProvo a compilare e a far girare le prove."
+    }
+   ]
+  },
+  "projects": [
+   {
+    "detail": "Bash",
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/bottega-online",
+    "requestKind": "permission",
+    "sessionCount": 1,
+    "state": "waitingInput",
+    "updatedAt": 1799999992
+   },
+   {
+    "detail": "Edit",
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/app-meteo",
+    "sessionCount": 1,
+    "state": "working",
+    "updatedAt": 1799999997
+   },
+   {
+    "detail": "Quale dei due approcci preferisci?",
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/api-pagamenti",
+    "requestKind": "question",
+    "sessionCount": 1,
+    "state": "waitingInput",
+    "updatedAt": 1799999926
+   },
+   {
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/diario-corse",
+    "sessionCount": 1,
+    "state": "idle",
+    "updatedAt": 1799999580
+   }
+  ],
+  "questions": {
+   "5b77e9c31d40": [
+    {
+     "header": "Rimborsi",
+     "multi": false,
+     "options": [
+      {
+       "description": "Ogni rimborso è un movimento a sé: la storia resta leggibile, la somma si ricalcola.",
+       "label": "Una riga per rimborso"
+      },
+      {
+       "description": "Più semplice da leggere, ma di due rimborsi sullo stesso ordine resta solo il totale.",
+       "label": "Un campo sull'ordine"
+      }
+     ],
+     "question": "Dove salviamo i rimborsi parziali?"
+    }
+   ]
+  },
+  "sessions": [
+   {
+    "chatTitle": "Il carrello perde gli articoli al ricarico",
+    "decidable": true,
+    "event": "PermissionRequest",
+    "isStale": false,
+    "projectName": "bottega-online",
+    "projectPath": "/Users/demo/Progetti/bottega-online",
+    "requestID": "toolu_demo01",
+    "requestKind": "permission",
+    "sessionID": "3f9a2c71b4e8",
+    "state": "waitingInput",
+    "toolName": "Bash",
+    "toolSummary": "npm run build && npm run test",
+    "updatedAt": 1799999992
+   },
+   {
+    "chatTitle": "Le previsioni a sette giorni",
+    "decidable": false,
+    "detail": "Edit",
+    "event": "PreToolUse",
+    "isStale": false,
+    "projectName": "app-meteo",
+    "projectPath": "/Users/demo/Progetti/app-meteo",
+    "sessionID": "8c14d0aa5f23",
+    "state": "working",
+    "toolName": "Edit",
+    "updatedAt": 1799999997
+   },
+   {
+    "chatTitle": "I rimborsi parziali",
+    "decidable": true,
+    "detail": "Quale dei due approcci preferisci?",
+    "event": "Notification",
+    "isStale": false,
+    "projectName": "api-pagamenti",
+    "projectPath": "/Users/demo/Progetti/api-pagamenti",
+    "requestID": "toolu_demo02",
+    "requestKind": "question",
+    "sessionID": "5b77e9c31d40",
+    "state": "waitingInput",
+    "updatedAt": 1799999926
+   },
+   {
+    "chatTitle": "Il grafico dei chilometri",
+    "decidable": false,
+    "event": "Stop",
+    "isStale": false,
+    "projectName": "diario-corse",
+    "projectPath": "/Users/demo/Progetti/diario-corse",
+    "promptRequestID": "stop_demo01",
+    "sessionID": "c206ab8f7e15",
+    "state": "idle",
+    "updatedAt": 1799999580
+   }
+  ],
+  "usage": {
+   "fetchedAt": 1799999988,
+   "fiveHour": {
+    "resetAt": 1800006480,
+    "status": "allowed",
+    "utilization": 0.62
+   },
+   "httpStatus": 200,
+   "opusSevenDay": {
+    "resetAt": 1800259200,
+    "status": "allowed",
+    "utilization": 0.19
+   },
+   "overallStatus": "allowed",
+   "representativeClaim": "five_hour",
+   "sevenDay": {
+    "resetAt": 1800259200,
+    "status": "allowed",
+    "utilization": 0.34
+   },
+   "subscriptionType": "max"
+  },
+  "version": 1
+ },
+ "consentito": {
+  "generatedAt": 1800000000,
+  "messages": {
+   "3f9a2c71b4e8": [
+    {
+     "at": 1799997600,
+     "author": "assistant",
+     "text": "Le prove passano tutte e 24. La pagina del prodotto adesso mostra la disponibilità vera invece di «disponibile» fisso."
+    },
+    {
+     "at": 1799997900,
+     "author": "user",
+     "text": "Perfetto. Un'altra cosa: il carrello si svuota quando ricarico la pagina. Riesci a capire perché?"
+    },
+    {
+     "at": 1799998200,
+     "author": "assistant",
+     "text": "Trovato. Il carrello vive solo in memoria: `CartStore` lo tiene in una variabile e nessuno lo scrive da nessuna parte, quindi un ricarico riparte da zero.\n\nTi propongo di salvarlo in `localStorage` a ogni cambiamento e rileggerlo all'avvio, con una scadenza di sette giorni perché un carrello di un mese fa non è più una cosa che qualcuno vuole ritrovare."
+    },
+    {
+     "at": 1799999100,
+     "author": "user",
+     "text": "Va bene. Aggiungi anche una prova che il carrello sopravvive al ricarico."
+    },
+    {
+     "at": 1799999980,
+     "author": "assistant",
+     "text": "Fatto: `CartStore` adesso legge e scrive, e la prova ricrea lo store da zero e verifica che ritrovi i tre articoli.\n\nProvo a compilare e a far girare le prove."
+    },
+    {
+     "at": 1799999998,
+     "author": "assistant",
+     "text": "I test passano: 4 su 4. Il carrello adesso sopravvive al ricarico della pagina."
+    }
+   ]
+  },
+  "projects": [
+   {
+    "detail": "Bash",
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/bottega-online",
+    "sessionCount": 1,
+    "state": "working",
+    "updatedAt": 1799999998
+   },
+   {
+    "detail": "Edit",
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/app-meteo",
+    "sessionCount": 1,
+    "state": "working",
+    "updatedAt": 1799999997
+   },
+   {
+    "detail": "Quale dei due approcci preferisci?",
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/api-pagamenti",
+    "requestKind": "question",
+    "sessionCount": 1,
+    "state": "waitingInput",
+    "updatedAt": 1799999926
+   },
+   {
+    "isStale": false,
+    "projectPath": "/Users/demo/Progetti/diario-corse",
+    "sessionCount": 1,
+    "state": "idle",
+    "updatedAt": 1799999580
+   }
+  ],
+  "questions": {
+   "5b77e9c31d40": [
+    {
+     "header": "Rimborsi",
+     "multi": false,
+     "options": [
+      {
+       "description": "Ogni rimborso è un movimento a sé: la storia resta leggibile, la somma si ricalcola.",
+       "label": "Una riga per rimborso"
+      },
+      {
+       "description": "Più semplice da leggere, ma di due rimborsi sullo stesso ordine resta solo il totale.",
+       "label": "Un campo sull'ordine"
+      }
+     ],
+     "question": "Dove salviamo i rimborsi parziali?"
+    }
+   ]
+  },
+  "sessions": [
+   {
+    "chatTitle": "Il carrello perde gli articoli al ricarico",
+    "decidable": false,
+    "detail": "Bash",
+    "event": "PostToolUse",
+    "isStale": false,
+    "projectName": "bottega-online",
+    "projectPath": "/Users/demo/Progetti/bottega-online",
+    "sessionID": "3f9a2c71b4e8",
+    "state": "working",
+    "toolName": "Bash",
+    "updatedAt": 1799999998
+   },
+   {
+    "chatTitle": "Le previsioni a sette giorni",
+    "decidable": false,
+    "detail": "Edit",
+    "event": "PreToolUse",
+    "isStale": false,
+    "projectName": "app-meteo",
+    "projectPath": "/Users/demo/Progetti/app-meteo",
+    "sessionID": "8c14d0aa5f23",
+    "state": "working",
+    "toolName": "Edit",
+    "updatedAt": 1799999997
+   },
+   {
+    "chatTitle": "I rimborsi parziali",
+    "decidable": true,
+    "detail": "Quale dei due approcci preferisci?",
+    "event": "Notification",
+    "isStale": false,
+    "projectName": "api-pagamenti",
+    "projectPath": "/Users/demo/Progetti/api-pagamenti",
+    "requestID": "toolu_demo02",
+    "requestKind": "question",
+    "sessionID": "5b77e9c31d40",
+    "state": "waitingInput",
+    "updatedAt": 1799999926
+   },
+   {
+    "chatTitle": "Il grafico dei chilometri",
+    "decidable": false,
+    "event": "Stop",
+    "isStale": false,
+    "projectName": "diario-corse",
+    "projectPath": "/Users/demo/Progetti/diario-corse",
+    "promptRequestID": "stop_demo01",
+    "sessionID": "c206ab8f7e15",
+    "state": "idle",
+    "updatedAt": 1799999580
+   }
+  ],
+  "usage": {
+   "fetchedAt": 1799999988,
+   "fiveHour": {
+    "resetAt": 1800006480,
+    "status": "allowed",
+    "utilization": 0.62
+   },
+   "httpStatus": 200,
+   "opusSevenDay": {
+    "resetAt": 1800259200,
+    "status": "allowed",
+    "utilization": 0.19
+   },
+   "overallStatus": "allowed",
+   "representativeClaim": "five_hour",
+   "sevenDay": {
+    "resetAt": 1800259200,
+    "status": "allowed",
+    "utilization": 0.34
+   },
+   "subscriptionType": "max"
+  },
+  "version": 1
+ }
+}

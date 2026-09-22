@@ -28,6 +28,8 @@
  * relay per sé.
  */
 
+import { DEMO_PAIR_ID, demoPayload } from './demo'
+
 export interface Env {
   /** Uno stato per coppia di dispositivi. */
   PAIR: DurableObjectNamespace
@@ -349,6 +351,13 @@ export class PairState {
     const url = new URL(request.url)
     await this.prune()
 
+    // Chi instrada sa quale identificativo è arrivato; qui dentro no, perché un
+    // Durable Object non conosce il nome con cui è stato aperto. Glielo si dice
+    // con un'intestazione, che non può arrivare da fuori: viene aggiunta dopo il
+    // controllo dell'autorizzazione, e una mandata da un client finisce a un
+    // oggetto diverso — il suo — dove non significa niente.
+    const demo = request.headers.get('x-demo-pair') === '1'
+
     // Il telefono consegna il token che gli ha dato APNs, e dice in quale mondo
     // APNs vive. Chiamata una volta all'accoppiamento, e a ogni avvio: iOS può
     // cambiare token dopo una reinstallazione, e uno stantio qui è una notifica
@@ -391,6 +400,9 @@ export class PairState {
     // Worker la tiene e la inoltra senza poterla leggere, che è la ragione per
     // cui può essere il computer di qualcun altro.
     if (url.pathname === '/publish' && request.method === 'POST') {
+      // La dimostrazione la scrive il relay. Se qualcuno ci pubblicasse dentro,
+      // il revisore vedrebbe il Mac di uno sconosciuto.
+      if (demo) return json({ error: 'accoppiamento dimostrativo: sola lettura' }, 403)
       const body = (await request.json()) as {
         payload?: string
         notify?: string
@@ -565,6 +577,10 @@ export class PairState {
     }
 
     if (url.pathname === '/state' && request.method === 'GET') {
+      if (demo) {
+        const decidedAt = (await this.ctx.storage.get<number>('demoDecidedAt')) ?? null
+        return json({ payload: demoPayload(decidedAt), storedAt: Date.now() })
+      }
       const payload = await this.ctx.storage.get<string>('snapshot')
       if (!payload) return json({ error: 'nessuno snapshot' }, 404)
       const storedAt = (await this.ctx.storage.get<number>('snapshotAt')) ?? null
@@ -582,12 +598,20 @@ export class PairState {
       if (typeof body.payload !== 'string' || body.payload.length === 0) {
         return json({ error: 'payload mancante' }, 400)
       }
+      // Nella dimostrazione non c'è nessun Mac che venga a prenderselo: la
+      // risposta *è* l'effetto. Da adesso, e per un minuto e mezzo, le
+      // fotografie sono quelle del lavoro ripreso.
+      if (demo) {
+        await this.ctx.storage.put('demoDecidedAt', Date.now())
+        return json({ ok: true })
+      }
       await this.ctx.storage.put(`cmd:${body.id}`, { payload: body.payload, at: Date.now() })
       return json({ ok: true })
     }
 
     // Il Mac raccoglie quello che lo aspetta.
     if (url.pathname === '/commands' && request.method === 'GET') {
+      if (demo) return json({ commands: [] })
       const stored = await this.ctx.storage.list<{ payload: string; at: number }>({
         prefix: 'cmd:',
       })
@@ -671,6 +695,13 @@ export default {
     // Un oggetto per identificativo. `idFromName` è deterministico, quindi Mac e
     // telefono che presentano lo stesso identificativo finiscono nello stesso
     // stato senza doversi accordare su altro.
-    return env.PAIR.get(env.PAIR.idFromName(pairId)).fetch(request)
+    const forwarded =
+      pairId === DEMO_PAIR_ID
+        ? new Request(request, {
+            headers: new Headers([...request.headers, ['x-demo-pair', '1']]),
+          })
+        : request
+
+    return env.PAIR.get(env.PAIR.idFromName(pairId)).fetch(forwarded)
   },
 }
