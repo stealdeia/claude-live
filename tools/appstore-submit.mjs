@@ -82,14 +82,22 @@ console.log(`  build ${build.attributes.version}`)
 const pratiche = (await api(`/v1/reviewSubmissions?filter[app]=${app.id}&limit=20`)).data
 let pratica = null
 let elemento = null
+/// Una pratica aperta e vuota, da riusare invece di aprirne un'altra.
+let vuota = null
 for (const p of pratiche) {
-  const items = (await api(`/v1/reviewSubmissions/${p.id}/items`)).data
+  // `include=appStoreVersion` non è un ornamento: senza, gli elementi arrivano
+  // con `attributes.state` e **nient'altro** — niente relazioni — e cercare la
+  // versione lì dentro trova sempre niente. È così che il 2026-09-22 questo
+  // strumento ha concluso «nessuna pratica contiene questa versione» mentre una
+  // ce l'aveva, e ne ha aperta una seconda che non si può più cancellare.
+  const items = (await api(`/v1/reviewSubmissions/${p.id}/items?include=appStoreVersion`)).data
   const mio = items.find((i) => i.relationships?.appStoreVersion?.data?.id === version.id)
   if (mio) {
     pratica = p
     elemento = mio
     break
   }
+  if (items.length === 0 && p.attributes.state === 'READY_FOR_REVIEW') vuota = p
 }
 
 if (pratica) {
@@ -120,6 +128,14 @@ if (elemento?.attributes.state === 'REJECTED') {
   console.log(`  elemento segnato risolto → ${r.data.attributes.state}`)
 }
 
+if (!pratica && vuota) {
+  // Riusare quella vuota invece di aprirne un'altra: ogni pratica aperta per
+  // sbaglio resta lì per sempre — l'API non permette `DELETE` e `canceled: true`
+  // risponde «resource is not in cancellable state».
+  console.log(`  riuso la pratica vuota ${vuota.id.slice(0, 8)}`)
+  pratica = vuota
+}
+
 if (!pratica) {
   const creata = await api('/v1/reviewSubmissions', {
     method: 'POST',
@@ -132,6 +148,9 @@ if (!pratica) {
     }),
   })
   pratica = creata.data
+}
+
+if (pratica && !elemento) {
   try {
     await api('/v1/reviewSubmissionItems', {
       method: 'POST',
@@ -146,7 +165,7 @@ if (!pratica) {
       }),
     })
   } catch (error) {
-    console.error(`✗ La versione non è entrata nella pratica ${pratica.id.slice(0, 8)}, che ora resta vuota e non si può cancellare:`)
+    console.error(`✗ La versione non è entrata nella pratica ${pratica.id.slice(0, 8)}:`)
     for (const m of motivi(error)) console.error(`  • ${m}`)
     process.exit(1)
   }
