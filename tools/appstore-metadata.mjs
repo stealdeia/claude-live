@@ -129,8 +129,16 @@ if (meta.ageRating?.tuttoNegativo) {
         const message = String(error.message)
         const field = message.match(/attribute '([^']+)'/)?.[1]
         const wants = message.match(/Expected a (\w+)/)?.[1]
-        if (!field || !wants) throw error
-        if (wants === 'BOOLEAN') attributes[field] = false
+        if (!field) throw error
+        // Un campo che Apple rifiuta **in questo contesto** non si manda, e non
+        // serve sapere perché. `gracRatingClassificationNumber` è comparso il
+        // 2026-09-25 e non si può dichiarare se prima non si è scelto un
+        // `koreaAgeRatingOverride`: un caso di coerenza, non di tipo, e la
+        // versione che riconosceva solo i tipi si fermava lì. Togliere il campo
+        // e riprovare copre entrambi, e copre anche il prossimo che Apple
+        // aggiungerà senza avvisare.
+        if (!wants) delete attributes[field]
+        else if (wants === 'BOOLEAN') attributes[field] = false
         else if (wants === 'STRING') attributes[field] = 'NONE'
         else delete attributes[field]
       }
@@ -158,6 +166,11 @@ if (editable) {
   if (loc) {
     await patch('appStoreVersionLocalizations', loc.id, {
       description: meta.description,
+      // Le «Novità» stanno sulla localizzazione della versione, non sull'app:
+      // sono di questa versione e di nessun'altra. Su una 1.0 Apple le ignora —
+      // non c'è un «prima» — ma da un aggiornamento in poi sono la prima cosa
+      // che legge chi ce l'ha già installata.
+      whatsNew: meta.whatsNew,
       keywords: meta.keywords,
       promotionalText: meta.promotionalText,
       supportUrl: meta.supportUrl,
