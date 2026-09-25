@@ -1,5 +1,5 @@
 /**
- * Relay di Claude Live: il programmino sempre acceso fra il Mac e l'iPhone.
+ * Relay di Vibing Code Live: il programmino sempre acceso fra il Mac e l'iPhone.
  *
  * Esiste perché iOS spegne le app che non guardi, e l'unica cosa che può
  * svegliarne una è una notifica push — che deve partire da un computer sempre

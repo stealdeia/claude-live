@@ -92,7 +92,7 @@ def main():
     ap.add_argument("--length", required=True)
     ap.add_argument("--min-system", default="14.0")
     ap.add_argument("--notes")
-    ap.add_argument("--title", default="Claude Live")
+    ap.add_argument("--title", default="Vibing Code Live")
     args = ap.parse_args()
 
     tree, channel = load_or_create(args.appcast, args.title)

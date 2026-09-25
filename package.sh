@@ -7,15 +7,15 @@
 # on every code change, and waiting on Apple for each dev build would be absurd.
 #
 # Usage: ./package.sh
-# Output: dist/Claude Live <version>.dmg
+# Output: dist/Vibing Code Live <version>.dmg
 set -euo pipefail
 
 cd "$(dirname "$0")"
 source ./release.conf
 VERSION="$(tr -d ' \n\r' < VERSION)"
 
-APP_NAME="Claude Live"
-DMG_NAME="Claude Live ${VERSION}"
+APP_NAME="Vibing Code Live"
+DMG_NAME="Vibing Code Live ${VERSION}"
 STAGING="build/dmg-root"
 DMG_PATH="dist/${DMG_NAME}.dmg"
 
@@ -88,12 +88,12 @@ ln -s /Applications "${STAGING}/Applications"
 # inside the DMG means the recipient reads it at the moment they hit the problem.
 if [[ "${NOTARIZE}" == "1" ]]; then
 cat > "${STAGING}/LEGGIMI.txt" <<'TXT'
-Claude Live — installazione
+Vibing Code Live — installazione
 ===========================
 
-1. Trascina «Claude Live» nella cartella Applicazioni (l'alias qui accanto).
+1. Trascina «Vibing Code Live» nella cartella Applicazioni (l'alias qui accanto).
 
-2. Apri Applicazioni e fai doppio clic su Claude Live. Si apre e basta:
+2. Apri Applicazioni e fai doppio clic su Vibing Code Live. Si apre e basta:
    l'app è firmata e registrata presso Apple.
 
 3. Al primo avvio parte una procedura guidata che controlla i requisiti e
@@ -104,7 +104,7 @@ Claude Live — installazione
    ricomparirà ogni pochi minuti. Con «Consenti sempre» non la rivedrai
    più, nemmeno dopo gli aggiornamenti.
 
-4. Claude Live vive nella barra dei menu: cerca l'icona ✦ con la percentuale.
+4. Vibing Code Live vive nella barra dei menu: cerca l'icona ✦ con la percentuale.
    Non ha icona nel Dock.
 
 Requisiti
@@ -118,12 +118,12 @@ da sola.
 TXT
 else
 cat > "${STAGING}/COME APRIRE L'APP.txt" <<'TXT'
-Claude Live — installazione
+Vibing Code Live — installazione
 ===========================
 
-1. Trascina «Claude Live» nella cartella Applicazioni (l'alias qui accanto).
+1. Trascina «Vibing Code Live» nella cartella Applicazioni (l'alias qui accanto).
 
-2. Apri Applicazioni e fai doppio clic su Claude Live.
+2. Apri Applicazioni e fai doppio clic su Vibing Code Live.
 
 3. macOS dirà che l'app non può essere aperta perché proviene da uno
    sviluppatore non identificato. È normale: l'app non è registrata presso
@@ -132,7 +132,7 @@ Claude Live — installazione
    Per autorizzarla, una volta sola:
 
      • apri  Impostazioni di Sistema → Privacy e Sicurezza
-     • scorri fino in fondo: trovi «Claude Live è stata bloccata...»
+     • scorri fino in fondo: trovi «Vibing Code Live è stata bloccata...»
      • premi  «Apri comunque»  e conferma con Touch ID o password
 
 4. Al primo avvio parte una procedura guidata che controlla i requisiti e
@@ -142,7 +142,7 @@ Claude Live — installazione
    «Consenti sempre» e non «Consenti». Con «Consenti» la richiesta
    ricomparirà ogni pochi minuti.
 
-5. Claude Live vive nella barra dei menu: cerca l'icona ✦ con la percentuale.
+5. Vibing Code Live vive nella barra dei menu: cerca l'icona ✦ con la percentuale.
    Non ha icona nel Dock.
 
 Requisiti

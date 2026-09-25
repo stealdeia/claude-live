@@ -86,7 +86,7 @@ struct OnboardingView: View {
                 }
                 .keyboardShortcut(.defaultAction)
             } else {
-                Button("Inizia a usare Claude Live") { onFinish() }
+                Button("Inizia a usare Vibing Code Live") { onFinish() }
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -97,7 +97,7 @@ struct OnboardingView: View {
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Claude Live")
+            Text("Vibing Code Live")
                 .font(.largeTitle.bold())
             Text("Versione \(UpdateController.currentVersion)")
                 .font(.system(size: 11))
@@ -119,7 +119,7 @@ struct OnboardingView: View {
 
     private var requirements: some View {
         VStack(alignment: .leading, spacing: 14) {
-            title("Requisiti", "Claude Live legge dati che già esistono sul tuo Mac.")
+            title("Requisiti", "Vibing Code Live legge dati che già esistono sul tuo Mac.")
 
             checkRow("Claude Code", state.claudeCode)
             Text("Serve Claude Code installato e con il login effettuato. Se manca: installalo, apri il Terminale ed esegui `claude`, poi accedi.")
@@ -142,7 +142,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             title("Accesso al Keychain", "È il passaggio più importante.")
 
-            Text("Claude Live legge il token del tuo account dalla voce di Keychain creata da Claude Code. Lo legge in sola lettura e non lo invia da nessuna parte: serve solo per chiedere all'API i tuoi livelli di utilizzo.")
+            Text("Vibing Code Live legge il token del tuo account dalla voce di Keychain creata da Claude Code. Lo legge in sola lettura e non lo invia da nessuna parte: serve solo per chiedere all'API i tuoi livelli di utilizzo.")
 
             calloutBox(
                 icon: "exclamationmark.triangle.fill",
@@ -161,7 +161,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             title("Hook di Claude Code", "Servono per lo stato per progetto.")
 
-            Text("Gli hook sono piccoli comandi che Claude Code esegue quando inizia a lavorare, quando finisce o quando ti chiede un permesso. Scrivono un file di stato in ~/.claude-hub/status/ che Claude Live legge in tempo reale.")
+            Text("Gli hook sono piccoli comandi che Claude Code esegue quando inizia a lavorare, quando finisce o quando ti chiede un permesso. Scrivono un file di stato in ~/.claude-hub/status/ che Vibing Code Live legge in tempo reale.")
 
             calloutBox(
                 icon: "checkmark.shield",
@@ -188,7 +188,7 @@ struct OnboardingView: View {
             title("Notifiche e avvio automatico", "Entrambi opzionali.")
 
             checkRow("Notifiche", state.notifications)
-            Text("Claude Live avvisa quando Claude aspetta una tua risposta in un progetto, e quando ti avvicini ai limiti di utilizzo.")
+            Text("Vibing Code Live avvisa quando Claude aspetta una tua risposta in un progetto, e quando ti avvicini ai limiti di utilizzo.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Button("Richiedi autorizzazione") { state.requestNotifications() }
@@ -213,11 +213,11 @@ struct OnboardingView: View {
 
     private var finish: some View {
         VStack(alignment: .leading, spacing: 14) {
-            title("Tutto pronto", "Claude Live vive nella barra dei menu.")
+            title("Tutto pronto", "Vibing Code Live vive nella barra dei menu.")
 
             bullet("menubar.arrow.up.rectangle", "Icona ✦ nella barra dei menu", "Mostra la percentuale della sessione 5h. Un pallino arancione compare quando Claude aspetta una risposta.")
             bullet("rectangle.on.rectangle", "Due modalità", "Pannello flottante trascinabile, oppure agganciato al notch se il tuo Mac ne ha uno. Si cambia dal menu.")
-            bullet("arrow.triangle.2.circlepath", "Aggiornamenti automatici", "Claude Live controlla da sola se c'è una versione nuova e ti propone di installarla.")
+            bullet("arrow.triangle.2.circlepath", "Aggiornamenti automatici", "Vibing Code Live controlla da sola se c'è una versione nuova e ti propone di installarla.")
 
             if !state.keychain.isSatisfied {
                 calloutBox(

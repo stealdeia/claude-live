@@ -39,7 +39,7 @@ final class MascotManifestTests: XCTestCase {
         // prova è la prima a saperlo.
         let m = try manifest("""
         {
-          "schema": 1, "id": "bolla", "name": "Bolla", "author": "Claude Live",
+          "schema": 1, "id": "bolla", "name": "Bolla", "author": "Vibing Code Live",
           "frameWidth": 96, "frameHeight": 96, "fps": 8,
           "sheet": "sprites.png", "columns": 8,
           "states": {

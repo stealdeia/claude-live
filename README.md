@@ -1,4 +1,4 @@
-# Claude Live
+# Vibing Code Live
 
 Pannello macOS sempre visibile con i limiti di utilizzo dell'account Claude, i
 progetti VS Code aperti e lo stato in tempo reale delle sessioni Claude Code.
@@ -18,8 +18,8 @@ App **menu bar only** (`LSUIElement`), macOS 14+, Swift/SwiftUI. Nessun dato las
 ## Build ed esecuzione
 
 ```bash
-./build.sh                      # → build/Claude Live.app
-./build.sh release --install    # → /Applications/Claude Live.app
+./build.sh                      # → build/Vibing Code Live.app
+./build.sh release --install    # → /Applications/Vibing Code Live.app
 ./run.sh release --install      # build + riavvio + lancio
 ```
 
@@ -45,7 +45,7 @@ dalla CLI di VS Code (vedi Fase 2). Restano solo due autorizzazioni:
   notifica **vera** e non riproduce il file: è l'unico modo di sentire quel che si
   sentirà davvero.
 
-  Una notifica che arriva mentre Claude Live è l'app **attiva** viene scartata da
+  Una notifica che arriva mentre Vibing Code Live è l'app **attiva** viene scartata da
   macOS in silenzio — nessun banner, nessun suono, nessun errore — se il delegate
   non implementa `willPresent`. Per un'app della barra dei menu il caso è raro e
   quindi resta invisibile a lungo: si è manifestato dalla finestra delle
@@ -196,7 +196,7 @@ principale di VS Code:
 ```text
 Workspace Stats:
 |  Window (Costruire app macOS Sipp… — progetto-alfa)
-|  Window (Claude Live: macOS menu … — hub-claude)
+|  Window (Vibing Code Live: macOS menu … — hub-claude)
 |  Window (Fix scrolling, notificat… — progetto-beta)
 ```
 
@@ -743,7 +743,7 @@ richiesta di password che sembra arrivare a caso. Letta con
 
 ```text
 ACL 0 — Decrypt
-  applicazioni autorizzate: /Applications/Claude Live.app
+  applicazioni autorizzate: /Applications/Vibing Code Live.app
                             /usr/bin/security     ← è così che accede Claude Code
   Partitions: [ apple-tool:, teamid:G7PDRQRC29 ]
 ```

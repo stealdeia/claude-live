@@ -95,7 +95,7 @@ enum WindowCoverage {
 
         let mine = ProcessInfo.processInfo.processIdentifier
         return raw.compactMap { entry in
-            // Solo il livello normale: pannelli, menu e alone di Claude Live vivono
+            // Solo il livello normale: pannelli, menu e alone di Vibing Code Live vivono
             // sopra tutto e coprirebbero qualunque cosa senza nascondere niente.
             guard (entry[kCGWindowLayer as String] as? Int) == 0,
                   let pid = entry[kCGWindowOwnerPID as String] as? pid_t,

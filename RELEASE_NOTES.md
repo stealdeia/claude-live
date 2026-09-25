@@ -7,4 +7,4 @@ La mascotte: un personaggio sulla scrivania che ti dice cosa sta facendo Claude.
 - **Si scrive da lì.** Sotto il personaggio c'è una riga: quello che scrivi mentre Claude lavora resta in coda e parte da solo appena il turno finisce. È l'unico modo di infilare un messaggio in una conversazione viva stando al Mac, e la riga dice sempre dove andrà a finire prima che tu prema Invio.
 - **Tre personaggi inclusi**, e puoi usare il tuo: una cartella con i disegni e un file che li descrive, lo stesso formato di quelli di serie.
 - **Non dà fastidio.** Cliccarlo o trascinarlo non toglie il fuoco a quello che stai scrivendo, non compare nel Dock né in Cmd-Tab, si vede su tutte le scrivanie e sopra le app a schermo intero. Da fermo non gira nessun timer: a riposo costa zero.
-- Claude Live è un progetto di **Purple Heads**.
+- Vibing Code Live è un progetto di **Purple Heads**.

@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Paths.ensureDirectories()
-        Log.info("Claude Live avviata (bundle: \(Bundle.main.bundleIdentifier ?? "nessuno"))")
+        Log.info("Vibing Code Live avviata (bundle: \(Bundle.main.bundleIdentifier ?? "nessuno"))")
 
         // Before anything shared is touched — see `yieldToRunningInstance`.
         // First of all, because it can end the launch: anything set up above it
@@ -334,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
         }
-        Log.info("Claude Live terminata")
+        Log.info("Vibing Code Live terminata")
     }
 
     /// Menu-bar-only app: never quit just because no window is open.
@@ -417,7 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     /// The instance that was here first, if there is one.
     ///
-    /// Two copies of Claude Live on one Mac fight in ways that look like bugs in the
+    /// Two copies of Vibing Code Live on one Mac fight in ways that look like bugs in the
     /// app rather than like two copies: they share `settings.json`, so whichever
     /// saves last wins and settings appear to change by themselves; each posts its
     /// own notifications; each draws its own notch. Worst of all, each asks VS Code
@@ -459,7 +459,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// Nothing has been started yet either, so there is nothing of ours to close.
     private func yieldTo(_ existing: NSRunningApplication) {
         Log.important(
-            "Claude Live è già in esecuzione (pid \(existing.processIdentifier), "
+            "Vibing Code Live è già in esecuzione (pid \(existing.processIdentifier), "
             + "\(existing.bundleURL?.path ?? "percorso sconosciuto")): questa copia si chiude. "
             + "Per tenerne due di proposito: CLAUDELIVE_ALLOW_SECOND_INSTANCE=1"
         )
@@ -530,7 +530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: - Notifications
 
-    /// Shows the banner even when Claude Live is the active application.
+    /// Shows the banner even when Vibing Code Live is the active application.
     ///
     /// Without this, macOS delivers a notification posted while the app is in the
     /// foreground **silently** — no banner, no sound, no error. Normally that is
@@ -667,7 +667,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             : "Installare gli hook di Claude Code?"
         confirm.informativeText = """
         Verranno aggiunte voci in ~/.claude/settings.json per gli eventi di \
-        Claude Code, così Claude Live può mostrare lo stato per progetto.
+        Claude Code, così Vibing Code Live può mostrare lo stato per progetto.
 
         Il file viene salvato in backup prima della modifica e gli hook già \
         presenti non vengono toccati.

@@ -57,7 +57,7 @@ NEXT=$((CURRENT + 1))
 MARKETING="$(grep -oE 'MARKETING_VERSION: "[^"]+"' iOS/project.yml | sed 's/.*"\(.*\)"/\1/' | sort -u)"
 [[ "$(echo "${MARKETING}" | wc -l | tr -d ' ')" == "1" ]] || \
   fail "app ed estensione dichiarano versioni diverse: $(echo ${MARKETING} | tr '\n' ' ')"
-echo "==> Claude Live iPhone ${MARKETING} (${NEXT})"
+echo "==> Vibing Code Live iPhone ${MARKETING} (${NEXT})"
 
 if [[ "${DRY_RUN}" == "0" ]]; then
   sed -i '' "s/CURRENT_PROJECT_VERSION: \"${CURRENT}\"/CURRENT_PROJECT_VERSION: \"${NEXT}\"/" iOS/project.yml
@@ -177,5 +177,5 @@ echo "==> Faccio scadere le precedenti"
 node tools/testflight.mjs expire-old
 
 echo ""
-echo "✓ Claude Live iPhone ${MARKETING} (${NEXT}) su TestFlight."
+echo "✓ Vibing Code Live iPhone ${MARKETING} (${NEXT}) su TestFlight."
 echo "  Ricordati di committare il numero di build alzato in iOS/project.yml."

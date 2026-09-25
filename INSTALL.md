@@ -1,4 +1,4 @@
-# Installare Claude Live
+# Installare Vibing Code Live
 
 Pannello per la barra dei menu di macOS che mostra i limiti di utilizzo del tuo
 account Claude e lo stato delle sessioni Claude Code nei progetti VS Code aperti.
@@ -18,7 +18,7 @@ livelli di utilizzo.
 
 ### 1. Scarica e trascina
 
-Apri il `.dmg` e trascina **Claude Live** nella cartella Applicazioni.
+Apri il `.dmg` e trascina **Vibing Code Live** nella cartella Applicazioni.
 
 ### 2. Apri l'app
 
@@ -94,7 +94,7 @@ menu: il passaggio «Keychain» dice esattamente cosa manca.
 
 **La richiesta del Keychain ricompare sempre.** È stato scelto «Consenti» invece
 di «Consenti sempre». Apri *Accesso Portachiavi*, cerca `Claude Code-credentials`,
-scheda *Controllo accessi*, e aggiungi Claude Live tra le app consentite.
+scheda *Controllo accessi*, e aggiungi Vibing Code Live tra le app consentite.
 
 **La lista progetti è vuota.** VS Code deve essere in esecuzione con almeno una
 cartella aperta. La lista si aggiorna quando apri o chiudi una finestra; puoi
@@ -110,7 +110,7 @@ vengono caricati all'avvio di una sessione, quindi riavvia `claude`.
 
 ## Disinstallare
 
-1. Trascina `/Applications/Claude Live.app` nel Cestino
+1. Trascina `/Applications/Vibing Code Live.app` nel Cestino
 2. Rimuovi gli hook: nel Terminale,
    `/Applications/Claude\ Live.app/Contents/Resources/install-claude-hooks.py --uninstall`
    (se hai già eliminato l'app, rimuovi a mano le voci che contengono

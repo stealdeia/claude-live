@@ -317,7 +317,7 @@ struct HomeView: View {
             Text("In attesa del Mac…")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.7))
-            Text("Il Mac deve essere sveglio, e «Pubblica sul relay» acceso nelle impostazioni di Claude Live.")
+            Text("Il Mac deve essere sveglio, e «Pubblica sul relay» acceso nelle impostazioni di Vibing Code Live per Mac.")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.5))
                 .multilineTextAlignment(.center)

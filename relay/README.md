@@ -1,4 +1,4 @@
-# Relay di Claude Live
+# Relay di Vibing Code Live
 
 Il programmino sempre acceso che sta in mezzo fra il Mac e l'iPhone.
 

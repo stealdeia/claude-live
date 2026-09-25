@@ -42,6 +42,19 @@ enum Demo {
         return args[i + 1]
     }
 
+    /// Da quale passo del benvenuto partire, con `-demo-step N`.
+    ///
+    /// Serve perché i passi si attraversano toccando un pulsante, e da qui non
+    /// si tocca niente: senza, l'unico passo fotografabile sarebbe il primo —
+    /// e quello che va guardato è il secondo, dove sta il rimando all'app per
+    /// Mac.
+    static var welcomeStep: Int {
+        let args = ProcessInfo.processInfo.arguments
+        guard isOn, let i = args.firstIndex(of: "-demo-step"), i + 1 < args.count,
+              let n = Int(args[i + 1]) else { return 0 }
+        return n
+    }
+
     /// `welcome` è l'unica schermata che si vede da non accoppiati, quindi è
     /// l'unica in cui la dimostrazione deve fingere di *non* avere un Mac.
     static var pretendsPaired: Bool { isOn && screen != "welcome" }

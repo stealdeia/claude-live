@@ -110,7 +110,7 @@ enum CredentialsError: LocalizedError {
         case .notFound:
             return "Credenziali Claude Code non trovate nel Keychain. Apri il Terminale, esegui `claude` ed effettua il login."
         case .accessDenied:
-            return "Accesso al Keychain negato. Rimuovi la voce di negazione da Accesso Portachiavi, o riavvia Claude Live e scegli «Consenti sempre»."
+            return "Accesso al Keychain negato. Rimuovi la voce di negazione da Accesso Portachiavi, o riavvia Vibing Code Live e scegli «Consenti sempre»."
         case .keychainFailure(let status):
             let detail = SecCopyErrorMessageString(status, nil) as String? ?? "codice \(status)"
             return "Errore Keychain: \(detail)"
@@ -180,7 +180,7 @@ enum CredentialsStore {
     /// Asks whether a read would be allowed, **without ever showing a dialog**.
     ///
     /// Exists because the dialog was indistinguishable from a mystery. The keychain
-    /// authorises by **path**: the entry lists `/Applications/Claude Live.app`, so a
+    /// authorises by **path**: the entry lists `/Applications/Vibing Code Live.app`, so a
     /// copy run from anywhere else — a build directory, a disk image, the Downloads
     /// folder — is a different application as far as the keychain is concerned, and
     /// "Always allow" granted to one says nothing about the other. That is invisible
@@ -233,7 +233,7 @@ enum CredentialsStore {
     /// difficult: **Claude Code rewrites this item on every token refresh, and the
     /// write resets the item's access list.** Measured on 2026-08-19: the item was
     /// written at 09:47:02, and our next read raised the password dialog at 09:48:51
-    /// — from `/Applications/Claude Live.app`, the very path that had read it in
+    /// — from `/Applications/Vibing Code Live.app`, the very path that had read it in
     /// silence nine minutes earlier. The grant is destroyed by the item's owner, so
     /// no amount of clicking "Always" survives a token refresh, and a token refresh
     /// happens every few hours.

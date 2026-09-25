@@ -104,7 +104,7 @@ final class UsageNotifier {
     func notifyProblem(_ body: String) {
         guard !problemNotified else { return }
         problemNotified = true
-        post(title: "Claude Live non si aggiorna", body: body)
+        post(title: "Vibing Code Live non si aggiorna", body: body)
     }
 
     func clearProblem() {

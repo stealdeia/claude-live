@@ -107,7 +107,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         guard let button = statusItem.button else { return }
         button.image = NSImage(
             systemSymbolName: "sparkle",
-            accessibilityDescription: "Claude Live"
+            accessibilityDescription: "Vibing Code Live"
         )
         button.image?.isTemplate = true
         button.imagePosition = .imageLeading
@@ -179,7 +179,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     private func tooltip() -> String {
-        var lines: [String] = ["Claude Live"]
+        var lines: [String] = ["Vibing Code Live"]
 
         if let snapshot = monitor.snapshot {
             if let five = snapshot.fiveHour {
@@ -310,7 +310,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let version = NSMenuItem(title: "Versione \(UpdateController.currentVersion)", action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
-        menu.addItem(action(title: "Esci da Claude Live", key: "q", selector: #selector(quit)))
+        menu.addItem(action(title: "Esci da Vibing Code Live", key: "q", selector: #selector(quit)))
 
         statusItem.menu = menu
     }

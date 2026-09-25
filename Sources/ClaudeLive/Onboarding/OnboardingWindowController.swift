@@ -36,7 +36,7 @@ final class OnboardingWindowController {
         hosting.sizingOptions = [.preferredContentSize]
 
         let window = NSWindow(contentViewController: hosting)
-        window.title = "Configurazione di Claude Live"
+        window.title = "Configurazione di Vibing Code Live"
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.center()

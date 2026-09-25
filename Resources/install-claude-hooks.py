@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Installs the Claude Live status hooks into ~/.claude/settings.json.
+"""Installs the Vibing Code Live status hooks into ~/.claude/settings.json.
 
 Idempotent and non-destructive:
   * every entry we add carries a recognisable command path (MARKER), so a
@@ -264,7 +264,7 @@ def main():
 
     removed = strip_our_hooks(settings)
     if removed:
-        log(f"· Rimosse {removed} voci hook preesistenti di Claude Live")
+        log(f"· Rimosse {removed} voci hook preesistenti di Vibing Code Live")
 
     if not uninstall:
         add_our_hooks(settings)
@@ -286,7 +286,7 @@ def main():
         write_settings(settings)
 
     if uninstall:
-        log("\n✓ Hook di Claude Live rimossi.")
+        log("\n✓ Hook di Vibing Code Live rimossi.")
         log(f"  Lo script resta in {HOOK_DEST} (puoi cancellarlo a mano).")
     else:
         events = ", ".join(event for event, _, _ in HOOK_EVENTS)

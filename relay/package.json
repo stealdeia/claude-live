@@ -2,7 +2,7 @@
   "name": "claude-live-relay",
   "version": "0.1.0",
   "private": true,
-  "description": "Intermediario fra il Mac e l'app iPhone di Claude Live",
+  "description": "Intermediario fra il Mac e l'app iPhone di Vibing Code Live",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

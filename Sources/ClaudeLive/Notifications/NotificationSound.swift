@@ -1,7 +1,7 @@
 import AppKit
 import UserNotifications
 
-/// Which sound Claude Live's notifications play.
+/// Which sound Vibing Code Live's notifications play.
 ///
 /// macOS keeps its alert sounds as `.aiff` files in `/System/Library/Sounds`, and
 /// the notification server resolves a `UNNotificationSound` name against the same
@@ -71,7 +71,7 @@ enum NotificationSound {
 
             let content = UNMutableNotificationContent()
             content.title = "Suono di prova"
-            content.body = "Claude Live userà «\(label(for: name))» per avvisarti."
+            content.body = "Vibing Code Live userà «\(label(for: name))» per avvisarti."
             content.sound = sound(named: name)
 
             let request = UNNotificationRequest(
@@ -117,9 +117,9 @@ enum NotificationSound {
         let alert = NSAlert()
         alert.messageText = "Notifiche non autorizzate"
         alert.informativeText = """
-        macOS non permette a Claude Live di mostrare notifiche, quindi non c'è \
+        macOS non permette a Vibing Code Live di mostrare notifiche, quindi non c'è \
         niente da sentire. Attivale in Impostazioni di Sistema → Notifiche → \
-        Claude Live.
+        Vibing Code Live.
         """
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Apri Impostazioni di Sistema")

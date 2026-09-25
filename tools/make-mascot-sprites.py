@@ -640,7 +640,7 @@ def build(character):
         "schema": 1,
         "id": character["id"],
         "name": character["name"],
-        "author": "Claude Live",
+        "author": "Vibing Code Live",
         # In **punti**, non in pixel: il foglio è più fitto di così, e dichiarare
         # le colonne è ciò che permette all'app di capirlo. Vedi
         # `MascotSprites.sliceSheet`.

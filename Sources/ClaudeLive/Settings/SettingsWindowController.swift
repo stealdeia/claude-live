@@ -100,7 +100,7 @@ final class SettingsWindowController {
         hosting.view.frame = NSRect(origin: .zero, size: Self.contentSize)
 
         let window = NSWindow(contentViewController: hosting)
-        window.title = "Impostazioni Claude Live"
+        window.title = "Impostazioni Vibing Code Live"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.setContentSize(Self.contentSize)
         window.contentMinSize = NSSize(width: 620, height: 420)

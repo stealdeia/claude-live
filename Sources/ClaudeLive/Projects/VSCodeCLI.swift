@@ -9,7 +9,7 @@ import AppKit
 /// ```text
 /// Workspace Stats:
 /// |  Window (Costruire app macOS Sipp… — progetto-alfa)
-/// |  Window (Claude Live: macOS menu … — hub-claude)
+/// |  Window (Vibing Code Live: macOS menu … — hub-claude)
 /// |  Window (Fix scrolling, notificat… — progetto-beta)
 /// ```
 ///

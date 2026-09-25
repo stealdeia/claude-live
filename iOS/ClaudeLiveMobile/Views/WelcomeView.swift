@@ -19,7 +19,7 @@ struct WelcomeView: View {
     let onPair: () -> Void
     let onOpenSettings: () -> Void
 
-    @State private var step = 0
+    @State private var step = Demo.welcomeStep
 
     private struct Page {
         let icon: String
@@ -42,7 +42,7 @@ struct WelcomeView: View {
         Page(
             icon: "menubar.arrow.up.rectangle",
             title: "Sul Mac",
-            text: "Apri Claude Live dall'icona nella barra dei menu, in alto a destra, e scegli Impostazioni.",
+            text: "Apri Vibing Code Live per Mac dall'icona nella barra dei menu, in alto a destra, e scegli Impostazioni.",
             emphasis: ["Impostazioni"],
             action: "Ho fatto"
         ),
@@ -91,6 +91,7 @@ struct WelcomeView: View {
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                         if step == 0 { privacy }
+                        if step == 1 { scaricaPerMac }
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -106,6 +107,29 @@ struct WelcomeView: View {
             .padding(.horizontal, 22)
             .padding(.bottom, 26)
         }
+    }
+
+    /// Come arrivare all'app per Mac, per chi non ce l'ha.
+    ///
+    /// Sta al secondo passo e non al primo perché è lì che ci si ferma: quel
+    /// passo dice «apri Vibing Code Live per Mac dall'icona nella barra dei
+    /// menu», e chi non l'ha mai installata non ha niente da aprire.
+    ///
+    /// Prima di questo pulsante l'app non diceva **da nessuna parte** dove
+    /// prenderla: nessun indirizzo qui dentro, e nemmeno nella descrizione
+    /// sull'App Store. L'unica strada era il link «Assistenza» in fondo alla
+    /// scheda, che porta al sito, dove c'è il pulsante — tre passaggi che
+    /// nessuno percorre. Scoperto il 2026-09-25, mentre l'app veniva scaricata.
+    private var scaricaPerMac: some View {
+        Link(destination: URL(string: "https://vibingcodelive.purpleheads.it")!) {
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.down.circle")
+                Text("Non ce l'hai sul Mac? Scaricala")
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(GlowRGB.waiting.color)
+        }
+        .padding(.top, 4)
     }
 
     private var controls: some View {

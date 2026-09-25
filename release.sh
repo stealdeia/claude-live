@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 source ./release.conf
 VERSION="$(tr -d ' \n\r' < VERSION)"
 TAG="v${VERSION}"
-DMG="dist/Claude Live ${VERSION}.dmg"
+DMG="dist/Vibing Code Live ${VERSION}.dmg"
 DRY_RUN=0
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
 
@@ -25,7 +25,7 @@ fail() { echo "✗ $*" >&2; exit 1; }
 
 DRY_RUN_LABEL=""
 [[ "${DRY_RUN}" == "1" ]] && DRY_RUN_LABEL=" (dry run)"
-echo "==> Rilascio Claude Live ${VERSION}${DRY_RUN_LABEL}"
+echo "==> Rilascio Vibing Code Live ${VERSION}${DRY_RUN_LABEL}"
 
 # --- Pre-flight -------------------------------------------------------------
 [[ -s RELEASE_NOTES.md ]] || fail "RELEASE_NOTES.md è vuoto: descrivi cosa cambia in questa versione."
@@ -117,7 +117,7 @@ UPLOAD="dist/${ASSET_NAME}"
 cp "${DMG}" "${UPLOAD}"
 gh release create "${TAG}" "${UPLOAD}" \
   --repo "${GH_OWNER}/${GH_RELEASES_REPO}" \
-  --title "Claude Live ${VERSION}" \
+  --title "Vibing Code Live ${VERSION}" \
   --notes-file RELEASE_NOTES.md
 rm -f "${UPLOAD}"
 
@@ -143,11 +143,11 @@ git -C "${WORK}/repo" add appcast.xml
 # a questo: un indirizzo che per costruzione non esiste e non recapita nulla.
 git -C "${WORK}/repo" -c user.name="Purple Heads release" \
     -c user.email="noreply@purpleheads.invalid" \
-    commit -m "Claude Live ${VERSION}" >/dev/null
+    commit -m "Vibing Code Live ${VERSION}" >/dev/null
 git -C "${WORK}/repo" push >/dev/null
 
 echo
-echo "✓ Claude Live ${VERSION} pubblicata."
+echo "✓ Vibing Code Live ${VERSION} pubblicata."
 echo "  Download:  ${DOWNLOAD_URL}"
 echo "  Appcast:   ${SU_FEED_URL}"
 echo

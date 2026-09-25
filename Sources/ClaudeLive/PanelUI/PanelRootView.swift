@@ -84,7 +84,7 @@ struct PanelRootView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.tint)
 
-            Text("Claude Live")
+            Text("Vibing Code Live")
                 .font(PanelTheme.titleFont)
 
             if let plan = monitor.snapshot?.subscriptionType {

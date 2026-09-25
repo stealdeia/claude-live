@@ -7,9 +7,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Claude Live</string>
+	<string>Vibing Code Live</string>
 	<key>CFBundleDisplayName</key>
-	<string>Claude Live</string>
+	<string>Vibing Code Live</string>
 	<key>CFBundleExecutable</key>
 	<string>ClaudeLive</string>
 	<key>CFBundleIdentifier</key>
@@ -24,7 +24,22 @@
 	<string>AppIcon</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<!-- Il nome mostrato all'utente. Non ha relazione con CFBundleIdentifier
+	<!-- Il nome è cambiato il 2026-09-25: era «Claude Live», e conteneva il
+	     marchio di un altro. Apple aveva già respinto l'app iPhone sulla 4.1(c)
+	     per «Claude Code» nel sottotitolo; questo era lo stesso problema, più
+	     grosso, che aspettava il giorno in cui l'app per Mac fosse finita su uno
+	     store.
+
+	     La conseguenza da ricordare: il portachiavi autorizza **per percorso**
+	     (vedi `Credentials.authorizationState`), e l'app installata passa da
+	     `/Applications/Claude Live.app` a `/Applications/Vibing Code Live.app`.
+	     Se l'aggiornamento cambia davvero il nome del file, per il portachiavi è
+	     un'altra applicazione e il «Consenti sempre» già dato non vale più: la
+	     richiesta ricompare una volta. Non è un guasto, ma senza un avviso nelle
+	     note di rilascio sembra proprio quel «dialogo che appare a caso» che il
+	     commento in Credentials descrive.
+
+	     Il nome mostrato all'utente. Non ha relazione con CFBundleIdentifier
 	     (`it.aldeialab.ClaudeLive`), che resta com'è: cambiarlo romperebbe il
 	     feed Sparkle delle copie installate, la ACL della voce Keychain, la
 	     registrazione SMAppService e il dominio UserDefaults. Nemmeno con

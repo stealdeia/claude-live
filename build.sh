@@ -34,10 +34,10 @@ source ./release.conf
 
 VERSION="$(tr -d ' \n\r' < VERSION)"
 
-APP_NAME="Claude Live"
+APP_NAME="Vibing Code Live"
 BUNDLE="build/${APP_NAME}.app"
 
-echo "==> Claude Live ${VERSION} (${CONFIG})"
+echo "==> Vibing Code Live ${VERSION} (${CONFIG})"
 swift build -c "${CONFIG}"
 
 BIN_PATH="$(swift build -c "${CONFIG}" --show-bin-path)"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Claude Code hook: reports session state to Claude Live, and — for permission
-requests — lets Claude Live answer on the user's behalf.
+"""Claude Code hook: reports session state to Vibing Code Live, and — for permission
+requests — lets Vibing Code Live answer on the user's behalf.
 
 Invoked by the hooks installed in ~/.claude/settings.json as:
 
@@ -19,7 +19,7 @@ The hook payload arrives as JSON on stdin.
 
 One status file per *session* rather than per project: two Claude Code sessions
 can run in the same project, and per-session files mean each process only writes
-its own — no read-modify-write races. Claude Live groups them by project_path.
+its own — no read-modify-write races. Vibing Code Live groups them by project_path.
 
 ## Answering permissions from the panel
 
@@ -121,7 +121,7 @@ def repository_root(start):
     subdirectory would show up as a separate project. The home directory and the
     filesystem root are never candidates: `~/.git` or `~/.claude` exist on plenty
     of machines and would swallow every project. Non-git projects are left as-is
-    here — Claude Live folds them onto the right project using VS Code's own
+    here — Vibing Code Live folds them onto the right project using VS Code's own
     workspace list, which this script cannot see.
     """
     home = os.path.realpath(os.path.expanduser("~"))
@@ -252,7 +252,7 @@ def write_atomic(path, obj):
 
 
 def app_is_running():
-    """True only if Claude Live is really there to answer.
+    """True only if Vibing Code Live is really there to answer.
 
     Freshness alone is not enough: a force-quit or a crash never runs the app's
     cleanup, so the file survives and every permission request would stall for the
@@ -616,7 +616,7 @@ def emit_decision(behavior, event):
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
                 "permissionDecision": behavior,
-                "permissionDecisionReason": "Risposto dall'iPhone tramite Claude Live",
+                "permissionDecisionReason": "Risposto dall'iPhone tramite Vibing Code Live",
             }
         }
     else:

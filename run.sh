@@ -9,9 +9,9 @@ cd "$(dirname "$0")"
 
 ./build.sh "$@"
 
-APP="build/Claude Live.app"
+APP="build/Vibing Code Live.app"
 for arg in "$@"; do
-  [[ "$arg" == "--install" ]] && APP="/Applications/Claude Live.app"
+  [[ "$arg" == "--install" ]] && APP="/Applications/Vibing Code Live.app"
 done
 
 if pgrep -x ClaudeLive >/dev/null; then
@@ -26,4 +26,4 @@ fi
 
 echo "==> Avvio"
 open "${APP}"
-echo "Claude Live è nella barra dei menu (cerca l'icona ✦ con la percentuale)."
+echo "Vibing Code Live è nella barra dei menu (cerca l'icona ✦ con la percentuale)."

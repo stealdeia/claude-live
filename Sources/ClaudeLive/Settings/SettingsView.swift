@@ -650,12 +650,12 @@ struct SettingsView: View {
     /// from here — see the comment on `showMenuBarIcon`.
     private var menuBarSection: some View {
         Section("Barra dei menu") {
-            Toggle("Mostra l'icona di Claude Live", isOn: $settings.showMenuBarIcon)
+            Toggle("Mostra l'icona di Vibing Code Live", isOn: $settings.showMenuBarIcon)
             Toggle("Mostra la percentuale accanto all'icona", isOn: $settings.showPercentageInMenuBar)
                 .disabled(!settings.showMenuBarIcon)
 
             if !settings.showMenuBarIcon {
-                Text("Senza icona queste impostazioni si riaprono dalla rotella nel pannello, oppure aprendo di nuovo Claude Live dal Finder. Tutto ciò che stava solo nel menu è qui: aggiornare, aggiornare i progetti, mostrare o nascondere il pannello, e uscire.")
+                Text("Senza icona queste impostazioni si riaprono dalla rotella nel pannello, oppure aprendo di nuovo Vibing Code Live dal Finder. Tutto ciò che stava solo nel menu è qui: aggiornare, aggiornare i progetti, mostrare o nascondere il pannello, e uscire.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -796,7 +796,7 @@ struct SettingsView: View {
 
             HStack {
                 Spacer()
-                Button("Esci da Claude Live", action: onQuit)
+                Button("Esci da Vibing Code Live", action: onQuit)
             }
         }
     }

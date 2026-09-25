@@ -183,7 +183,7 @@ final class Settings: ObservableObject {
     /// Whether anything at all is sent to the companion.
     ///
     /// Off by default, and it is the only switch in this app that decides
-    /// whether data leaves the machine: everything else Claude Live does happens
+    /// whether data leaves the machine: everything else Vibing Code Live does happens
     /// locally. A default of on would mean a version bump quietly started
     /// publishing, which is not a thing an update should be able to do.
     @Published var remoteEnabled: Bool = false { didSet { schedulePersist() } }
