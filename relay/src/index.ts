@@ -43,6 +43,8 @@ export interface Env {
   APNS_TOPIC: string
   /** Ambiente di ripiego, per un token registrato prima che il telefono lo dichiarasse. */
   APNS_ENV: string
+  /** Protegge la lettura del conteggio. Messo con `wrangler secret put`. */
+  STATS_TOKEN?: string
 }
 
 function json(data: unknown, status = 200): Response {
@@ -224,6 +226,16 @@ async function sendPush(
 
 // ---------------------------------------------------------------- Lo stato di una coppia
 
+/**
+ * Il nome dell'oggetto che tiene il conto, e per quanti giorni lo tiene.
+ *
+ * Non è un identificativo di accoppiamento valido — quelli sono trentadue
+ * esadecimali — quindi non può collidere con nessuno, e nessuno può arrivarci
+ * dall'esterno presentandolo come proprio.
+ */
+const STATS_NAME = '__conteggio__'
+const STATS_DAYS = 90
+
 /** Durate: quanto vale uno snapshot, e quanto resta in giro una risposta. */
 const SNAPSHOT_LIFE_MS = 600_000
 const COMMAND_LIFE_MS = 300_000
@@ -347,9 +359,67 @@ export class PairState {
     return Date.now() - last >= floor
   }
 
+  /**
+   * Dice all'oggetto del conteggio «c'è stato un accoppiamento attivo, oggi».
+   *
+   * Una volta al giorno e non a ogni pubblicazione: il numero che interessa è
+   * quante coppie Mac–telefono sono vive, non quanto lavorano.
+   *
+   * **Non viaggia nessun identificativo.** Chi conta riceve un «+1» e la data,
+   * e non ha modo di sapere da chi: nessun elenco di accoppiamenti, nessuna
+   * storia per utente, niente che si possa ricondurre a una persona. La sola
+   * cosa in più è se questa coppia non si era mai vista prima, che distingue
+   * «quante ce ne sono» da «quante se ne sono aggiunte» — e nemmeno quello dice
+   * *quale*.
+   *
+   * Se il conteggio fallisce non succede niente: è una statistica, e far
+   * fallire una pubblicazione per un numero sarebbe sbagliato due volte.
+   */
+  private async countOnce() {
+    const oggi = new Date().toISOString().slice(0, 10)
+    if ((await this.ctx.storage.get<string>('countedOn')) === oggi) return
+    const mai = (await this.ctx.storage.get<string>('firstSeenOn')) === undefined
+    await this.ctx.storage.put('countedOn', oggi)
+    if (mai) await this.ctx.storage.put('firstSeenOn', oggi)
+    try {
+      const stats = this.env.PAIR.get(this.env.PAIR.idFromName(STATS_NAME))
+      await stats.fetch(
+        `https://conteggio/bump?day=${oggi}${mai ? '&nuovo=1' : ''}`,
+        { method: 'POST' }
+      )
+    } catch {
+      // Una statistica non vale un errore di pubblicazione.
+    }
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     await this.prune()
+
+    // --- L'oggetto del conteggio, che è un PairState usato per un altro scopo
+    if (url.pathname === '/bump' && request.method === 'POST') {
+      const giorno = url.searchParams.get('day') ?? ''
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(giorno)) return json({ error: 'giorno malformato' }, 400)
+      const chiave = `d:${giorno}`
+      const attuali = (await this.ctx.storage.get<{ attivi: number; nuovi: number }>(chiave)) ?? { attivi: 0, nuovi: 0 }
+      attuali.attivi += 1
+      if (url.searchParams.get('nuovo') === '1') attuali.nuovi += 1
+      await this.ctx.storage.put(chiave, attuali)
+
+      // Potatura: novanta giorni bastano a vedere una tendenza, e tenere di più
+      // vorrebbe dire conservare qualcosa che nessuno guarderà mai.
+      const limite = new Date(Date.now() - STATS_DAYS * 86_400_000).toISOString().slice(0, 10)
+      const vecchie = await this.ctx.storage.list<unknown>({ prefix: 'd:', end: `d:${limite}` })
+      for (const k of vecchie.keys()) await this.ctx.storage.delete(k)
+      return json({ ok: true })
+    }
+
+    if (url.pathname === '/stats' && request.method === 'GET') {
+      const righe = await this.ctx.storage.list<{ attivi: number; nuovi: number }>({ prefix: 'd:' })
+      const giorni = [...righe].map(([k, v]) => ({ giorno: k.slice(2), ...v }))
+      return json({ giorni })
+    }
+
 
     // Chi instrada sa quale identificativo è arrivato; qui dentro no, perché un
     // Durable Object non conosce il nome con cui è stato aperto. Glielo si dice
@@ -419,6 +489,7 @@ export class PairState {
       // perso è il telefono che dice «il Mac è scollegato» mentre il Mac sta
       // benissimo. Una riga per pubblicazione, dove KV ne scriveva due.
       await this.ctx.storage.put({ snapshot: body.payload, snapshotAt: Date.now() })
+      await this.countOnce()
 
       let pushed: unknown = null
       if (body.notify && (await this.wantsPush(body.notifyKind))) {
@@ -685,6 +756,16 @@ export default {
     // gratuita per chiunque indovini l'indirizzo.
     if (url.pathname === '/health') {
       return json({ ok: true })
+    }
+
+    // Prima del controllo dell'identificativo, come `/health`: chi legge il
+    // conteggio non è un accoppiamento, è chi ha fatto l'app.
+    if (url.pathname === '/stats') {
+      const atteso = env.STATS_TOKEN
+      if (!atteso || request.headers.get('x-stats-token') !== atteso) {
+        return json({ error: 'non autorizzato' }, 401)
+      }
+      return env.PAIR.get(env.PAIR.idFromName(STATS_NAME)).fetch(request)
     }
 
     const pairId = pairIdFrom(request)
