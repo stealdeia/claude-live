@@ -101,11 +101,20 @@ final class UsageNotifier {
     /// five-minute poll against a dead token would nag every five minutes.
     private var problemNotified = false
 
-    func notifyProblem(_ body: String) {
+    /// `opensUsageToken`: a tap on the banner goes to the dedicated-token section
+    /// instead of the panel, because that is where the fix is.
+    func notifyProblem(_ body: String, opensUsageToken: Bool = false) {
         guard !problemNotified else { return }
         problemNotified = true
-        post(title: "Vibing Code Live non si aggiorna", body: body)
+        post(
+            title: "Vibing Code Live non si aggiorna",
+            body: body,
+            userInfo: opensUsageToken ? [Self.opensKey: Self.opensUsageToken] : [:]
+        )
     }
+
+    static let opensKey = "opens"
+    static let opensUsageToken = "usageToken"
 
     func clearProblem() {
         problemNotified = false
@@ -160,7 +169,7 @@ final class UsageNotifier {
         post(title: title, body: body)
     }
 
-    private func post(title: String, body: String) {
+    private func post(title: String, body: String, userInfo: [String: String] = [:]) {
         guard authorized else {
             Log.debug("Notifica non inviata (non autorizzata): \(title) — \(body)")
             return
@@ -170,6 +179,7 @@ final class UsageNotifier {
         content.title = title
         content.body = body
         content.sound = NotificationSound.sound(named: settings.notificationSound)
+        content.userInfo = userInfo
 
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,

@@ -63,6 +63,12 @@ final class UsageMonitor: ObservableObject {
     private var cachedCredentials: ClaudeCredentials?
     private var cachedModificationDate: Date?
 
+    /// The token made with `claude setup-token`, if one was pasted in Settings.
+    /// Tried before Claude Code's, because it is the one that does not die when
+    /// nobody runs the CLI — see `DedicatedToken`.
+    @Published private(set) var dedicatedTokenState: DedicatedTokenState = .absent
+    private var dedicatedTokenValue: String?
+
     /// The one access token the server has already rejected.
     ///
     /// Replaces the old "don't probe if it looks expired" rule, which is what made
@@ -127,6 +133,7 @@ final class UsageMonitor: ObservableObject {
         // Probed before the first read, so the log says whether the dialog that may
         // follow was expected.
         Task {
+            await loadDedicatedToken()
             await refreshKeychainAuthorization()
             await refresh(reason: "avvio")
         }
@@ -199,6 +206,11 @@ final class UsageMonitor: ObservableObject {
         // the panel would flicker every five minutes.
         if snapshot == nil { state = .refreshing }
 
+        if await refreshWithDedicatedToken(retryRejected: !isAutomatic) {
+            nextRefreshAt = Date().addingTimeInterval(settings.refreshIntervalMinutes * 60)
+            return
+        }
+
         var credentials: ClaudeCredentials
         do {
             credentials = try await loadCredentials()
@@ -259,6 +271,90 @@ final class UsageMonitor: ObservableObject {
         }
 
         nextRefreshAt = Date().addingTimeInterval(settings.refreshIntervalMinutes * 60)
+    }
+
+    // MARK: - Dedicated token
+
+    /// Probes with the dedicated token. Returns false when there is none, or the
+    /// server refused it — the caller then falls back to Claude Code's token, so a
+    /// dead dedicated token is never worse than not having one.
+    ///
+    /// A refused token is not retried on the timer, only when the user asks
+    /// (`retryRejected`): it is a year-long token, so a 401 means revoked or
+    /// mistyped, and asking again every two minutes would change neither.
+    private func refreshWithDedicatedToken(retryRejected: Bool) async -> Bool {
+        guard let token = dedicatedTokenValue else { return false }
+        if dedicatedTokenState == .rejected, !retryRejected { return false }
+
+        let credentials = ClaudeCredentials(
+            accessToken: token,
+            refreshToken: nil,
+            expiresAt: nil,
+            // The token says nothing about the plan; the last reading does.
+            subscriptionType: cachedCredentials?.subscriptionType ?? snapshot?.subscriptionType,
+            rateLimitTier: cachedCredentials?.rateLimitTier,
+            organizationUUID: cachedCredentials?.organizationUUID,
+            service: "token dedicato",
+            rawPayload: Data()
+        )
+
+        do {
+            let result = try await client.probe(
+                credentials: credentials,
+                logHeaders: settings.debugLoggingEnabled || snapshot == nil
+            )
+            if dedicatedTokenState != .active {
+                Log.info("Utilizzo letto con il token dedicato", category: .usage)
+            }
+            dedicatedTokenState = .active
+            apply(result)
+            return true
+        } catch UsageProbeError.unauthorized {
+            if dedicatedTokenState != .rejected {
+                Log.error("Token dedicato rifiutato dall'API: uso quello di Claude Code", category: .usage)
+            }
+            dedicatedTokenState = .rejected
+            return false
+        } catch let error as UsageProbeError {
+            // Offline or a server error: Claude Code's token would meet the same
+            // fate, so there is nothing to fall back to.
+            handle(error)
+            return true
+        } catch {
+            state = .stale(reason: .other(error.localizedDescription))
+            return true
+        }
+    }
+
+    private func loadDedicatedToken() async {
+        dedicatedTokenValue = try? await KeychainQueue.run { DedicatedToken.read() }
+        dedicatedTokenState = dedicatedTokenValue == nil ? .absent : .unverified
+    }
+
+    /// Stores a pasted token and reads the usage with it straight away.
+    /// Returns an error message for the user, or nil if it was stored.
+    func setDedicatedToken(_ pasted: String) async -> String? {
+        guard let token = DedicatedToken.normalized(pasted) else {
+            return "Non sembra un token di «claude setup-token»: deve iniziare con \(DedicatedToken.expectedPrefix)."
+        }
+        let status = (try? await KeychainQueue.run { DedicatedToken.write(token) }) ?? errSecInternalError
+        guard status == errSecSuccess else {
+            Log.error("Token dedicato non salvato nel portachiavi: codice \(status)", category: .keychain)
+            return "Il portachiavi non ha salvato il token (codice \(status))."
+        }
+        Log.info("Token dedicato salvato", category: .keychain)
+        dedicatedTokenValue = token
+        dedicatedTokenState = .unverified
+        await refresh(reason: "token dedicato")
+        return nil
+    }
+
+    func removeDedicatedToken() async {
+        _ = try? await KeychainQueue.run { DedicatedToken.delete() }
+        Log.info("Token dedicato rimosso", category: .keychain)
+        dedicatedTokenValue = nil
+        dedicatedTokenState = .absent
+        await refresh(reason: "token dedicato rimosso")
     }
 
     // MARK: - Recovery watch
@@ -461,7 +557,10 @@ final class UsageMonitor: ObservableObject {
             armRecoveryWatch()
             if settings.notificationsEnabled {
                 notifier.notifyProblem(
-                    "Il token di Claude Code è scaduto. Usa Claude Code (basta un comando): appena scrive il token nuovo, riprendo da solo."
+                    dedicatedTokenValue == nil
+                        ? "Il token di Claude Code è scaduto. Se lavori dall'app Claude, clicca qui per impostare un token dedicato: dura un anno."
+                        : "Il token dedicato è stato rifiutato e anche quello di Claude Code è scaduto. Clicca qui per crearne uno nuovo.",
+                    opensUsageToken: true
                 )
             }
         case .http(let code, let body):
@@ -503,4 +602,15 @@ final class UsageMonitor: ObservableObject {
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
         try? data.write(to: Paths.usageCacheFile, options: .atomic)
     }
+}
+
+enum DedicatedTokenState: Equatable {
+    /// None pasted: Claude Code's token is the only source.
+    case absent
+    /// Stored, not yet tried against the API.
+    case unverified
+    /// The last reading came through it.
+    case active
+    /// The API refused it; Claude Code's token is used instead.
+    case rejected
 }

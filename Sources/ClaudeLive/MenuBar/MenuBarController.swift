@@ -20,6 +20,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let onTogglePanel: () -> Void
     private let onOpenSettings: () -> Void
     private let onOpenNotchScreens: () -> Void
+    private let onOpenUsageToken: () -> Void
     private let onInstallHooks: () -> Void
     private let onCheckForUpdates: () -> Void
     private let onShowOnboarding: () -> Void
@@ -34,6 +35,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         onTogglePanel: @escaping () -> Void,
         onOpenSettings: @escaping () -> Void,
         onOpenNotchScreens: @escaping () -> Void,
+        onOpenUsageToken: @escaping () -> Void,
         onInstallHooks: @escaping () -> Void,
         onCheckForUpdates: @escaping () -> Void,
         onShowOnboarding: @escaping () -> Void
@@ -45,6 +47,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.onTogglePanel = onTogglePanel
         self.onOpenSettings = onOpenSettings
         self.onOpenNotchScreens = onOpenNotchScreens
+        self.onOpenUsageToken = onOpenUsageToken
         self.onInstallHooks = onInstallHooks
         self.onCheckForUpdates = onCheckForUpdates
         self.onShowOnboarding = onShowOnboarding
@@ -242,6 +245,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             let item = NSMenuItem(title: message, action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
+        }
+
+        // The numbers have stopped because no token works: the way out is one
+        // click away rather than three levels down in Settings.
+        if monitor.state == .stale(reason: .tokenExpired) || isUnavailable {
+            menu.addItem(action(title: "Percentuali ferme: imposta un token dedicato…", key: "", selector: #selector(openUsageToken)))
         }
 
         // Projects, so switching is possible even with the panel hidden.
@@ -568,6 +577,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func openNotchScreens() {
         onOpenNotchScreens()
+    }
+
+    @objc private func openUsageToken() {
+        onOpenUsageToken()
+    }
+
+    private var isUnavailable: Bool {
+        if case .unavailable = monitor.state { return true }
+        return false
     }
 
     @objc private func openSupportFolder() {

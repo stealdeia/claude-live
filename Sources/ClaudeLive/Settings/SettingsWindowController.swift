@@ -8,6 +8,9 @@ import ClaudeLiveKit
 @MainActor
 final class SettingsUIState: ObservableObject {
     @Published var requestsNotchScreens = false
+    /// Asks the window to show the dedicated-token section, from the menu or a
+    /// notification about a dead token. Consumed by the view, like the one above.
+    @Published var requestsUsageToken = false
 }
 
 /// A plain window for the settings form. In an `LSUIElement` app we must
@@ -65,9 +68,13 @@ final class SettingsWindowController {
         self.onQuit = onQuit
     }
 
-    /// `showingNotchScreens` opens the screens sheet as soon as the window is up.
-    func show(showingNotchScreens: Bool = false) {
-        defer { if showingNotchScreens { ui.requestsNotchScreens = true } }
+    /// `showingNotchScreens` opens the screens sheet as soon as the window is up;
+    /// `showingUsageToken` switches to the dedicated-token section.
+    func show(showingNotchScreens: Bool = false, showingUsageToken: Bool = false) {
+        defer {
+            if showingNotchScreens { ui.requestsNotchScreens = true }
+            if showingUsageToken { ui.requestsUsageToken = true }
+        }
         if let window {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)

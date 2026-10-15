@@ -92,6 +92,13 @@ Puoi forzare il controllo dal menu → **Cerca aggiornamenti…**
 oppure Claude Code non ha un login attivo. Riapri la *Configurazione guidata* dal
 menu: il passaggio «Keychain» dice esattamente cosa manca.
 
+**Le percentuali si fermano con «Token scaduto» e lavori dall'app Claude.** Il
+Claude Code dell'app Claude non rinnova il token che Vibing Code Live legge: lo fa
+solo quello del Terminale o di VS Code. Impostazioni → *Claude Code* →
+*Token per l'utilizzo* → **Crea token…**: si apre il Terminale, accedi nel browser,
+copia il token che compare (inizia con `sk-ant-oat`) e incollalo nel campo. Dura un
+anno.
+
 **La richiesta del Keychain ricompare sempre.** È stato scelto «Consenti» invece
 di «Consenti sempre». Apri *Accesso Portachiavi*, cerca `Claude Code-credentials`,
 scheda *Controllo accessi*, e aggiungi Vibing Code Live tra le app consentite.

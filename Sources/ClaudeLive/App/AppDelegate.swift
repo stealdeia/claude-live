@@ -169,6 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             onTogglePanel: { [weak self] in self?.togglePanelVisibility() },
             onOpenSettings: { [weak self] in self?.settingsWindow.show() },
             onOpenNotchScreens: { [weak self] in self?.settingsWindow.show(showingNotchScreens: true) },
+            onOpenUsageToken: { [weak self] in self?.settingsWindow.show(showingUsageToken: true) },
             onInstallHooks: { [weak self] in self?.installHooks() },
             onCheckForUpdates: { [weak self] in self?.updates.checkForUpdates() },
             onShowOnboarding: { [weak self] in self?.onboardingWindow.show() }
@@ -562,7 +563,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             self.lastNotificationClick = Date()
             self.pendingReopen?.cancel()
             self.pendingReopen = nil
-            if let path, !path.isEmpty {
+            if info[UsageNotifier.opensKey] as? String == UsageNotifier.opensUsageToken {
+                self.settingsWindow.show(showingUsageToken: true)
+            } else if let path, !path.isEmpty {
                 self.projects.focus(path: path)
                 // Tapping the banner is as much an acknowledgement as clicking the
                 // row, so the strip must not stay lit for something already seen.

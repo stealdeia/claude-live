@@ -21,6 +21,9 @@ struct SettingsView: View {
 
     @State private var showNotchScreens = false
     @State private var tab: Tab = .appearance
+    @State private var pastedToken = ""
+    @State private var tokenError: String?
+    @State private var savingToken = false
 
     /// Le sezioni della finestra, nell'ordine della barra laterale.
     ///
@@ -95,6 +98,14 @@ struct SettingsView: View {
             showNotchScreens = true
             ui.requestsNotchScreens = false
         }
+        .onChange(of: ui.requestsUsageToken) { _, requested in
+            if requested { showUsageToken() }
+        }
+        // A window created by the request appears after the flag is set, so the
+        // change above never fires for it.
+        .onAppear {
+            if ui.requestsUsageToken { showUsageToken() }
+        }
     }
 
     @ViewBuilder
@@ -114,6 +125,7 @@ struct SettingsView: View {
             notificationsSection
             thresholdsSection
         case .claudeCode:
+            usageTokenSection
             hooksSection
         case .phone:
             CompanionSettingsView(settings: settings, remote: remote)
@@ -212,7 +224,7 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Quando il token di Claude Code scade (di solito dopo 8 ore, quindi ogni notte) l'app aspetta che sia Claude Code a rinnovarlo e se ne accorge entro 30 secondi: basta usare Claude Code e i dati ripartono da soli. L'app non rinnova mai il token per conto suo — farlo scollega Claude Code dall'account.")
+            Text("Quando il token di Claude Code scade (di solito dopo 8 ore, quindi ogni notte) l'app aspetta che sia Claude Code a rinnovarlo e se ne accorge entro 30 secondi: basta usare Claude Code nel Terminale o in VS Code e i dati ripartono da soli. L'app Claude non lo rinnova: se lavori da lì, imposta un token dedicato in Claude Code → Token per l'utilizzo. L'app non rinnova mai il token per conto suo — farlo scollega Claude Code dall'account.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -534,6 +546,94 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    // MARK: - Token dedicato
+
+    /// Where the `claude setup-token` token goes. See `DedicatedToken` for why it
+    /// exists: the Claude desktop app never renews the keychain token.
+    private var usageTokenSection: some View {
+        Section("Token per l'utilizzo") {
+            LabeledContent("Fonte delle percentuali") {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(usageTokenTint)
+                        .frame(width: 8, height: 8)
+                    Text(usageTokenLabel)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if monitor.dedicatedTokenState == .absent || monitor.dedicatedTokenState == .rejected {
+                Text("Il token di Claude Code lo rinnova solo Claude Code nel Terminale o in VS Code: se lavori dall'app Claude, scade dopo 8 ore e le percentuali si fermano. Un token dedicato dura un anno.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("**1.** Premi «Crea token…»: si apre il Terminale. **2.** Accedi nella pagina che compare nel browser. **3.** Copia il token che il Terminale mostra alla fine (inizia con \(DedicatedToken.expectedPrefix)) e incollalo qui sotto.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Crea token…") {
+                    tokenError = DedicatedToken.openSetupInTerminal()
+                }
+
+                HStack {
+                    SecureField("Token", text: $pastedToken)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(saveToken)
+                    Button(savingToken ? "Salvataggio…" : "Salva", action: saveToken)
+                        .disabled(pastedToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || savingToken)
+                }
+
+                if let tokenError {
+                    Text(tokenError)
+                        .font(.system(size: 11))
+                        .foregroundStyle(PanelTheme.color(for: .danger))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            if monitor.dedicatedTokenState != .absent {
+                Button("Rimuovi token dedicato", role: .destructive) {
+                    Task { await monitor.removeDedicatedToken() }
+                }
+            }
+        }
+    }
+
+    private func showUsageToken() {
+        tab = .claudeCode
+        ui.requestsUsageToken = false
+    }
+
+    private func saveToken() {
+        let pasted = pastedToken
+        savingToken = true
+        tokenError = nil
+        Task {
+            tokenError = await monitor.setDedicatedToken(pasted)
+            if tokenError == nil { pastedToken = "" }
+            savingToken = false
+        }
+    }
+
+    private var usageTokenLabel: String {
+        switch monitor.dedicatedTokenState {
+        case .absent: return "token di Claude Code"
+        case .unverified: return "token dedicato, in verifica…"
+        case .active: return "token dedicato"
+        case .rejected: return "token dedicato rifiutato, uso quello di Claude Code"
+        }
+    }
+
+    private var usageTokenTint: Color {
+        switch monitor.dedicatedTokenState {
+        case .active: return PanelTheme.color(for: .normal)
+        case .rejected: return PanelTheme.color(for: .danger)
+        case .absent, .unverified: return .secondary
+        }
     }
 
     private var hooksSection: some View {
